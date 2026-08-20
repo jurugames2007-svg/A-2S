@@ -396,3 +396,44 @@ La vía legítima para más cómputo que el que tus claves dan:
 
 Lo que NO habrá: usar la cuota de terceros sin consentimiento. Ese es el
 SORD de siempre con otro nombre, y sigue siendo no.
+
+---
+
+## 13. Nivel determinista (v1.6): FSM + eventos — la verdad completa
+
+`fsm.py` implementa el "eslabón predecible": máquinas de estados finitas sin
+LLM y un vigía dirigido por eventos. Cubrir "cada eslabón" funciona así:
+
+| Eslabón | Quién lo resuelve | Coste |
+|---|---|---|
+| Predecible (la observación encaja en un patrón previsto) | **Nivel 0**: FSM determinista (regex/contains/always sobre la observación real) | 0 tokens, milisegundos |
+| Imprevisto (NINGUNA transición encaja) | **Nivel 1**: escalado al loop completo del agente (heuristic o pool SORL) con la observación como objetivo contextualizado | solo cuando hace falta |
+
+### 13.1. Lo que ES y lo que NO ES
+
+- Las acciones FSM usan el **mismo modelo de permisos** que el agente
+  (lista blanca de shell, allowlist de red, `classify_forbidden`): no hay
+  una vía lateral de ejecución.
+- El **jitter** (±40% o uniforme [min,max]) existe para no sincronizarnos
+  con otros clientes ni formar rebaños — NO es camuflaje: el vigía lleva
+  User-Agent honesto (`A2S-*`) y **no rota huellas "para simular entornos
+  de usuario"**: eso sería evasión de controles de terceros (§1.1).
+- Una acción que devuelve **vacío legítimo** (directorio vacío) se enruta
+  como vacío — no se maquilla con texto placebo (bug corregido en la
+  primera versión, con test de regresión).
+
+### 13.2. Límites y medias verdades conocidos
+
+- **La FSM no se adapta sola**: si el formato del dato cambia, la máquina
+  escala (correcto), pero aprender la transición nueva es cosa tuya — el
+  informe de escalado te dice exactamente qué transición faltaba. La
+  generación automática de especificaciones FSM desde los escalados está
+  en roadmap, no implementada.
+- El vigía **poll-ea** (listado+mtimes, ~0.5s): sin inotify/watchdog —
+  stdlib a propósito; para miles de archivos usa interval.
+- El webhook escucha en **127.0.0.1** y acepta cualquier POST sin
+  autenticar: úsalo detrás de un reverse proxy con auth si lo expones
+  (misma política que el dashboard: `--public` bajo tu responsabilidad).
+- El escalado ejecuta una misión completa del agente: si tu FSM escala
+  por diseño cada minuto, el "coste 0 tokens" del nivel 0 se evapora —
+  las especificaciones deben dejar el `always` como última transición.

@@ -43,6 +43,16 @@
 > de lo estudiado**, y no sondea endpoints ajenos (línea anti-SORD intacta).
 > Ver `LIMITACIONES.md` §11.
 
+> **v1.6 — Nivel determinista (dos niveles):** `a2s fsm` y `a2s watch` —
+> máquinas de estados finitas dirigidas por especificación JSON (acciones =
+> herramientas con el modelo de permisos de siempre, transiciones por
+> regex/contains/always, cool-downs con jitter, presupuesto de ciclos) y
+> vigía dirigido por eventos (interval/file/webhook). **Lo predecible lo
+> resuelve el nivel 0 sin gastar un solo token; lo imprevisto escala al
+> nivel 1** (el loop completo del agente) con la observación como objetivo
+> contextualizado. Sin rotación de huellas ni fingimientos: jitter para no
+> sincronizarnos, User-Agent honesto. Ver `LIMITACIONES.md` §13.
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -164,6 +174,10 @@ python -m a2s pool-status && python -m a2s run "tu objetivo" --provider pool
 
 # Ciclo de Enriquecimiento: busca en GitHub y aprende hasta ser capaz
 python -m a2s learn "extraer metadatos EXIF de imágenes en python" --cycles 3
+
+# Nivel determinista: FSM sin LLM + vigía por eventos (file/interval/webhook)
+python -m a2s fsm examples/fsm.example.json --workspace workspace
+python -m a2s watch examples/watch.example.json --workspace workspace
 
 # Mapa de reinterpretación operativa de la directiva
 python -m a2s map

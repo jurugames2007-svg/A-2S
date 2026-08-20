@@ -1,0 +1,30 @@
+{
+  "_doc": "Máquina de estados determinista (nivel 0, sin LLM). Coste de tokens: 0. Acciones = herramientas del registro de A²S (mismo modelo de permisos: lista blanca de shell, allowlist de red, classify_forbidden). Transiciones por condiciones objetivas sobre la observación (regex/contains/always), cool-downs con jitter. Si NINGUNA transición encaja, la máquina no adivina: escala al agente (nivel 1).",
+  "name": "clasificador_inbox",
+  "initial": "leer",
+  "states": {
+    "leer": {
+      "action": {"tool": "shell", "params": {"command": "ls -1 inbox/ 2>/dev/null | head -20"}},
+      "cooldown": [0.2, 0.8]
+    },
+    "clasificar": {
+      "action": {"tool": "shell", "params": {"command": "head -c 400 inbox/$(ls -1 inbox/ | head -1) 2>/dev/null"}},
+      "cooldown": 0
+    },
+    "registrar": {
+      "action": {"tool": "shell", "params": {"command": "sha256sum inbox/* 2>/dev/null | head -5"}},
+      "cooldown": 0
+    },
+    "hecho":  {"terminal": "done"},
+    "vacio":  {"terminal": "done"}
+  },
+  "transitions": [
+    {"from": "leer",       "to": "clasificar", "when": {"regex": "\\S"}},
+    {"from": "leer",       "to": "vacio",      "when": {"always": true}},
+    {"from": "clasificar", "to": "registrar",  "when": {"regex": "(?i)hash|sha|verificador|informe"}},
+    {"from": "clasificar", "to": "hecho",      "when": {"regex": "(?i)nota interna"}},
+    {"from": "registrar",  "to": "hecho",      "when": {"always": true}}
+  ],
+  "max_cycles": 12,
+  "escalate_to": "agent"
+}

@@ -145,6 +145,14 @@ CAPABILITY_MAP = [
      "receta) que se reinyectan en la planificación — hasta que el "
      "verificador del objetivo confirma capacidad. 'Sentirse capaz' = "
      "verificación, no sensación; nunca se ejecuta código de lo estudiado."),
+    ("Cubrir cada eslabón, predecible e impredecible",
+     "Dos niveles (v1.6, fsm.py): nivel 0 determinista — FSM por especificación "
+     "JSON (regex/condiciones objetivas, acciones con el modelo de permisos, "
+     "cool-downs con jitter) y vigía por eventos (interval/file/webhook) que "
+     "resuelve lo previsto sin gastar un token; nivel 1 — cuando NINGUNA "
+     "transición encaja, la observación imprevista escala al loop completo "
+     "del agente. Sin rotación de huellas ni fingir usuarios: jitter para no "
+     "sincronizarse, User-Agent honesto."),
 ]
 
 

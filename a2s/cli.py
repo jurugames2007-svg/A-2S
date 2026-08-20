@@ -398,6 +398,98 @@ def cmd_learn(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_fsm(args: argparse.Namespace) -> int:
+    """Nivel 0: ejecuta una máquina de estados determinista (sin LLM);
+    lo imprevisto escala al nivel 1 (agente)."""
+    from .fsm import FSMEngine, escalation_goal, registry_action_fn
+    from .tools import ToolRegistry
+    config = _config_from_args(args)
+    with open(args.spec, encoding="utf-8") as fh:
+        spec = json.load(fh)
+    registry = ToolRegistry(config.workspace, allow_network=config.allow_network,
+                            allow_shell=not args.no_shell if hasattr(args, "no_shell") else True,
+                            shell_unsafe=config.shell_unsafe,
+                            network_allowlist=config.network_allowlist,
+                            sandbox=config.sandbox)
+    engine = FSMEngine(spec, action_fn=registry_action_fn(registry))
+    errors = engine.validate()
+    if errors:
+        print(f"✗ especificación inválida ({args.spec}):")
+        for e in errors:
+            print(f"  - {e}")
+        return 1
+    print(f"[A²S-fsm] ⚙ máquina «{engine.name}»: {len(engine.states)} estado(s), "
+          f"{len(engine.transitions)} transición(es), presupuesto {engine.max_cycles} ciclo(s)")
+    result = engine.run(max_cycles=args.max_cycles)
+    print(f"[A²S-fsm] traza: {' → '.join(result.states)}")
+    if result.escalated:
+        print(f"[A²S-fsm] ◐ IMPREVISTO en «{result.escalated['state']}» → escalando al nivel 1")
+        report = run_goal(escalation_goal(engine.name, result.escalated), config=config)
+        print(f"[A²S-fsm] nivel 1: {'✔ resuelto' if report.success else '◐ no verificado'}")
+        return 0 if report.success else 2
+    print(f"[A²S-fsm] {result.resolved_by} · ciclos: {result.cycles}")
+    ok = result.stopped == "terminal" and result.terminal == "done"
+    return 0 if ok else 2
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Nivel 0 dirigido por eventos: duerme hasta que un disparador
+    (interval/file/webhook) corre la máquina; lo imprevisto escala al nivel 1."""
+    from .fsm import FSMEngine, Watcher, escalation_goal, registry_action_fn
+    from .models import now_iso
+    from .tools import ToolRegistry
+    config = _config_from_args(args)
+    with open(args.spec, encoding="utf-8") as fh:
+        wspec = json.load(fh)
+    machine = wspec.get("machine", wspec)
+    # rutas relativas de los disparadores file → contra el workspace
+    for trig in wspec.get("triggers", []):
+        if trig.get("type") == "file" and trig.get("path") and \
+                not os.path.isabs(trig["path"]):
+            trig["path"] = os.path.join(os.path.abspath(config.workspace), trig["path"])
+    log_path = os.path.join(os.path.abspath(config.workspace), ".a2s", "watch.jsonl")
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+    def on_event(event: dict) -> dict:
+        registry = ToolRegistry(config.workspace, allow_network=config.allow_network,
+                                allow_shell=not args.no_shell if hasattr(args, "no_shell") else True,
+                                shell_unsafe=config.shell_unsafe,
+                                network_allowlist=config.network_allowlist,
+                                sandbox=config.sandbox)
+        engine = FSMEngine(machine, action_fn=registry_action_fn(registry))
+        result = engine.run()
+        entry = {"at": now_iso(), "event": event.get("type"),
+                 "machine": engine.name, "stopped": result.stopped,
+                 "terminal": result.terminal, "states": result.states,
+                 "resolved_by": result.resolved_by}
+        mark = {"terminal": "✔", "escalate": "⇗", "budget": "◐"}.get(result.stopped, "?")
+        print(f"[A²S-watch] {mark} evento {event.get('type')} → "
+              f"{' → '.join(result.states[:6])} ({result.resolved_by})")
+        if result.escalated:
+            print(f"[A²S-watch] ⇗ imprevisto en «{result.escalated['state']}» → nivel 1 (agente)")
+            report = run_goal(escalation_goal(engine.name, result.escalated), config=config)
+            entry["escalation_success"] = bool(report.success)
+            print(f"[A²S-watch] {'✔' if report.success else '◐'} nivel 1: "
+                  f"{'resuelto' if report.success else 'no verificado'}")
+        with open(log_path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        return entry
+
+    trig = ", ".join(t.get("type", "?") for t in wspec.get("triggers", [])) or "ninguno"
+    print(f"[A²S-watch] ⚙ vigía «{wspec.get('name', machine.get('name', 'fsm'))}» "
+          f"armado · disparadores: {trig}")
+    print(f"[A²S-watch] máquina determinista: {len(machine.get('states', {}))} estado(s) "
+          f"· nivel 1 (agente) para lo imprevisto · log: {log_path}")
+    watcher = Watcher(wspec, on_event)
+    try:
+        results = watcher.run(max_events=args.max_events, idle_timeout=args.idle)
+    except KeyboardInterrupt:
+        print("\n[A²S-watch] detenido por el operador")
+        return 0
+    print(f"[A²S-watch] {len(results)} evento(s) procesados")
+    return 0
+
+
 def cmd_pool_status(args: argparse.Namespace) -> int:
     """SORL: estado del pool de recursos legítimos (cuotas, salud, coste)."""
     from .provider_pool import build_pool_provider
@@ -538,6 +630,26 @@ def main(argv: list[str] | None = None) -> int:
                          help="repositorios estudiados por ciclo")
     _add_common(p_learn)
     p_learn.set_defaults(func=cmd_learn)
+
+    p_fsm = sub.add_parser(
+        "fsm", help="nivel 0 determinista: máquina de estados sin LLM "
+                    "(lo imprevisto escala al agente)")
+    p_fsm.add_argument("spec", help="ruta del JSON de la máquina (ver examples/fsm.example.json)")
+    p_fsm.add_argument("--max-cycles", type=int, default=None,
+                       help="override del presupuesto de ciclos")
+    _add_common(p_fsm)
+    p_fsm.set_defaults(func=cmd_fsm)
+
+    p_watch = sub.add_parser(
+        "watch", help="nivel 0 dirigido por eventos: interval/file/webhook disparan "
+                      "la máquina determinista; lo imprevisto escala al agente")
+    p_watch.add_argument("spec", help="ruta del JSON del vigía (ver examples/watch.example.json)")
+    p_watch.add_argument("--max-events", type=int, default=None,
+                         help="parar tras N eventos (default: hasta timeout de inactividad)")
+    p_watch.add_argument("--idle", type=float, default=300.0,
+                         help="segundos sin eventos antes de parar (default 300)")
+    _add_common(p_watch)
+    p_watch.set_defaults(func=cmd_watch)
 
     p_dash = sub.add_parser("dashboard", help="panel de control web en vivo")
     p_dash.add_argument("--port", type=int, default=8000)
