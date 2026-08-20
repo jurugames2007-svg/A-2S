@@ -62,6 +62,16 @@
 > del hotspot `execute_dag` (CC 31→18); `--seed` global y rotación de
 > `telemetry.jsonl`. Ver `ROADMAP_V2.md` y `LIMITACIONES.md` §14.
 
+> **v1.8 — Los tres 'no' resueltos como ingeniería:** (1) **modo SERVICIO
+> experimental** `a2s serve` + `a2s users`: API REST con **RBAC real**
+> (admin/operator/viewer), tokens JWT con rol, aislamiento por usuario
+> (`workspaces/u-<user>/`) y auditoría total en `serve_audit.jsonl`
+> (denegaciones incluidas) — con su modelo de amenazas en §15; (2) **fachada
+> async pura-stdlib** (`a2s.asyncapi.AsyncPool`): `await fanout/chat/dag`
+> vía `asyncio.to_thread`, cero aiohttp, el núcleo no se duplica;
+> (3) **`a2s audit`**: la puntuación del informe como comando reproducible
+> (el '6/5' no existe; la medición viva sí).
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -191,6 +201,11 @@ python -m a2s watch examples/watch.example.json --workspace workspace
 # Memoria semántica BM25 sobre todo lo aprendido + notificaciones al terminar
 python -m a2s search "hashes sha256 evidencia" --workspace workspace
 python -m a2s run "objetivo" --notify webhook:https://hooks.ejemplo/xxx --notify file:avisos.jsonl
+
+# Modo servicio experimental: RBAC + API REST + fachada async + auditoría viva
+python -m a2s users add ana --role operator --workspace workspace
+python -m a2s serve --workspace workspace --port 8700
+python -m a2s audit   # re-mide los criterios medibles (escala honesta 0-5)
 
 # Mapa de reinterpretación operativa de la directiva
 python -m a2s map

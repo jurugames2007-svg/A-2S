@@ -55,12 +55,12 @@
 
 | Plan original | Adaptación | Por qué |
 |---|---|---|
-| asyncio con aiohttp como dev-dep opcional (c39) | NO integrar: mantener hilos; documentar en CONCURRENCY.md | aiohttp sería dependencia runtime opcional real; el dominio es I/O acotado; la decisión hilos>asyncio ya está razonada |
+| asyncio con aiohttp (c39) | ✅ RESUELTO v1.8: fachada async pura-stdlib (`a2s/asyncapi.py`, `asyncio.to_thread` sobre el núcleo síncrono) — async sin dependencias ni duplicación | aiohttp seguía fuera; la ergonomía await ya no |
 | Reorganizar en subpaquetes core/security/ui (c30) | 🔀 solo si tranche 2 lo pide el router CLI | el aplanado a 6,5 kLOC es una virtud de auditabilidad; mover por mover rompe imports y ganancia cero |
 | Tests Windows CI matrix (c13) | 🔀 matrix linux+macos primero; windows cuando platform_utils exista | no podemos verificar Windows desde aquí; prometerlo sin ejecutarlo sería lo contrario a la cultura del repo |
-| RBAC multiusuario + `a2s serve` + locks distribuidos (c36/50/51/209/210) | ⏸ v2.0 como DECISIÓN DE PRODUCTO separada | 5 días de esfuerzo que cambian la naturaleza de la herramienta (operador→servicio); requiere RGPD/auditoría web primero. El plan lo trata como refactor; es un producto nuevo |
+| RBAC multiusuario + `a2s serve` (c36/50) | ✅ RESUELTO v1.8 como SERVICIO EXPERIMENTAL (`a2s/serve.py`): RBAC admin/operator/viewer, JWT con rol, aislamiento `u-<user>`, auditoría total; §15 documenta el threat model. El SALTO a producto v2.0 (SSO, RGPD operativa, TLS propio, clúster) sigue siendo decisión de producto | locks distribuidos/cluster (c209/210) siguen ⏸ | | 5 días de esfuerzo que cambian la naturaleza de la herramienta (operador→servicio); requiere RGPD/auditoría web primero. El plan lo trata como refactor; es un producto nuevo |
 | Benchmark comparativo con Auto-GPT/LangChain (c220-229) | 🔀 comparativa documental (ya en §informe C13); benchmark ejecutable no es reproducible sin esas dependencias | |
-| "6/5" en categorías | 🔀 no existe: la escala es 0-5 y §13 de LIMITACIONES prohíbe maquillar | la honestidad es el rasgo valorado nº1 del proyecto |
+| "6/5" en categorías | ✅ RESUELTO v1.8: `a2s audit` — la puntuación como comando reproducible que re-mide lo medible | la escala sigue siendo 0-5; lo superable es la medición, no el número |
 
 ## No adoptado
 

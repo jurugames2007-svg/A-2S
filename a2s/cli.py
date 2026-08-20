@@ -428,6 +428,65 @@ def cmd_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Modo SERVICIO experimental: API REST con RBAC y aislamiento por usuario
+    (ver LIMITACIONES §15: sin TLS, reverse proxy obligatorio si se expone)."""
+    from .serve import make_server
+    srv, api = make_server(args.workspace, port=args.port,
+                           host="0.0.0.0" if args.public else "127.0.0.1",
+                           max_time=args.max_time)
+    host_real = "0.0.0.0 (publico)" if args.public else "127.0.0.1"
+    print(f"[A²S-serve] API experimental en http://{host_real}:{args.port}")
+    print("[A²S-serve]   usuarios: 'a2s users add NOMBRE --role admin|operator|viewer'")
+    print("[A²S-serve]   endpoints: /health, /api/status, /api/mission, /api/report,")
+    print("[A²S-serve]              /api/search, /api/pool, /api/users (solo admin)")
+    print("[A²S-serve]   auditoría: workspace/.a2s/serve_audit.jsonl (todo, denegado incluido)")
+    if args.public:
+        print("[A²S-serve]   ¡ATENCIÓN: sin TLS ni rate-limit: usa reverse proxy!")
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[A²S-serve] detenido")
+    return 0
+
+
+def cmd_users(args: argparse.Namespace) -> int:
+    """Gestión local de usuarios del servicio (bootstrap físico: solo aquí)."""
+    from .serve import ROLE_PERMS, UserStore
+    store = UserStore(args.workspace)
+    if args.accion == "add":
+        try:
+            info = store.add(args.nombre, args.role, hours=args.hours)
+        except ValueError as exc:
+            print(f"✗ {exc}")
+            return 1
+        print(f"✔ usuario '{info['user']}' creado con rol '{info['role']}'")
+        print(f"  permisos: {', '.join(info['perms'])}")
+        print(f"  token (guárdalo ahora, no se vuelve a mostrar):\n  {info['token']}")
+        return 0
+    data = store.list()
+    if not data:
+        print("(sin usuarios: crea el primero con 'a2s users add NOMBRE --role admin')")
+        return 0
+    print(f"{'usuario':<16}{'rol':<10}{'creado':<22}token…")
+    for name, u in sorted(data.items()):
+        print(f"{name:<16}{u['role']:<10}{u['created_at']:<22}…{u.get('token_hint', '')}")
+    print("\nroles disponibles: " + ", ".join(
+        f"{r} ({', '.join(sorted(p))})" for r, p in ROLE_PERMS.items()))
+    return 0
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    """Puntuación viva: re-mide los criterios objetivamente medibles."""
+    from .audit import render, run_audit
+    reporte = run_audit()
+    if args.json:
+        print(json.dumps(reporte, ensure_ascii=False, indent=2))
+    else:
+        print(render(reporte))
+    return 0 if reporte["todos_ok"] else 1
+
+
 def cmd_fsm(args: argparse.Namespace) -> int:
     """Nivel 0: ejecuta una máquina de estados determinista (sin LLM);
     lo imprevisto escala al nivel 1 (agente)."""
@@ -669,6 +728,31 @@ def main(argv: list[str] | None = None) -> int:
     p_bus.add_argument("--origen", action="append", default=None,
                        help="filtrar por origen (episodio|ficha|pool, repetible)")
     p_bus.set_defaults(func=cmd_search)
+
+    p_srv = sub.add_parser("serve", help="modo SERVICIO experimental: API REST con "
+                                          "RBAC y aislamiento por usuario (§15)")
+    p_srv.add_argument("--workspace", default="workspace")
+    p_srv.add_argument("--port", type=int, default=8700)
+    p_srv.add_argument("--max-time", type=int, default=300,
+                       help="timebox por misión en el servicio (segundos)")
+    p_srv.add_argument("--public", action="store_true",
+                       help="escuchar en 0.0.0.0 (sin TLS: reverse proxy obligatorio)")
+    p_srv.set_defaults(func=cmd_serve)
+
+    p_usr = sub.add_parser("users", help="usuarios del servicio (RBAC local)")
+    p_usr.add_argument("accion", choices=["add", "list"])
+    p_usr.add_argument("nombre", nargs="?", default=None)
+    p_usr.add_argument("--role", default="operator",
+                       choices=["admin", "operator", "viewer"])
+    p_usr.add_argument("--workspace", default="workspace")
+    p_usr.add_argument("--hours", type=float, default=24.0,
+                       help="validez del token emitido")
+    p_usr.set_defaults(func=cmd_users)
+
+    p_aud = sub.add_parser("audit", help="puntuación viva: re-mide los criterios "
+                                        "medibles (el 6/5 no existe)")
+    p_aud.add_argument("--json", action="store_true")
+    p_aud.set_defaults(func=cmd_audit)
 
     p_fsm = sub.add_parser(
         "fsm", help="nivel 0 determinista: máquina de estados sin LLM "

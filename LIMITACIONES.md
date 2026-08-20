@@ -461,3 +461,31 @@ Lo NO adoptado o diferido está razonado en el propio ROADMAP_V2.md (§ adaptado
 asyncio/aiohttp runtime, subpaquetes por mover, matrix Windows sin poder
 ejecutarla, RBAC multiusuario como producto v2.0 (no como refactor), y la
 escala «6/5» (no existe: la escala es 0-5 y este documento es su guardián).
+
+---
+
+## 15. Modo SERVICIO experimental (v1.8): RBAC real, amenazas reales
+
+`a2s serve` + `a2s users` implementan el multiusuario que el roadmap
+difería. Lo que hay y lo que NO hay, sin maquillar:
+
+| Hay (verificado con tests sobre HTTP real) | No hay (usar reverse proxy / v2.0) |
+|---|---|
+| RBAC admin/operator/viewer con permisos por endpoint | TLS propio (HTTP plano: proxy con certificados) |
+| Tokens JWT-HS256 con expiración y claim de rol | SSO/OAuth/federación: usuarios locales del operador |
+| Aislamiento por usuario: `workspaces/u-<user>/` | Rate-limiting del login (protege el proxy) |
+| Auditoría TOTAL: denegaciones incluidas, en `serve_audit.jsonl` | Retención/RGPD operativa (derecho al olvido, DPO) |
+| Misiones con timebox en hilos propios, informe persistido | Clúster/multi-proceso: una instancia, un workspace base |
+| Bootstrap físico: usuarios creados SOLO desde la máquina que sirve | Sesiones/refresh tokens: el token vive lo que dura `--hours` |
+
+**Modelo de amenazas asumido**: el operador de la máquina es de confianza
+(crea usuarios); la red NO lo es (por eso localhost por defecto y proxy
+obligatorio si se expone). Un token robado vale hasta su expiración y no
+hay revocación: `--hours` cortos. El viewer puede LEER informes de todos
+(los metadatos de misión no se filtran por usuario en /api/report — gap
+conocido, documentado, corregible en v2.0).
+
+**Fachada async** (`a2s/asyncapi.py`): es exactamente eso — una fachada.
+El núcleo sigue siendo síncrono con hilos (decisión razonada); await no
+convierte esto en un servidor de 10k conexiones (el handler HTTP sigue
+siendo `http.server`): es ergonomía de integración, no escala.
