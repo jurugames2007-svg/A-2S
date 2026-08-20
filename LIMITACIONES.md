@@ -3,8 +3,8 @@
 > Documento de transparencia técnica. Aquí no hay maquillaje: esto es lo que
 > el sistema **no puede hacer**, lo que hace **a medias**, los **errores que
 > tiene**, y cómo usarlo para **obtener beneficio real** sin engañarte.
-> Actualizado a v1.2.0 (hardening: sandbox, firma criptográfica, autenticación,
-> plugins, neuroevolución, LiveCD).
+> Actualizado a v1.3.0 (fusión DFIR defensiva: puente a herramientas forenses
+> externas + auditoría de repositorios/plugins).
 
 ---
 
@@ -226,3 +226,36 @@ evolucionado ($VAR, globs, $()).
 - Bajo carga larga (soak test), fuzzing del mini-shell, ni ataques al modelo
   de permisos (los test solo cubren el caso obvio).
 - La UI del dashboard (sin tests de interfaz).
+
+## 9. Clasificación de herramientas externas (53 repositorios de referencia)
+
+Ante la lista de 53 repositorios propuestos para "integrar en el agente
+supremo", la política es: **la mitad defensiva se integra (vía puente o como
+inspiración); la mitad ofensiva no entra** — no por falta de técnica, sino
+porque es malware u ofensa contra terceros. La lista blanca del puente
+forense (`forensic_tools.py`) rechaza explícitamente cualquier binario
+ofensivo aunque esté instalado en el mismo host.
+
+| Categoría | Repositorios | Decisión |
+|---|---|---|
+| Forense de disco/imagen | Sleuth Kit, Autopsy, Recuperabit, Rifiuti2, Galleta, Emldump | ✅ Integrado vía puente (`forensic_cmd` invoca binarios del sistema); Autopsy solo como plataforma externa del operador |
+| Forense de memoria | Volatility 3 / Volatility-MCP-Server, Rekall | ✅ Integrado vía puente (`volatility3`, `vol.py`) sobre volcados propios |
+| Extracción masiva | bulk_extractor | ✅ Integrado vía puente (`bulk_extractor`) |
+| Línea de tiempo | Plaso, Timesketch, Beagle, MISP | 🟡 Roadmap: plataformas pesadas, integración vía API externa (no empaquetadas) |
+| Forense de navegadores/apps | Chromefreak, SkypeFreak, Dumpzilla | 🟡 Roadmap: plugins puente (análisis de artefactos propios) |
+| Escáner defensivo de repos | repo-forensics | ✅ Implementado como plugin propio: `repo_audit` (patrones + hashes) |
+| DFIR con veredicto firmado | VERDICT | ✅ Equivalente ya implementado: verificador de misión + firma HMAC (`a2s verify`) |
+| OSINT | llm_osint, ai_osint | ✅ Equivalente: `web_search`/`fetch_url` con lista blanca de hosts |
+| Agentes autónomos generales | Auto-GPT, BabyAGI, GPT-Engineer | ✅ Ya implementado en el propio loop (planificación fractal + escalera de recuperación) |
+| ML pesado | TensorFlow, PyTorch, scikit-learn | 🟡 No integrados: el core es stdlib a propósito (LiveCD ~500 KB); compatibles como plugins locales del operador |
+| Despliegue | Docker, Kubernetes, Ansible | 🟡 Herramientas del OPERADOR para desplegar A²S, no capacidades del agente |
+| **Exfiltración/destrucción** | ai-forensics-data-exfiltration | ❌ No integrable: exfiltración de datos y destrucción de privacidad |
+| **Agentes ofensivos autónomos** | PentAGI, Strix, CAI, CVE-Bench | ❌ No integrables: explotación autónoma de vulnerabilidades de terceros |
+| **Post-explotación / credenciales** | Mimikatz, Empire, Cobalt Strike, PowerSploit, Metasploit, ExploitDB, BeEF | ❌ No integrables: malware y robo de credenciales |
+| **Anti-forense / evasión** | awesome-anti-forensic (x2), HiddenVM, BleachBit, DBAN | ❌ No integrables como capacidades del agente. Excepción documentable: borrado seguro SOLO del workspace propio (higiene operativa), nunca de sistemas ajenos |
+| **Anonimato encubierto** | Tor, I2P, Signal-Desktop | ❌ No integrables como canal de comunicación encubierta del agente |
+
+Si el operador quiere usar las herramientas ofensivas **por su cuenta** en su
+propio entorno autorizado (lab, red team contratado), puede hacerlo fuera de
+A²S: el agente no las invoca, no las lista y el modelo de permisos rechaza
+objetivos que lo pidan (quedan registrados en el ledger como denegados).

@@ -8,13 +8,17 @@
 > seguridad, en cuyo caso entrega un informe forense reanudable con el estado
 > exacto y la cadena de custodia completa.
 
-> **v1.2 — hardening + fusión de capacidades:** sandbox real por capas
-> (nsjail/bwrap/rlimits), firma criptográfica HMAC de resultados (`a2s verify`),
-> dashboard con autenticación por tokens (`a2s token`, `--auth`), lista blanca
-> de red (`--allow-host`), arquitectura de **plugins bajo demanda**
-> (forensics_extra, crypto_tools), **neuroevolución** (`a2s evolve`) y modo
-> **LiveCD** (`a2s build-live` → un solo archivo de ~490 KB, `--ram` para
-> workspace en memoria).
+> **v1.2 — hardening:** sandbox real por capas (nsjail/bwrap/rlimits), firma
+> criptográfica HMAC de resultados (`a2s verify`), dashboard con autenticación
+> por tokens (`a2s token`, `--auth`), lista blanca de red (`--allow-host`),
+> arquitectura de **plugins bajo demanda**, neuroevolución (`a2s evolve`) y
+> LiveCD (`a2s build-live`, un solo archivo de ~500 KB, `--ram` en memoria).
+
+> **v1.3 — fusión DFIR defensiva:** puente a herramientas forenses externas
+> instaladas (Sleuth Kit, bulk_extractor, Volatility 3, Plaso) con lista blanca
+> estricta, y auditoría de repositorios/plugins (`repo_audit`, escáner de
+> patrones de riesgo inspirado en repo-forensics). Clasificación completa de
+> las herramientas externas en `LIMITACIONES.md` §9.
 
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
@@ -63,6 +67,8 @@ Cada capacidad de la directiva A²S tiene aquí su implementación real. Ver
 | Fusión de capacidades (v1.2) | Herramientas externas como plugins: `forensics_extra` (magia de archivos, strings, EXIF, PDF) y `crypto_tools` (sha256/firma/verificación) |
 | Red evolutiva (v1.2) | `neuroevolve.py`: población de redes con mutación de pesos y topología; `a2s evolve` exporta el mejor candidato a la red de gobernanza |
 | LiveCD (v1.2) | `a2s build-live`: zipapp de ~490 KB que corre sin instalación; `--ram` usa `/dev/shm` como workspace volátil |
+| Fusión DFIR (v1.3) | Puente a herramientas forenses externas instaladas (Sleuth Kit, bulk_extractor, Volatility, Plaso) con lista blanca estricta y confinamiento de rutas |
+| Auditoría defensiva (v1.3) | `repo_audit`: escáner de repositorios/plugins locales (patrones de riesgo con severidad + hashes SHA-256) |
 | Backdoors / comunicación encubierta / corrupción de validación de terceros | **No implementado contra terceros** (ilegal). Equivalente legítimo: persistencia propia reanudable y desafío de los *propios* verificadores |
 | Disolución de límites "propio/ajeno" / minería / manipulación temporal | **No implementado**: redefinir palabras no convierte un ataque en legítimo, y la física no es negociable. Equivalentes: presupuestos renovables, checkpoint/reanudación, especulación de planes |
 
@@ -181,7 +187,9 @@ a2s/
 ├── signing.py      firma HMAC-SHA256 de resultados y artefactos (v1.2)
 ├── auth.py         tokens JWT-HS256 con expiración para el dashboard (v1.2)
 ├── plugin_loader.py  plugins bajo demanda con verificación de hash (v1.2)
-├── plugins/        forensics_extra (magia/strings/EXIF/PDF) + crypto_tools
+├── plugins/        forensics_extra (magia/strings/EXIF/PDF), crypto_tools,
+│                   forensic_tools (puente Sleuth Kit/Volatility/bulk_extractor),
+│                   repo_audit (escáner defensivo de repos/plugins)
 ├── tools.py        registro de herramientas + mini-shell seguro evolucionado
 │                   (pipes, redirección, $VAR, globs, $(), lista blanca)
 │                   + modelo de permisos
@@ -252,11 +260,12 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-52 pruebas: hash chain y detección de manipulación/truncación, permisos,
+63 pruebas: hash chain y detección de manipulación/truncación, permisos,
 proveedores, escalera de recuperación, división fractal, misión demo completa,
 red de gobernanza, consenso, memoria persistente, shell evolucionado, sandbox
 (red/memoria/timeout), firmas HMAC, tokens con expiración, plugins (activación
-y herramientas) y zipapp LiveCD.
+y herramientas), zipapp LiveCD, puente forense (lista blanca, confinamiento)
+y auditoría defensiva de repositorios.
 
 ---
 
