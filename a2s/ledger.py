@@ -4,10 +4,14 @@ Implementa la directiva *"mantén registros inmutables de todas las actividades
 para análisis post-mortem"* y *"preservación de cadena de custodia digital"*:
 
 * ``ledger.jsonl`` — bitácora append-only donde cada entrada encadena el
-  hash SHA-256 de la entrada anterior (hash chain). Cualquier alteración de
-  una entrada rompe toda la cadena posterior y es detectable con
-  ``verify()``.
+  hash SHA-256 de la entrada anterior (hash chain).
 * ``journal.sqlite`` — índice relacional para consultas forenses rápidas.
+
+``verify()`` detecta dos tipos de manipulación:
+
+1. **Modificación** de cualquier entrada (rompe la hash chain).
+2. **Truncación** de la cola (el índice SQLite registra más entradas que el
+   JSONL → recuento divergente).
 """
 
 from __future__ import annotations
@@ -31,11 +35,13 @@ class Ledger:
         self.path = os.path.join(directory, "ledger.jsonl")
         self.db_path = os.path.join(directory, "journal.sqlite")
         self._lock = threading.Lock()
+        self._last_hash_cache: Optional[str] = None
         self._init_db()
 
     # -- persistencia ------------------------------------------------------
     def _init_db(self) -> None:
-        with sqlite3.connect(self.db_path) as con:
+        with sqlite3.connect(self.db_path, timeout=30) as con:
+            con.execute("PRAGMA journal_mode=WAL")
             con.execute(
                 """CREATE TABLE IF NOT EXISTS journal (
                        seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,11 +67,16 @@ class Ledger:
             record["hash"] = self._hash_of(record)
             with open(self.path, "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(record, ensure_ascii=False) + "\n")
-            with sqlite3.connect(self.db_path) as con:
-                con.execute(
-                    "INSERT INTO journal (ts, event, payload, prev_hash, hash) VALUES (?,?,?,?,?)",
-                    (ts, event, json.dumps(payload, ensure_ascii=False), prev_hash, record["hash"]),
-                )
+            self._last_hash_cache = record["hash"]
+            try:  # el JSONL es la fuente de verdad; un fallo del índice no rompe el loop
+                with sqlite3.connect(self.db_path, timeout=30) as con:
+                    con.execute(
+                        "INSERT INTO journal (ts, event, payload, prev_hash, hash) VALUES (?,?,?,?,?)",
+                        (ts, event, json.dumps(payload, ensure_ascii=False),
+                         prev_hash, record["hash"]),
+                    )
+            except Exception:  # noqa: BLE001 — concurrencia o disco: tolerar
+                pass
             return record
 
     # -- lectura y verificación ---------------------------------------------
@@ -76,8 +87,11 @@ class Ledger:
             return [json.loads(line) for line in fh if line.strip()]
 
     def _last_hash(self) -> Optional[str]:
-        entries = self.entries()
-        return entries[-1]["hash"] if entries else None
+        # Caché: sin esto cada append releería el archivo completo (O(n²)).
+        if self._last_hash_cache is None:
+            entries = self.entries()
+            self._last_hash_cache = entries[-1]["hash"] if entries else None
+        return self._last_hash_cache
 
     @staticmethod
     def _hash_of(record: dict[str, Any]) -> str:
@@ -86,6 +100,13 @@ class Ledger:
             ensure_ascii=False, sort_keys=True, separators=(",", ":"),
         )
         return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+    def _journal_count(self) -> Optional[int]:
+        try:
+            with sqlite3.connect(self.db_path, timeout=10) as con:
+                return con.execute("SELECT COUNT(*) FROM journal").fetchone()[0]
+        except Exception:  # noqa: BLE001
+            return None
 
     def verify(self) -> tuple[bool, str, int]:
         """Verifica la cadena de custodia. Devuelve (ok, mensaje, nº entradas)."""
@@ -97,10 +118,14 @@ class Ledger:
             if rec.get("hash") != self._hash_of(rec):
                 return False, f"hash no coincide en la entrada {i}", len(entries)
             prev = rec["hash"]
+        count = self._journal_count()
+        if count is not None and count != len(entries):
+            return False, (f"posible truncación: el JSONL tiene {len(entries)} "
+                           f"entradas pero el índice registra {count}"), len(entries)
         return True, "cadena de custodia íntegra", len(entries)
 
     def query(self, event: Optional[str] = None, limit: int = 100) -> Iterator[dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as con:
+        with sqlite3.connect(self.db_path, timeout=10) as con:
             con.row_factory = sqlite3.Row
             if event:
                 rows = con.execute(

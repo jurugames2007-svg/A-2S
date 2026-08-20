@@ -232,16 +232,24 @@ class MissionManager:
 
 class DashboardServer:
     def __init__(self, port: int = 8000, workspace: str = "workspace",
-                 auto_demo: bool = True):
+                 auto_demo: bool = True, public: bool = False):
         self.port = port
         self.workspace = workspace
+        self.public = public
+        self.host = "0.0.0.0" if public else "127.0.0.1"
         self.hub = EventHub()
         self.missions = MissionManager(self.hub, workspace)
         self.auto_demo = auto_demo
 
     def serve_forever(self) -> None:
-        server = ThreadingHTTPServer(("0.0.0.0", self.port), self._handler())
-        print(f"[A²S] Panel de control: http://0.0.0.0:{self.port}/")
+        server = ThreadingHTTPServer((self.host, self.port), self._handler())
+        print(f"[A²S] Panel de control: http://{self.host}:{self.port}/")
+        if self.public:
+            print("[A²S] ⚠ MODO PÚBLICO: cualquier equipo que alcance este puerto "
+                  "puede lanzar misiones que ejecutan código en este host. "
+                  "Usa solo en redes de confianza.")
+        else:
+            print("[A²S] (solo localhost; usa --public para exponerlo en la red)")
         if self.auto_demo:
             self.missions.start(None, demo=True)
         try:

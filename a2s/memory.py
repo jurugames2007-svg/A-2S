@@ -160,6 +160,7 @@ class MemoryHub:
         else:
             s.fails += 1
         self.ledger.append("strategy_feedback", {"strategy": name, "won": won})
+        self._save_strategies()  # el aprendizaje no se pierde si el proceso muere
 
     def best_strategy(self, exclude: Optional[set[str]] = None) -> str:
         exclude = exclude or set()

@@ -215,6 +215,8 @@ class AgentLoop:
                 win = self._active_win_rate()
                 y = 1.0 if ev.verdict == "success" else 0.0
                 self.neural.train(self.neural.features(self.memory.episodes[-1], win), y)
+                if self.neural.trained % 10 == 0:  # checkpoint periódico
+                    self.neural.save()
             self._emit("evaluation", {"step": step.id, "goal": step.goal,
                                       "attempt": attempts, "verdict": ev.verdict,
                                       "score": ev.score, "reason": ev.reason,
@@ -332,6 +334,7 @@ class AgentLoop:
         self._emit("fractal_deploy", {"subgoals": goals})
         self.config.log(f"[A²S] ⑂ desplegando {len(goals)} sub-agente(s) fractal(es)")
         budget = self.config.max_wall_seconds * self.config.subagent_share
+        parent_deadline = self._started_at + self.config.max_wall_seconds
         results: dict[str, RunReport] = {}
 
         def _worker(i: int, subgoal: str) -> tuple[str, RunReport]:
@@ -349,11 +352,21 @@ class AgentLoop:
 
         with concurrent.futures.ThreadPoolExecutor(
                 max_workers=min(self.config.max_subagents, max(1, len(goals)))) as pool:
-            futures = [pool.submit(_worker, i, g) for i, g in enumerate(goals)]
-            for fut in concurrent.futures.as_completed(futures):
-                subgoal, rep = fut.result()
-                results[subgoal] = rep
-                self._timeline.extend(rep.timeline)
+            futures = {pool.submit(_worker, i, g): g for i, g in enumerate(goals)}
+            pending = set(futures)
+            # El padre no espera más allá de su propio límite duro de tiempo.
+            while pending and time.time() < parent_deadline:
+                remaining = max(0.05, parent_deadline - time.time())
+                done, pending = concurrent.futures.wait(
+                    pending, timeout=min(1.0, remaining))
+                for fut in done:
+                    subgoal, rep = fut.result()
+                    results[subgoal] = rep
+                    self._timeline.extend(rep.timeline)
+            for fut in pending:  # plazo agotado: se cancelan y quedan registrados
+                fut.cancel()
+                self.memory.ledger.append("subagent_cancelled", {
+                    "subgoal": futures[fut], "reason": "límite de tiempo del padre agotado"})
         return results
 
     # -- cierre forense ----------------------------------------------------------

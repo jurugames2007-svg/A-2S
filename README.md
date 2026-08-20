@@ -235,3 +235,10 @@ bloqueos lógicos del propio proceso, y las de "forense" como análisis de
 artefactos propios con cadena de custodia. Las acciones con propósito de
 ataque son rechazadas por el modelo de permisos y quedan registradas en el
 ledger.
+
+## Auditoría honesta de límites
+
+Lee **[`LIMITACIONES.md`](LIMITACIONES.md)** antes de confiar en los resultados:
+lista todo lo que el sistema NO puede hacer, los errores conocidos (con
+severidad y estado), las capacidades a medias, la verdad sobre el modelo de
+seguridad (no es un sandbox) y un playbook para obtener beneficio real.

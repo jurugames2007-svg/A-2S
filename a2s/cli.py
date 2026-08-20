@@ -155,8 +155,9 @@ def cmd_swarm(args: argparse.Namespace) -> int:
 def cmd_dashboard(args: argparse.Namespace) -> int:
     from .dashboard import DashboardServer
     server = DashboardServer(port=args.port, workspace=args.workspace,
-                             auto_demo=not args.no_autodemo)
+                             auto_demo=not args.no_autodemo, public=args.public)
     server.serve_forever()
+    return 0
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -233,6 +234,8 @@ def main(argv: list[str] | None = None) -> int:
     p_dash = sub.add_parser("dashboard", help="panel de control web en vivo")
     p_dash.add_argument("--port", type=int, default=8000)
     p_dash.add_argument("--workspace", default="workspace")
+    p_dash.add_argument("--public", action="store_true",
+                        help="escuchar en 0.0.0.0 (⚠ cualquiera en la red puede lanzar misiones)")
     p_dash.add_argument("--no-autodemo", action="store_true",
                         help="no lanzar la misión demo automáticamente")
     p_dash.set_defaults(func=cmd_dashboard)
