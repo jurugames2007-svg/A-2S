@@ -15,6 +15,7 @@ from .directiva import print_capability_map, scope_note
 from .goals import (DEMO_GOAL, build_demo_step_verifiers,
                     forensic_report_goal_verifier, prepare_demo_workspace)
 from .loop import AgentLoop, run_goal
+from .notify import notify
 from .report import render_text, save_report
 
 
@@ -110,6 +111,14 @@ def cmd_run(args: argparse.Namespace) -> int:
             if args.report:
                 path = save_report(report, os.path.join(config.workspace, args.report))
                 print(f"\nInforme guardado en: {path}")
+    if getattr(args, "notify", None):
+        exitos = sum(r.success for r in reports)
+        notify(args.notify,
+               f"A²S: {exitos}/{len(reports)} objetivo(s) verificado(s)",
+               "; ".join(f"{'ok' if r.success else 'fallo'}: {r.goal[:60]}"
+                         for r in reports),
+               nivel="info" if exitos == len(reports) else "warn",
+               extra={"exit_code": 0 if exitos == len(reports) else 2})
     return 0 if all(r.success for r in reports) else 2
 
 
@@ -391,11 +400,32 @@ def cmd_learn(args: argparse.Namespace) -> int:
         if hasattr(report.get("last_result"), "final_note"):
             print()
             print(render_text(report["last_result"]))
+        if getattr(args, "notify", None):
+            notify(args.notify, "A²S learn: CAPAZ (verificado)",
+                   report["confidence"], nivel="info")
         return 0
     print(f"[A²S] ◐ {report['confidence']}")
     print("     (las fichas persisten: la siguiente ejecución arranca ya "
           "enriquecida; amplía con --cycles)")
+    if getattr(args, "notify", None):
+        notify(args.notify, "A²S learn: objetivo NO verificado",
+               report["confidence"], nivel="warn")
     return 2
+
+
+def cmd_search(args: argparse.Namespace) -> int:
+    """Memoria semántica: búsqueda BM25 sobre episodios, fichas y pool."""
+    from .search import workspace_search
+    hits = workspace_search(args.workspace, args.query, top=args.top,
+                            origenes=set(args.origen) if args.origen else None)
+    if not hits:
+        print(f"[A²S] sin resultados para «{args.query}» en {args.workspace} "
+              "(ejecuta misiones/learn primero para acumular memoria)")
+        return 1
+    print(f"[A²S] BM25 · {args.query!r} · {len(hits)} resultado(s):")
+    for doc, score in hits:
+        print(f"  {score:>6.3f}  [{doc.origen:<8}] {doc.meta[:90]}")
+    return 0
 
 
 def cmd_fsm(args: argparse.Namespace) -> int:
@@ -631,6 +661,15 @@ def main(argv: list[str] | None = None) -> int:
     _add_common(p_learn)
     p_learn.set_defaults(func=cmd_learn)
 
+    p_bus = sub.add_parser("search", help="memoria semántica: búsqueda BM25 sobre "
+                                          "episodios, fichas de conocimiento y pool")
+    p_bus.add_argument("query", help="consulta en lenguaje natural")
+    p_bus.add_argument("--workspace", default="workspace")
+    p_bus.add_argument("--top", type=int, default=5)
+    p_bus.add_argument("--origen", action="append", default=None,
+                       help="filtrar por origen (episodio|ficha|pool, repetible)")
+    p_bus.set_defaults(func=cmd_search)
+
     p_fsm = sub.add_parser(
         "fsm", help="nivel 0 determinista: máquina de estados sin LLM "
                     "(lo imprevisto escala al agente)")
@@ -709,6 +748,9 @@ def main(argv: list[str] | None = None) -> int:
     p_map.set_defaults(func=lambda _a: (print_capability_map(), 0)[1])
 
     args = parser.parse_args(argv)
+    if getattr(args, "seed", None) is not None:
+        import random
+        random.seed(args.seed)
     return args.func(args)
 
 
@@ -742,6 +784,10 @@ def _add_common(p: argparse.ArgumentParser) -> None:
                    help="permitir solo este host en la red (repetible; vacío = todos)")
     p.add_argument("--evolve", type=int, default=0,
                    help="generaciones de neuroevolución al finalizar la misión")
+    p.add_argument("--notify", action="append", default=None, metavar="DESTINO",
+                   help="notificar al terminar (repetible): webhook:URL, file:ruta, print:")
+    p.add_argument("--seed", type=int, default=None,
+                   help="semilla global de aleatoriedad (jitter/fanout reproducibles)")
     p.add_argument("--pool-config", default=None,
                    help="ruta del JSON del pool SORL (con --provider pool)")
     p.add_argument("--pool-strategy", default=None,

@@ -53,6 +53,15 @@
 > contextualizado. Sin rotación de huellas ni fingimientos: jitter para no
 > sincronizarnos, User-Agent honesto. Ver `LIMITACIONES.md` §13.
 
+> **v1.7 — Tranche 1 del ROADMAP_V2:** CI de GitHub Actions + guardianes
+> ejecutables (pureza stdlib `tools/check_purity.py`, puerta de complejidad
+> `tools/check_cc.py` con ratchet CC<35 y media<6); memoria semántica BM25
+> (`a2s search`, stdlib, sobre episodios/fichas/pool); notificaciones
+> salientes (`--notify webhook:|file:|print:`); unlearning (poda de fichas
+> perdedoras + decaimiento por frescura + decay de estrategias); refactor
+> del hotspot `execute_dag` (CC 31→18); `--seed` global y rotación de
+> `telemetry.jsonl`. Ver `ROADMAP_V2.md` y `LIMITACIONES.md` §14.
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -178,6 +187,10 @@ python -m a2s learn "extraer metadatos EXIF de imágenes en python" --cycles 3
 # Nivel determinista: FSM sin LLM + vigía por eventos (file/interval/webhook)
 python -m a2s fsm examples/fsm.example.json --workspace workspace
 python -m a2s watch examples/watch.example.json --workspace workspace
+
+# Memoria semántica BM25 sobre todo lo aprendido + notificaciones al terminar
+python -m a2s search "hashes sha256 evidencia" --workspace workspace
+python -m a2s run "objetivo" --notify webhook:https://hooks.ejemplo/xxx --notify file:avisos.jsonl
 
 # Mapa de reinterpretación operativa de la directiva
 python -m a2s map

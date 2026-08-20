@@ -437,3 +437,27 @@ LLM y un vigía dirigido por eventos. Cubrir "cada eslabón" funciona así:
 - El escalado ejecuta una misión completa del agente: si tu FSM escala
   por diseño cada minuto, el "coste 0 tokens" del nivel 0 se evapora —
   las especificaciones deben dejar el `always` como última transición.
+
+---
+
+## 14. ROADMAP_V2 (v1.7+): plan de 250 criterios con revisión técnica
+
+El plan de mejora integral está comprometido en `ROADMAP_V2.md` (tranches,
+adaptaciones justificadas y decisiones de producto diferidas). Estado real de
+la tranche 1 (v1.7.0), sin maquillar:
+
+| Entregado | Matices honestos |
+|---|---|
+| CI GitHub Actions (tests + guardianes) | No verificable desde este entorno: el workflow se ejecutará en GitHub al pushear; los guardianes SÍ corren como tests locales |
+| Guardián de pureza stdlib | Solo vigila `import` de runtime; un dev-dep de CI (coverage, mypy) seguiría siendo legítimo (no se ha añadido ninguno aún) |
+| Guardián de complejidad (CC<35, media<6) | El ratchet es conservador: quedan 4 hotspots CC>19 (shell=33, evolve_step=26, _handler=23, execute_step=19) para tranches 2 |
+| BM25 (`a2s search`) | BM25 léxico NO es semántica profunda: sin embeddings no sinonimia («hash» no encuentra «digest»); verificado en vivo con episodios reales |
+| Notificaciones `--notify` | Solo webhook/file/print (JSON saliente, sin secretos); SMTP sigue en roadmap |
+| Unlearning | Poda requiere ≥5 usos + 90 días de edad (no borra fichas jóvenes); el decay de estrategias solo actúa con historia >50 — es conservador a propósito |
+| `execute_dag` refactorizado | CC 31→18: mejora, no perfección (objetivo final CC<15 en tranche 2) |
+| `--seed` | Siembra `random` global: jitter/fanout reproducibles; NO controla el orden de `as_completed` de hilos del SO |
+
+Lo NO adoptado o diferido está razonado en el propio ROADMAP_V2.md (§ adaptados):
+asyncio/aiohttp runtime, subpaquetes por mover, matrix Windows sin poder
+ejecutarla, RBAC multiusuario como producto v2.0 (no como refactor), y la
+escala «6/5» (no existe: la escala es 0-5 y este documento es su guardián).

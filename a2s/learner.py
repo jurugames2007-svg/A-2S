@@ -30,8 +30,10 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import os
 import re
+import time
 import threading
 import time
 import urllib.error
@@ -315,6 +317,16 @@ def gap_query_heuristic(goal: str, failures: str) -> str:
     return " ".join(parts) if parts else goal.strip()[:60]
 
 
+def _frescura(iso: str, vida_media_dias: float = 180.0) -> float:
+    """Peso de frescura exponencial: hoy=1.0, media vida a `vida_media_dias`."""
+    try:
+        t = time.mktime(time.strptime(iso, "%Y-%m-%dT%H:%M:%SZ"))
+    except (ValueError, TypeError):
+        return 0.5
+    dias = max(0.0, (time.time() - t) / 86400.0)
+    return math.exp(-dias / vida_media_dias)
+
+
 # --------------------------------------------------------------------------
 # El Ciclo de Enriquecimiento
 # --------------------------------------------------------------------------
@@ -397,6 +409,31 @@ class Learner:
             new_cards.append(card)
         return new_cards
 
+    # -- unlearning: poda de fichas perdedoras ---------------------------------
+
+    def prune(self, min_used: int = 5, max_win: float = 0.2,
+              min_dias: int = 90) -> list[str]:
+        """Olvida lo que demostró no servir: ficha con uso suficiente, win-rate
+        bajo y edad mínima se borra (archivo y memoria). Devuelve los repos
+        olvidados. La poda NUNCA borra fichas nuevas (sin uso aún)."""
+        olvidadas = []
+        for c in list(self.cards):
+            if c.used >= min_used and c.win_rate <= max_win:
+                try:
+                    t = time.mktime(time.strptime(c.created_at, "%Y-%m-%dT%H:%M:%SZ"))
+                    if (time.time() - t) / 86400.0 < min_dias:
+                        continue
+                except ValueError:
+                    pass
+                self.cards.remove(c)
+                path = os.path.join(_cards_dir(self.workspace), c.id + ".json")
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                olvidadas.append(c.repo)
+        return olvidadas
+
     # -- reinyectar ------------------------------------------------------------
 
     def knowledge_context(self, max_cards: int = 4,
@@ -407,7 +444,9 @@ class Learner:
             tl = topic_like.lower()
             cards = sorted(
                 self.cards,
-                key=lambda c: (c.win_rate, tl in c.topic.lower() or tl in c.query.lower()),
+                # win-rate decaído por frescura: lo viejo pierde prioridad
+                key=lambda c: (c.win_rate * _frescura(c.created_at),
+                               tl in c.topic.lower() or tl in c.query.lower()),
                 reverse=True)
         if not cards:
             return ""

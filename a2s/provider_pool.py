@@ -385,9 +385,23 @@ class Telemetry:
         if not path:
             return
         if self._fh is None:
+            self._rotar(path)
             self._fh = open(path, "a", encoding="utf-8")
         self._fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
         self._fh.flush()
+
+    def _rotar(self, path: str, max_bytes: int = 5_000_000) -> None:
+        """Rotación por tamaño: telemetry.jsonl -> telemetry.jsonl.1 (se
+        conserva una generación). Criterio 22/211 del roadmap."""
+        try:
+            if os.path.getsize(path) < max_bytes:
+                return
+            if self._fh is not None:
+                self._fh.close()
+                self._fh = None
+            os.replace(path, path + ".1")
+        except OSError:
+            pass
 
     def save_snapshot(self, configured_rpm: Optional[dict[str, int]] = None) -> None:
         path = self._path("state.json")
@@ -580,6 +594,36 @@ class TaskScheduler:
 # --------------------------------------------------------------------------
 # El pool: meta-proveedor con failover, fanout y DAG
 # --------------------------------------------------------------------------
+
+def _dag_waves(tasks: list[dict[str, Any]]) -> list[list[str]]:
+    """Olas topológicas (Kahn) con validación de dependencias y ciclos.
+    Extraída de execute_dag (refactor criterio 2: una función, una idea)."""
+    ids = {t["id"] for t in tasks}
+    deps = {t["id"]: list(t.get("depends_on", [])) for t in tasks}
+    for tid, dl in deps.items():
+        for d in dl:
+            if d not in ids:
+                raise ValueError(f"tarea {tid}: dependencia desconocida {d}")
+    indeg = {tid: len(dl) for tid, dl in deps.items()}
+    wave = [tid for tid, d in indeg.items() if d == 0]
+    order: list[list[str]] = []
+    seen: set[str] = set()
+    while wave:
+        order.append(sorted(wave))
+        seen.update(wave)
+        nxt: list[str] = []
+        for tid in wave:
+            for other, dl in deps.items():
+                if tid in dl:
+                    indeg[other] -= 1
+                    if indeg[other] == 0:
+                        nxt.append(other)
+        wave = nxt
+    if len(seen) != len(ids):
+        cyclic = sorted(ids - seen)
+        raise ValueError(f"ciclo detectado en el DAG: {cyclic}")
+    return order
+
 
 _Transport = Callable[[PoolEndpoint, dict[str, Any]], dict[str, Any]]
 
@@ -879,31 +923,8 @@ class ProviderPool(BaseProvider):
         tarea falla, sus dependientes se marcan ``skipped`` (honestidad ante
         fallos, coherente con LIMITACIONES.md).
         """
-        ids = {t["id"] for t in tasks}
+        order = _dag_waves(tasks)
         deps = {t["id"]: list(t.get("depends_on", [])) for t in tasks}
-        for tid, dl in deps.items():
-            for d in dl:
-                if d not in ids:
-                    raise ValueError(f"tarea {tid}: dependencia desconocida {d}")
-        # Orden topológico por olas (Kahn) + detección de ciclos.
-        indeg = {tid: len(dl) for tid, dl in deps.items()}
-        wave = [tid for tid, d in indeg.items() if d == 0]
-        order: list[list[str]] = []
-        seen: set[str] = set()
-        while wave:
-            order.append(sorted(wave))
-            seen.update(wave)
-            nxt: list[str] = []
-            for tid in wave:
-                for other, dl in deps.items():
-                    if tid in dl:
-                        indeg[other] -= 1
-                        if indeg[other] == 0:
-                            nxt.append(other)
-            wave = nxt
-        if len(seen) != len(ids):
-            cyclic = sorted(ids - seen)
-            raise ValueError(f"ciclo detectado en el DAG: {cyclic}")
         by_id = {t["id"]: t for t in tasks}
         results: dict[str, Optional[str]] = {}
         failed: set[str] = set()

@@ -1,0 +1,24 @@
+# COPIAR A .github/workflows/ci.yml
+# (el token de integracion de este entorno no tiene permiso 'workflows'
+#  para crearlo por push: el operador debe crear el archivo a mano,
+#  copiando este contenido. Los guardianes corren igual como tests.)
+
+name: ci
+on: [push, pull_request]
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Guardianes (pureza stdlib + complejidad)
+        run: |
+          python3 tools/check_purity.py
+          python3 tools/check_cc.py 35
+      - name: Suite completa (sin dependencias que instalar)
+        run: python3 -m unittest discover -s tests -v
