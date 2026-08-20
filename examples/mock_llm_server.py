@@ -103,12 +103,24 @@ class Handler(BaseHTTPRequestHandler):
             return
         cfg = ROUTES[route]
         time.sleep(cfg["latency"])
-        user = ""
+        user_full = ""
         for msg in reversed(payload.get("messages", [])):
             if msg.get("role") == "user":
-                user = str(msg.get("content", ""))[:60]
+                user_full = str(msg.get("content", ""))
                 break
+        user = user_full[:60]
         model = payload.get("model") or cfg["model"]
+        content = f"[{route.split('/')[1]}] eco: {user}"
+        # Solo el modelo "pro" sabe seguir esquemas JSON estructurados
+        # (los eco gratuitos devuelven prosa — así se VE la medición de
+        # capacidades del SORL: el pool aprende quién planifica de verdad).
+        # La detección usa el texto COMPLETO: "Devuelve JSON" aparece al
+        # final del prompt, más allá de los 60 chars que muestra el eco.
+        if route == "/pro/v1" and "Devuelve JSON" in user_full:
+            content = ('{"strategy": "mock-pro", "steps": [{"id": "s1", '
+                       '"goal": "inventariar", "approach": "listado ordenado", '
+                       '"tool": "shell", "params": {"command": "ls"}, '
+                       '"success_criteria": ["listado obtenido"], "depends_on": []}]}')
         with _lock:
             _stats[route]["ok"] += 1
         self._json(200, {
@@ -116,8 +128,7 @@ class Handler(BaseHTTPRequestHandler):
             "object": "chat.completion",
             "model": model,
             "choices": [{"index": 0, "finish_reason": "stop",
-                         "message": {"role": "assistant",
-                                     "content": f"[{route.split('/')[1]}] eco: {user}"}}],
+                         "message": {"role": "assistant", "content": content}}],
             "usage": {"prompt_tokens": 40, "completion_tokens": 25},
         })
 

@@ -496,6 +496,126 @@ class TestAprendizajeCuotaYPesos(unittest.TestCase):
         tel.close()
 
 
+class TestCapacidadMedida(unittest.TestCase):
+    """La aptitud por tipo de tarea se MIDE (JSON utilizable por kind), se
+    mezcla con el prior declarado y reordena el scheduler."""
+
+    _VALID_PLAN = json.dumps({
+        "strategy": "s", "steps": [{"id": "s1", "goal": "g", "approach": "a",
+                                    "tool": "shell", "params": {"command": "ls"},
+                                    "success_criteria": ["x"], "depends_on": []}]})
+
+    def test_prosa_sin_json_registra_capacidad_nula(self):
+        def eco(ep, payload):
+            return _ok("eco sin json")            # modelo que no sigue esquema
+
+        pool = ProviderPool([_ep("eco"), _ep("bueno")], transport=eco)
+        for _ in range(3):
+            obj = pool._structured("Devuelve JSON: {...}", "plan", {"steps": []})
+            self.assertNotIn("pool_provider", obj)   # fallback sin atribución LLM
+        # quien haya servido la prosa quedó medido a la baja (ok=0)
+        plans = [c for by in pool.telemetry.caps.values()
+                 for k, c in by.items() if k == "plan"]
+        self.assertTrue(plans)
+        self.assertTrue(all(c["ok"] == 0 for c in plans))
+
+    def test_plan_valido_registra_y_devuelve_llm(self):
+        pool = ProviderPool([_ep("a"), _ep("b")],
+                            transport=lambda e, p: _ok(self._VALID_PLAN))
+        raw = pool.plan("objetivo", "ctx", "tools")
+        self.assertTrue(raw["steps"])
+        served = raw["pool_provider"]
+        c = pool.telemetry.caps[served]["plan"]
+        self.assertEqual((c["ok"], c["total"]), (1, 1))
+
+    def test_plan_esquema_invalido_registra_y_degrada(self):
+        pool = ProviderPool([_ep("a"), _ep("b")],
+                            transport=lambda e, p: _ok('{"strategy": "sin steps"}'))
+        raw = pool.plan("objetivo", "ctx", "tools")
+        self.assertTrue(raw["steps"])                  # plan heurístico (fallback)
+        plans = [c for by in pool.telemetry.caps.values()
+                 for k, c in by.items() if k == "plan"]
+        self.assertTrue(plans)                         # alguien quedó medido
+        self.assertTrue(all(c["ok"] == 0 for c in plans))
+
+    def test_scheduler_prefiere_medido_bueno(self):
+        pool = ProviderPool([_ep("malo"), _ep("bueno")])
+        for _ in range(6):
+            pool.telemetry.record_capability("malo", "plan", False)
+        with pool._lock:
+            picked = pool.scheduler.pick(pool._triples, kind="plan")
+        self.assertEqual(picked[0].name, "bueno")
+        # ... y para kinds sin medidas vuelve al prior declarado (ambos valen)
+        with pool._lock:
+            picked2 = pool.scheduler.pick(pool._triples, kind="general")
+        self.assertIn(picked2[0].name, ("malo", "bueno"))
+
+    def test_puerta_de_incompetencia_es_kind_especifica(self):
+        """Un endpoint medido incapaz de planificar no recibe planificaciones
+        NI SIQUERA siendo gratis (cost_first)… pero sigue sirviendo otros kinds."""
+        pool = ProviderPool([_ep("gratis_malo"), _ep("caro_bueno")],
+                            strategy="cost_first")
+        pool.endpoints[1].cost_tier = "paid"
+        for _ in range(6):
+            pool.telemetry.record_capability("gratis_malo", "plan", False)
+        with pool._lock:
+            picked = pool.scheduler.pick(pool._triples, kind="plan")
+        self.assertEqual(picked[0].name, "caro_bueno")   # la puerta vence al coste
+        with pool._lock:
+            picked2 = pool.scheduler.pick(pool._triples, kind="general")
+        self.assertEqual(picked2[0].name, "gratis_malo") # sin medidas → gratis gana
+
+    def test_puerta_no_bloquea_si_excluye_a_todos(self):
+        pool = ProviderPool([_ep("a")], strategy="cost_first")
+        for _ in range(10):
+            pool.telemetry.record_capability("a", "plan", False)
+        with pool._lock:
+            picked = pool.scheduler.pick(pool._triples, kind="plan")
+        self.assertIsNotNone(picked)                     # sigue habiendo ruta
+
+    def test_suavizado_bayesiano_del_prior(self):
+        tel = Telemetry(None)
+        self.assertIsNone(tel.capability_score("x", "plan", 0.8))   # sin datos
+        for _ in range(4):
+            tel.record_capability("x", "plan", False)
+        # (0 + 3*0.8) / (4 + 3) ≈ 0.343: cae pero no a cero (prior suaviza)
+        self.assertAlmostEqual(tel.capability_score("x", "plan", 0.8),
+                               2.4 / 7.0, places=3)
+
+    def test_caps_persisten_entre_ejecuciones(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        ws = tmp.name
+        pool1 = ProviderPool([_ep("a")], workspace=ws,
+                             transport=lambda e, p: _ok("prosa"))
+        pool1.plan("objetivo", "ctx", "tools")
+        pool1.close()
+        pool2 = ProviderPool([_ep("a")], workspace=ws,
+                             transport=lambda e, p: _ok("prosa"))
+        c = pool2.telemetry.caps.get("a", {}).get("plan")
+        self.assertIsNotNone(c)
+        self.assertEqual(c["total"], 1)
+        self.assertEqual(c["ok"], 0)
+
+    def test_goal_check_y_evaluate_registran(self):
+        def transport(ep, payload):
+            user = payload["messages"][-1]["content"]
+            if "achieved" in user:
+                return _ok('{"achieved": true, "reason": "ok"}')
+            if "verdict" in user:
+                return _ok('{"score": 0.9, "verdict": "success", "reason": "r"}')
+            return _ok("prosa")
+
+        pool = ProviderPool([_ep("a")], transport=transport)
+        ok, _ = pool.goal_check("objetivo", "evidencia")
+        self.assertTrue(ok)
+        ev = pool.evaluate("paso", "obs", "crit")
+        self.assertEqual(ev["verdict"], "success")
+        caps = pool.telemetry.caps["a"]
+        self.assertEqual(caps["goal_check"]["ok"], 1)
+        self.assertEqual(caps["evaluate"]["ok"], 1)
+
+
 class TestPoolComoProviderAuto(unittest.TestCase):
     def test_get_provider_pool(self):
         from a2s.providers import get_provider

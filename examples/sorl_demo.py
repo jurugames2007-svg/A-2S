@@ -61,6 +61,27 @@ def main() -> int:
     print(f"  ejecutadas: {out['executed']}/{out['total']} · fallidas: {out['failed'] or 'ninguna'}")
     print(f"  síntesis → {out['aggregate']}")
 
+    print("\n▶ CAPACIDAD MEDIDA: 10 planificaciones estructuradas")
+    print("  (fast/mid devuelven eco en prosa; solo pro sigue el esquema JSON)")
+    served_valid = []
+    for i in range(10):
+        raw = pool.plan(f"demo objetivo {i}: inventariar el entorno", "ctx", "tools")
+        if raw.get("pool_provider"):
+            served_valid.append(raw["pool_provider"])
+    if served_valid:
+        from collections import Counter as _C
+        print(f"  planes LLM válidos servidos por: {dict(_C(served_valid))}")
+    else:
+        print("  (ningún endpoint válido todavía: el pool degradó al heurístico)")
+    for e in pool.status()["endpoints"]:
+        if e["role"] != "member":
+            continue
+        caps = e.get("capability_measured") or {}
+        if caps:
+            frag = ", ".join(f"{k}={v['score']:.2f} ({v['ok']}/{v['total']})"
+                             for k, v in sorted(caps.items()))
+            print(f"  {e['name']:<6} caps: {frag}")
+
     print("\n▶ Telemetría aprendida en esta ejecución:")
     for e in pool.status()["endpoints"]:
         if e["role"] != "member":

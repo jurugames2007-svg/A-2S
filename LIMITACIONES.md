@@ -317,8 +317,15 @@ Legítimos. Transparencia total sobre lo que es y lo que no es:
 - La **tasa de éxito excluye los 429s** (saturación ≠ fallo del endpoint; la
   saturación la gestionan cuarentena y riesgo de cuota). Métrica honesta:
   "¿funciona cuando estamos dentro de cuota?".
-- La **calidad por tipo de tarea** (`capabilities`) se declara, no se mide:
-  si `llama-3.1-8b` resulta malo planificando, nadie lo degradará solo.
+- La **aptitud por tipo de tarea se MIDE desde v1.4.2** — pero con una señal
+  objetiva limitada: ¿produce JSON con el esquema esperado para ese kind
+  (`plan`/`evaluate`/`goal_check`/`reparam`)? El score mezcla prior declarado
+  + observado (3 pseudo-muestras) y por debajo de 0.35 (≥4 muestras) el
+  endpoint queda excluido de ESE kind (puerta de incompetencia), aunque sea
+  gratis. Lo que NO mide: calidad semántica — un plan sintácticamente válido
+  pero estúpido puntúa 1.0; juzgarlo necesitaría otro modelo (circular y con
+  coste). Kinds sin verificador objetivo (chat/fanout) → sigue el prior
+  declarado.
 - `execute_dag` falla honesto: si una tarea agota el pool, sus dependientes
   quedan `skipped` (no se inventan resultados) — distinto del loop principal,
   que reparametriza: el DAG es una API de herramienta, no el núcleo.

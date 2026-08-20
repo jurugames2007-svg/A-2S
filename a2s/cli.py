@@ -374,6 +374,11 @@ def cmd_pool_status(args: argparse.Namespace) -> int:
             note = e["model"] if e["role"] == "member" else f"({e['role']})"
             if e.get("rpm_learned"):
                 note += f" [rpm aprendido: {e['rpm_effective']} (declarado {e['rpm']})]"
+            caps = e.get("capability_measured") or {}
+            if caps:
+                frag = ", ".join(f"{k} {v['score']:.2f} ({v['ok']}/{v['total']})"
+                                 for k, v in sorted(caps.items()))
+                note += f" [caps medida: {frag}]"
             if e.get("disabled_reason"):
                 note = f"DESACTIVADO: {e['disabled_reason']}"
             elif e.get("circuit_open"):

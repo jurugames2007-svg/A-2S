@@ -27,8 +27,10 @@
 > penalización por riesgo de cuota), cuotas rpm por endpoint, **failover que
 > respeta `Retry-After`** (cuarentena + migración de carga, nunca evasión de
 > límites), circuit breaker, telemetría persistente (JSONL, aprendizaje entre
-> ejecuciones) y ejecución distribuida `fanout`/`execute_dag`. Comandos:
-> `a2s pool-status`, `a2s pool-check`. Ver `LIMITACIONES.md` §10.
+> ejecuciones: rpm real aprendido + micro-ajuste de pesos + **aptitud medida
+> por tipo de tarea con puerta de incompetencia**) y ejecución distribuida
+> `fanout`/`execute_dag`. Comandos: `a2s pool-status`, `a2s pool-check`.
+> Ver `LIMITACIONES.md` §10.
 
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
@@ -205,8 +207,16 @@ persisten en `workspace/.a2s/pool/` y alimentan al scheduler en ejecuciones
 futuras (`Ejecutar → Medir → Aprender → Optimizar`): si un proveedor satura
 antes de lo declarado, el pool **aprende su rpm real** y se auto-limita desde
 el arranque siguiente (con recuperación gradual), y los pesos del scheduler
-se micro-ajustan de forma acotada salvo que el operador los fije. Si todo el
-pool cae, degrada al núcleo heurístico: el objetivo se persigue igualmente.
+se micro-ajustan de forma acotada salvo que el operador los fije.
+
+**Aptitud medida por tipo de tarea**: para kinds con verificador objetivo
+(`plan`, `evaluate`, `goal_check`, `reparam`) el pool mide si cada endpoint
+produce el esquema JSON esperado, mezcla la medida con el prior declarado y
+aplica una **puerta de incompetencia** (score < 0.35 con ≥4 muestras → ese
+endpoint deja de recibir ESE tipo de tarea aunque sea gratis). Resultado: lo
+que pueden hacer los gratis lo hacen los gratis; lo que solo sabe hacer el
+endpoint de pago se le paga a él — y solo por eso. Si todo el pool cae,
+degrada al núcleo heurístico: el objetivo se persigue igualmente.
 
 **Prueba todo sin claves**: `examples/mock_llm_server.py` simula tres
 proveedores OpenAI-compatibles (gratis-rápido con cuota estrecha, gratis-medio

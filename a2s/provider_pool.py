@@ -221,6 +221,11 @@ class Telemetry:
         self.learned_rpm: dict[str, int] = {}        # endpoint → rpm efectivo observado
         self.weight_suggestions: dict[str, float] = {}  # micro-ajustes sugeridos
         self.clean_since_429: dict[str, int] = {}    # éxitos seguidos sin 429 (sesión)
+        # capacidad MEDIDA por endpoint×tipo: {ep: {kind: {ok, total}}}.
+        # Señal objetiva: ¿produjo una respuesta utilizable para ese tipo de
+        # tarea (JSON válido con el esquema esperado)? No mide calidad
+        # semántica profunda — eso necesitaría un juez (circular). Ver §10.3.
+        self.caps: dict[str, dict[str, dict[str, int]]] = {}
         self._fh = None
         self._snapshots = 0
         if directory:
@@ -355,6 +360,21 @@ class Telemetry:
             return learned               # declarado ilimitado pero saturó
         return min(configured, learned)
 
+    def record_capability(self, endpoint: str, kind: str, ok: bool) -> None:
+        """Registra si el endpoint produjo una respuesta *utilizable* para ese
+        tipo de tarea (JSON válido con el esquema esperado)."""
+        agg = self.caps.setdefault(endpoint, {}).setdefault(kind, {"ok": 0, "total": 0})
+        agg["total"] += 1
+        agg["ok"] += int(bool(ok))
+
+    def capability_score(self, endpoint: str, kind: str, prior: float) -> Optional[float]:
+        """Capacidad mezclada: prior declarado (quality/etiquetas) suavizado
+        con lo observado (3 pseudo-muestras del prior). None = sin medidas."""
+        c = self.caps.get(endpoint, {}).get(kind)
+        if not c or c["total"] == 0:
+            return None
+        return (c["ok"] + 3.0 * prior) / (c["total"] + 3.0)
+
     # -- persistencia --------------------------------------------------------
 
     def _path(self, name: str) -> Optional[str]:
@@ -385,7 +405,8 @@ class Telemetry:
                     self.learned_rpm[name] = min(self.learned_rpm[name], cfg)
         snap = {"saved_at": now_iso(), "endpoints": {},
                 "learned_rpm": self.learned_rpm,
-                "weights": self.weight_suggestions}
+                "weights": self.weight_suggestions,
+                "capabilities": self.caps}
         for name, agg in self.calls.items():
             lat = sorted(agg["latencies"])
             snap["endpoints"][name] = {
@@ -429,6 +450,10 @@ class Telemetry:
             agg["kinds"] = dict(data.get("kinds", {}))
         self.learned_rpm = {k: int(v) for k, v in snap.get("learned_rpm", {}).items()}
         self.weight_suggestions = {k: float(v) for k, v in snap.get("weights", {}).items()}
+        for ep_name, kinds in snap.get("capabilities", {}).items():
+            self.caps[ep_name] = {k: {"ok": int(v.get("ok", 0)),
+                                      "total": int(v.get("total", 0))}
+                                  for k, v in kinds.items()}
 
     def close(self) -> None:
         if self._fh is not None:
@@ -488,6 +513,7 @@ class TaskScheduler:
             fb = [t for t in endpoints if t[0].role == "fallback_only" and t[0].active
                   and t[0].name not in exclude and not t[1].circuit_open(now)]
             return fb[0] if fb else None
+        cands = self._gate_incompetent(cands, kind)
         s = self.strategy
         if s == "round_robin":
             cands.sort(key=lambda t: t[0].name)
@@ -503,6 +529,28 @@ class TaskScheduler:
 
     # -- función de utilidad multi-objetivo ----------------------------------
 
+    #: umbral de incompetencia: score medido por debajo → el endpoint no
+    #: recibe ESE tipo de tarea (sigue sirviendo los que sí le midan bien).
+    INCOMPETENCE_GATE = 0.35
+    GATE_MIN_SAMPLES = 4
+
+    def _gate_incompetent(self, cands, kind: str):
+        """Excluye de este ``kind`` a los endpoints medidos como incapaces
+        (score < 0.35 con ≥4 muestras), aunque sean gratis. Si excluye a
+        todos, no filtra (no bloquear el pool por una puerta)."""
+        if self.telemetry is None:
+            return cands
+        keep = []
+        for t in cands:
+            ep = t[0]
+            c = self.telemetry.caps.get(ep.name, {}).get(kind)
+            if c and c["total"] >= self.GATE_MIN_SAMPLES:
+                score = self.telemetry.capability_score(ep.name, kind, ep.matches(kind))
+                if score < self.INCOMPETENCE_GATE:
+                    continue
+            keep.append(t)
+        return keep or cands
+
     def _latency(self, name: str) -> Optional[float]:
         return self.telemetry.latency(name) if self.telemetry else None
 
@@ -516,7 +564,13 @@ class TaskScheduler:
         speed = 1.0 - min((p50 or 2.5) / 5.0, 1.0)       # 0s→1.0, ≥5s→0
         rel = self.telemetry.success_rate(ep.name) if self.telemetry else None
         reliability = 0.8 if rel is None else rel
-        capability = ep.matches(kind)
+        # aptitud: prior declarado, sustituido por la MEDIDA si existe
+        prior = ep.matches(kind)
+        capability = prior
+        if self.telemetry is not None:
+            measured = self.telemetry.capability_score(ep.name, kind, prior)
+            if measured is not None:
+                capability = measured
         quota_risk = (win.used() / ep.rpm) if ep.rpm > 0 else 0.0
         return (w["speed"] * speed + w["cost"] * ep.cost_score
                 + w["reliability"] * reliability + w["capability"] * capability
@@ -698,20 +752,34 @@ class ProviderPool(BaseProvider):
     # -- interfaz BaseProvider ------------------------------------------------
 
     def _structured(self, prompt: str, kind: str, fallback_obj: dict[str, Any],
-                    max_tokens: int = 1500) -> dict[str, Any]:
+                    max_tokens: int = 1500,
+                    validator: Optional[Callable[[dict[str, Any]], bool]] = None,
+                    ) -> dict[str, Any]:
+        """LLM→JSON con failover + medición de capacidad por tipo de tarea.
+
+        El juicio de capacidad se registra AQUÍ (con atribución garantizada al
+        endpoint que sirvió la respuesta): False si el JSON no parsea o si el
+        ``validator`` de esquema lo rechaza; True solo si es utilizable.
+        """
         raw, served_by = self._chat(
             [{"role": "system", "content": SYSTEM_PROMPT},
              {"role": "user", "content": prompt}],
             kind=kind, max_tokens=max_tokens)
-        if raw is not None:
-            obj = _extract_json(raw)
-            if obj is not None:
-                obj.setdefault("pool_provider", served_by)
-                return obj
+        if raw is None:
+            fallback_obj["llm_fallback_reason"] = "pool sin endpoints disponibles"
+            return fallback_obj
+        obj = _extract_json(raw)
+        if obj is None:
+            self.telemetry.record_capability(served_by, kind, False)
             fallback_obj["llm_fallback_reason"] = "respuesta sin JSON válido"
             return fallback_obj
-        fallback_obj["llm_fallback_reason"] = "pool sin endpoints disponibles"
-        return fallback_obj
+        valid = validator(obj) if validator else True
+        self.telemetry.record_capability(served_by, kind, valid)
+        if not valid:
+            fallback_obj["llm_fallback_reason"] = "JSON válido pero esquema inesperado"
+            return fallback_obj
+        obj.setdefault("pool_provider", served_by)
+        return obj
 
     def plan(self, goal: str, context: str, tools: str, variant: int = 0) -> dict[str, Any]:
         prompt = (
@@ -724,8 +792,10 @@ class ProviderPool(BaseProvider):
             "disponibles para lograr el objetivo."
         )
         fallback = self.fallback.plan(goal, context, tools, variant=variant)
-        obj = self._structured(prompt, "plan", fallback)
-        if not isinstance(obj.get("steps"), list) or not obj["steps"]:
+        obj = self._structured(
+            prompt, "plan", fallback,
+            validator=lambda o: isinstance(o.get("steps"), list) and bool(o["steps"]))
+        if "pool_provider" not in obj:
             return fallback
         return obj
 
@@ -736,8 +806,10 @@ class ProviderPool(BaseProvider):
             'Devuelve JSON: {"strategy": str, "change": str, "new_params_hint": str}. '
             "Propón un enfoque DIFERENTE (reparametrización), nunca el mismo."
         )
-        return self._structured(prompt, "reparam",
-                                self.fallback.reparameterize(goal, failed, history, tools))
+        return self._structured(
+            prompt, "reparam",
+            self.fallback.reparameterize(goal, failed, history, tools),
+            validator=lambda o: bool(o.get("change")))
 
     def evaluate(self, step_goal: str, observation: str, criteria: str) -> dict[str, Any]:
         prompt = (
@@ -748,8 +820,10 @@ class ProviderPool(BaseProvider):
             "intento fallido pero reparametrizable."
         )
         fallback = self.fallback.evaluate(step_goal, observation, criteria)
-        obj = self._structured(prompt, "evaluate", fallback, max_tokens=400)
-        if obj.get("verdict") not in ("success", "failed", "blocked"):
+        obj = self._structured(
+            prompt, "evaluate", fallback, max_tokens=400,
+            validator=lambda o: o.get("verdict") in ("success", "failed", "blocked"))
+        if "pool_provider" not in obj:
             return fallback
         return obj
 
@@ -765,8 +839,11 @@ class ProviderPool(BaseProvider):
             kind="goal_check", max_tokens=200)
         if raw is not None:
             obj = _extract_json(raw)
-            if obj is not None and isinstance(obj.get("achieved"), bool):
-                return obj["achieved"], str(obj.get("reason", ""))
+            achieved = obj.get("achieved") if isinstance(obj, dict) else None
+            self.telemetry.record_capability(served_by, "goal_check",
+                                             isinstance(achieved, bool))
+            if obj is not None and isinstance(achieved, bool):
+                return achieved, str(obj.get("reason", ""))
         return self.fallback.goal_check(goal, summary)
 
     # -- ejecución distribuida: fanout (map) y DAG -----------------------------
@@ -877,6 +954,11 @@ class ProviderPool(BaseProvider):
                     "consecutive_failures": st.consecutive_failures,
                     "last_error": st.last_error,
                     "window_used": win.used(),
+                    "capability_measured": {
+                        k: {"ok": v["ok"], "total": v["total"],
+                            "score": round(self.telemetry.capability_score(
+                                ep.name, k, ep.matches(k)), 3)}
+                        for k, v in self.telemetry.caps.get(ep.name, {}).items()},
                 })
         tel = self.telemetry.summary()
         for e in eps:
