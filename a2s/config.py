@@ -36,6 +36,10 @@ class Config:
     allow_network: bool = True
     allow_shell: bool = True
     shell_unsafe: bool = False        # requiere --unsafe: comandos sin lista blanca
+    network_allowlist: list[str] = field(default_factory=list)  # hosts permitidos (vacío = todos)
+    sandbox: bool = True              # aislar python_exec (nsjail > bwrap > rlimits)
+    max_plugins: int = 4              # plugins simultáneos (mínimo hardware)
+    evolve_generations: int = 0       # generaciones de neuroevolución al finalizar (0 = off)
     # Verbosidad.
     verbose: bool = True
     quiet: bool = False

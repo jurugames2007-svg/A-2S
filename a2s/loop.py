@@ -28,7 +28,9 @@ from .models import (Evaluation, Observation, RunReport, Step, StepStatus,
                      now_iso)
 from .neural import GovernanceNet
 from .planner import Planner
+from .plugin_loader import PluginLoader
 from .providers import BaseProvider, get_provider
+from .signing import Signer, report_payload
 from .tools import ToolRegistry
 
 # Verificadores personalizables.
@@ -65,7 +67,9 @@ class AgentLoop:
         config = config or Config()
         registry = ToolRegistry(config.workspace, allow_network=config.allow_network,
                                 allow_shell=config.allow_shell,
-                                shell_unsafe=config.shell_unsafe)
+                                shell_unsafe=config.shell_unsafe,
+                                network_allowlist=config.network_allowlist,
+                                sandbox=config.sandbox)
         provider = provider or get_provider(config.provider)
         memory = MemoryHub(config.workspace, goal)
         loop = cls(config=config, provider=provider, registry=registry, memory=memory,
@@ -75,6 +79,13 @@ class AgentLoop:
         # dentro de la ejecución y persisten entre ejecuciones.
         loop.neural = GovernanceNet(os.path.join(memory.dir, "governance.json"))
         loop.consensus = ConsensusChecker(loop)
+        # Plugins bajo demanda: solo los que la misión necesita (mínimo hardware).
+        loader = PluginLoader(config.workspace)
+        loader.discover()
+        loop.signer = Signer(config.workspace)
+        loop.plugins_active = loader.activate(
+            registry, goal, max_plugins=config.max_plugins,
+            signer=loop.signer, ledger=memory.ledger)
         return loop
 
     # -- eventos -------------------------------------------------------------
@@ -101,9 +112,13 @@ class AgentLoop:
         self.memory.goal = goal
         self._workspace_before = self._snapshot_workspace()
         self._emit("run_start", {"goal": goal, "provider": self.provider.name,
-                                 "workspace": self.config.workspace})
+                                 "workspace": self.config.workspace,
+                                 "sandbox": self.registry.sandbox.level_name,
+                                 "plugins": list(getattr(self, "plugins_active", []))})
         self.config.log(f"[A²S] ▶ Objetivo: {goal}")
         self.config.log(f"[A²S] ⚙ proveedor de razonamiento: {self.provider.name}")
+        self.config.log(f"[A²S] ⛨ sandbox: {self.registry.sandbox.level_name} "
+                        f"| plugins activos: {getattr(self, 'plugins_active', []) or 'ninguno'}")
 
         schemas = self.registry.schemas()
         context = self.planner.context_for(goal)
@@ -371,17 +386,26 @@ class AgentLoop:
 
     # -- cierre forense ----------------------------------------------------------
     def _finalize(self, goal: str, achieved: bool, reason: str, deadline: float) -> RunReport:
-        # Registrar artefactos nuevos con hash (cadena de custodia de resultados).
+        # Registrar artefactos nuevos con hash + firma HMAC (verificación
+        # criptográfica de resultados: no basta el hash, se exige el secreto).
+        signer = getattr(self, "signer", None) or Signer(self.config.workspace)
         after = self._snapshot_workspace()
         new_files = sorted(after - self._workspace_before)
         for rel in new_files:
             full = os.path.join(self.config.workspace, rel)
             try:
                 with open(full, "rb") as fh:
-                    digest = hashlib.sha256(fh.read()).hexdigest()
+                    blob = fh.read()
+                digest = hashlib.sha256(blob).hexdigest()
             except OSError:
                 continue
             self.memory.register_artifact(rel, digest)
+            try:
+                sig = signer.sign(blob)
+            except OSError:
+                sig = ""
+            self.memory.ledger.append("artifact_signed",
+                                      {"path": rel, "sha256": digest, "hmac": sig})
 
         integrity_ok, integrity_msg, n_entries = self.memory.ledger.verify()
         wall = time.time() - self._started_at
@@ -417,7 +441,26 @@ class AgentLoop:
             artifacts=list(self.memory.artifacts),
             final_note=" | ".join(note_parts),
             ended_at=now_iso(),
+            sandbox_level=self.registry.sandbox.level_name,
         )
+        # Firma criptográfica del informe (payload canónico, HMAC del workspace).
+        try:
+            report.signature = signer.sign(report_payload(report.to_dict()))
+        except OSError:
+            report.signature = ""
+        self.memory.ledger.append("report_signed",
+                                  {"run_id": report.run_id,
+                                   "signature": report.signature})
+        # Neuroevolución opcional al cierre (aprende del buffer de episodios).
+        if self.config.evolve_generations > 0 and self.neural is not None:
+            try:
+                from .neuroevolve import evolve_from_memory
+                evolve_from_memory(self.memory, generations=self.config.evolve_generations,
+                                   target=os.path.join(self.memory.dir, "governance.json"))
+                self.memory.ledger.append("neuroevolution",
+                                          {"generations": self.config.evolve_generations})
+            except Exception as exc:  # noqa: BLE001 — la evolución es optativa
+                self.memory.ledger.append("neuroevolution_failed", {"error": str(exc)})
         self._emit("run_end", {"success": achieved, "note": report.final_note})
         if achieved:
             self.config.log(f"[A²S] ✔ OBJETIVO CUMPLIDO — {reason or ''}")

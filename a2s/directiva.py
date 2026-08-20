@@ -97,6 +97,38 @@ CAPABILITY_MAP = [
      "Imposible físicamente. Equivalente: especulación de planes, "
      "reanudación desde estado persistido y reconstrucción a partir de "
      "evidencia disponible (log, git, ledger, artefactos)."),
+    # ---- A²S v1.2: hardening + fusión -----------------------------------
+    ("Sandbox real (reemplazo del filtro decorativo)",
+     "sandbox.py: aislamiento por capas nsjail > bwrap > rlimits; "
+     "python_exec corre con límites duros de RAM/CPU/procesos/fds y red "
+     "bloqueada; el nivel activo se reporta (doctor / run_start)."),
+    ("Verificador criptográfico",
+     "signing.py: HMAC-SHA256 del informe y de cada artefacto con secreto "
+     "por workspace; a2s verify valida cadena de custodia + firmas. "
+     "Certifica autenticidad, no corrección (eso es el verificador de misión)."),
+    ("Dashboard con autenticación real",
+     "auth.py: tokens JWT-HS256 con expiración; dashboard --auth exige "
+     "login (cookie HttpOnly, SameSite=Strict); sin TLS el token viaja en "
+     "claro (documentado)."),
+    ("Control de egress (red)",
+     "Lista blanca de hosts (--allow-host) aplicada a fetch/búsqueda + "
+     "--no-network. iptables por uid NO se auto-aplica (requiere root): "
+     "queda documentado como tarea del operador."),
+    ("Todo es un plugin / fusión de capacidades",
+     "plugin_loader.py: plugins locales que se auto-registran y se ACTIVAN "
+     "bajo demanda según la misión (etiquetas ∩ objetivo), con hash "
+     "verificable. Integrados: forensics_extra (magia, strings, EXIF, PDF) "
+     "y crypto_tools. Sin registro remoto: descargar y ejecutar código en "
+     "caliente es RCE con pasos extra."),
+    ("Red neuronal evolutiva real",
+     "neuroevolve.py: población de redes con mutación de pesos y topología "
+     "(grow/prune), fitness sobre holdout de episodios; a2s evolve exporta "
+     "el mejor candidato a governance.json. Necesita buffer de episodios "
+     "real: con pocos datos es ruido (documentado)."),
+    ("LiveCD mode / mínimo hardware",
+     "a2s build-live: zipapp de ~490 KB (un solo archivo, python3 en el "
+     "host destino); --ram usa /dev/shm como workspace volátil. Core en "
+     "RAM, plugins activados solo si la misión los pide."),
 ]
 
 

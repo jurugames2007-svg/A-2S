@@ -117,6 +117,8 @@ class RunReport:
     timeline: list[dict[str, Any]] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     final_note: str = ""
+    signature: str = ""               # HMAC del informe (verificación criptográfica)
+    sandbox_level: str = ""           # nivel de aislamiento usado
     started_at: str = field(default_factory=now_iso)
     ended_at: str = ""
 

@@ -51,7 +51,28 @@ def _config_from_args(args: argparse.Namespace) -> Config:
         cfg.speculative_candidates = args.speculative
     if getattr(args, "max_depth", None) is not None:
         cfg.max_fractal_depth = args.max_depth
+    if getattr(args, "allow_host", None):
+        cfg.network_allowlist = list(args.allow_host)
+    if getattr(args, "no_sandbox", False):
+        cfg.sandbox = False
+    if getattr(args, "evolve", None):
+        cfg.evolve_generations = args.evolve
+    if getattr(args, "ram", False):
+        cfg.workspace = ram_workspace()
     return cfg
+
+
+def ram_workspace() -> str:
+    """Workspace volátil en RAM (/dev/shm) si está disponible."""
+    import tempfile
+    shm = "/dev/shm"
+    if os.path.isdir(shm) and os.access(shm, os.W_OK):
+        path = os.path.join(shm, f"a2s-{os.getpid()}")
+        os.makedirs(path, exist_ok=True)
+        print(f"[A²S] ⚡ workspace volátil en RAM: {path} (se pierde al apagar)")
+        return path
+    print("[A²S] /dev/shm no disponible: usando directorio temporal")
+    return tempfile.mkdtemp(prefix="a2s-")
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -155,8 +176,110 @@ def cmd_swarm(args: argparse.Namespace) -> int:
 def cmd_dashboard(args: argparse.Namespace) -> int:
     from .dashboard import DashboardServer
     server = DashboardServer(port=args.port, workspace=args.workspace,
-                             auto_demo=not args.no_autodemo, public=args.public)
+                             auto_demo=not args.no_autodemo, public=args.public,
+                             require_auth=args.auth)
     server.serve_forever()
+    return 0
+
+
+def cmd_token(args: argparse.Namespace) -> int:
+    from .auth import workspace_token_manager
+    tm = workspace_token_manager(args.workspace)
+    token = tm.issue(scope="dashboard", hours=args.hours)
+    print(token)
+    print(f"(válido {args.hours}h para el dashboard de {os.path.abspath(args.workspace)})")
+    return 0
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    from .ledger import Ledger
+    from .signing import Signer, report_payload
+    ws = os.path.abspath(args.workspace)
+    problems: list[str] = []
+    ledger = Ledger(os.path.join(ws, ".a2s"))
+    ok, msg, n = ledger.verify()
+    print(f"Ledger:        {msg} ({n} entradas)")
+    if not ok:
+        problems.append(msg)
+    signer = Signer(ws)
+    # Verificar firmas de artefactos registradas en el ledger.
+    signed = [e for e in ledger.entries()
+              if e.get("event") == "artifact_signed"]
+    checked = 0
+    for e in signed:
+        p = e["payload"]
+        path = os.path.join(ws, p.get("path", ""))
+        if not os.path.isfile(path):
+            problems.append(f"artefacto desaparecido: {p.get('path')}")
+            continue
+        if not signer.verify_file(path, p.get("hmac", "")):
+            problems.append(f"FIRMA INCOHERENTE: {p.get('path')}")
+        else:
+            checked += 1
+    print(f"Artefactos:    {checked} con firma HMAC verificada")
+    # Verificar informe de ejecución si existe.
+    rep_json = os.path.join(ws, "informe_a2s.md.json")
+    if os.path.isfile(rep_json):
+        with open(rep_json, encoding="utf-8") as fh:
+            rep = json.load(fh)
+        sig = rep.get("signature", "")
+        if not sig:
+            problems.append("informe de ejecución sin firma")
+        elif not signer.verify(report_payload(rep), sig):
+            problems.append("informe de ejecución: firma inválida")
+        else:
+            print("Informe:       firma HMAC válida")
+    else:
+        print("Informe:       (no existe informe_a2s.md.json)")
+    if problems:
+        print("\nVERIFICACIÓN CON PROBLEMAS:")
+        for p in problems:
+            print(f"  ✗ {p}")
+        return 1
+    print("\n✔ verificación completa: cadena íntegra y firmas coherentes")
+    return 0
+
+
+def cmd_evolve(args: argparse.Namespace) -> int:
+    from .memory import MemoryHub
+    from .neuroevolve import evolve_from_memory
+    ws = os.path.abspath(args.workspace)
+    memory = MemoryHub(ws, "(evolución)")
+    if len(memory.episodes) < 8:
+        print(f"[A²S] buffer insuficiente: {len(memory.episodes)} episodios "
+              "(mínimo 8). Ejecuta misiones primero.")
+        return 1
+    try:
+        fitness = evolve_from_memory(memory, generations=args.generations,
+                                     target=os.path.join(memory.dir, "governance.json"))
+    except ValueError as exc:
+        print(f"[A²S] {exc}")
+        return 1
+    print(f"[A²S] neuroevolución completada: fitness={fitness:.3f} "
+          f"({args.generations} generaciones, {len(memory.episodes)} episodios)")
+    print("[A²S] pesos exportados a .a2s/governance.json")
+    return 0
+
+
+def cmd_build_live(args: argparse.Namespace) -> int:
+    import shutil
+    import tempfile
+    import zipapp
+    out = args.output or "dist/a2s.pyz"
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    import a2s as pkg
+    source = os.path.dirname(pkg.__file__)
+    # Staging: __main__.py + paquete a2s, para que el zip mantenga el contexto
+    # de paquete (los imports relativos internos siguen funcionando).
+    with tempfile.TemporaryDirectory() as stage:
+        shutil.copytree(source, os.path.join(stage, "a2s"))
+        with open(os.path.join(stage, "__main__.py"), "w", encoding="utf-8") as fh:
+            fh.write("import sys\nfrom a2s.cli import main\nsys.exit(main())\n")
+        zipapp.create_archive(stage, target=out, interpreter="/usr/bin/env python3")
+    size = os.path.getsize(out)
+    print(f"[A²S] LiveCD (zipapp) creado: {out} ({size/1024:.0f} KB)")
+    print(f"       Uso: python3 {out} run 'tu objetivo' --ram")
+    print("       Requiere python3 en el host destino (sin instalación de A²S).")
     return 0
 
 
@@ -174,14 +297,26 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     import socket
     import sys as _sys
     from .ledger import Ledger
+    from .plugin_loader import PluginLoader
+    from .sandbox import Sandbox
     print("A²S — diagnóstico del entorno")
     print(f"  Python:        {_sys.version.split()[0]}")
     print(f"  A²S:           {__version__}")
     ws = os.path.abspath(args.workspace)
     print(f"  Workspace:     {ws} (existe: {os.path.isdir(ws)})")
+    sandbox = Sandbox(ws)
+    print(f"  Sandbox:       nivel {sandbox.level} ({sandbox.level_name}) "
+          f"— nsjail: {sandbox._nsjail or 'no'}, bwrap: {sandbox._bwrap or 'no'}")
+    loader = PluginLoader(ws)
+    loader.discover()
+    plugins = loader.describe()
+    print(f"  Plugins:       {len(plugins)} disponibles: "
+          f"{', '.join(p['name'] for p in plugins) or 'ninguno'}")
     ledger = Ledger(os.path.join(ws, ".a2s"))
     ok, msg, n = ledger.verify()
     print(f"  Ledger:        {msg} ({n} entradas)")
+    if os.path.exists(os.path.join(ws, ".a2s", "secret")):
+        print("  Firma HMAC:    secreto del workspace presente (a2s verify)")
     if os.environ.get("OPENAI_API_KEY"):
         print("  LLM externo:   OPENAI_API_KEY detectada → se usará API externa")
         base = os.environ.get("A2S_LLM_BASE_URL", "https://api.openai.com/v1")
@@ -236,9 +371,29 @@ def main(argv: list[str] | None = None) -> int:
     p_dash.add_argument("--workspace", default="workspace")
     p_dash.add_argument("--public", action="store_true",
                         help="escuchar en 0.0.0.0 (⚠ cualquiera en la red puede lanzar misiones)")
+    p_dash.add_argument("--auth", action="store_true",
+                        help="exigir token de acceso (genéralo con: a2s token)")
     p_dash.add_argument("--no-autodemo", action="store_true",
                         help="no lanzar la misión demo automáticamente")
     p_dash.set_defaults(func=cmd_dashboard)
+
+    p_tok = sub.add_parser("token", help="genera un token de acceso para el dashboard")
+    p_tok.add_argument("--workspace", default="workspace")
+    p_tok.add_argument("--hours", type=float, default=1.0)
+    p_tok.set_defaults(func=cmd_token)
+
+    p_ver = sub.add_parser("verify", help="verificación criptográfica: cadena de custodia + firmas HMAC")
+    p_ver.add_argument("--workspace", default="workspace")
+    p_ver.set_defaults(func=cmd_verify)
+
+    p_evo = sub.add_parser("evolve", help="neuroevolución de la red de gobernanza desde los episodios")
+    p_evo.add_argument("--workspace", default="workspace")
+    p_evo.add_argument("--generations", type=int, default=5)
+    p_evo.set_defaults(func=cmd_evolve)
+
+    p_live = sub.add_parser("build-live", help="empaqueta A²S como un solo archivo ejecutable (zipapp)")
+    p_live.add_argument("--output", default="dist/a2s.pyz")
+    p_live.set_defaults(func=cmd_build_live)
 
     p_rep = sub.add_parser("report", help="lee un informe JSON previo")
     p_rep.add_argument("path")
@@ -276,6 +431,14 @@ def _add_common(p: argparse.ArgumentParser) -> None:
                    help="profundidad máxima de división fractal")
     p.add_argument("--resume", action="store_true",
                    help="reanuda sobre el estado persistido del workspace (la memoria se conserva)")
+    p.add_argument("--ram", action="store_true",
+                   help="workspace volátil en RAM (/dev/shm) — nada en disco")
+    p.add_argument("--no-sandbox", action="store_true",
+                   help="desactivar el sandbox de python_exec (no recomendado)")
+    p.add_argument("--allow-host", action="append", default=None,
+                   help="permitir solo este host en la red (repetible; vacío = todos)")
+    p.add_argument("--evolve", type=int, default=0,
+                   help="generaciones de neuroevolución al finalizar la misión")
 
 
 if __name__ == "__main__":

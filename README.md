@@ -8,10 +8,13 @@
 > seguridad, en cuyo caso entrega un informe forense reanudable con el estado
 > exacto y la cadena de custodia completa.
 
-> **v1.1 — paquete de evolución (A²S-E):** red de gobernanza neuronal (MLP
-> entrenado en línea, en Python puro), consenso de verificación, planificación
-> especulativa, memoria evolutiva persistente, shell evolucionado ($VAR, globs,
-> `$(...)`), auto-supervisión (`supervise`) y réplicas en procesos (`swarm`).
+> **v1.2 — hardening + fusión de capacidades:** sandbox real por capas
+> (nsjail/bwrap/rlimits), firma criptográfica HMAC de resultados (`a2s verify`),
+> dashboard con autenticación por tokens (`a2s token`, `--auth`), lista blanca
+> de red (`--allow-host`), arquitectura de **plugins bajo demanda**
+> (forensics_extra, crypto_tools), **neuroevolución** (`a2s evolve`) y modo
+> **LiveCD** (`a2s build-live` → un solo archivo de ~490 KB, `--ram` para
+> workspace en memoria).
 
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
@@ -52,6 +55,14 @@ Cada capacidad de la directiva A²S tiene aquí su implementación real. Ver
 | Auto-replicación y despliegue (A²S-E) | `a2s swarm` (réplicas en procesos paralelos, una por objetivo) y `a2s supervise` (el agente se relanza hasta cumplir) |
 | Memoria evolutiva cuántica (A²S-E) | Estrategias y pesos neuronales **persistentes entre ejecuciones** (`strategies.json`, `governance.json`) |
 | Shell universal (A²S-E) | Mini-shell evolucionado: `$VAR`, globs y `$(...)` con la **misma política de permisos** |
+| Sandbox real (v1.2) | Ejecución de `python_exec` en aislamiento por capas: nsjail > bwrap > **rlimits** (RAM/CPU/procs/fds + red bloqueada); nivel reportado por `doctor` |
+| Verificador criptográfico (v1.2) | HMAC-SHA256 del informe y de cada artefacto (secreto por workspace); `a2s verify` valida cadena + firmas |
+| Autenticación (v1.2) | Tokens JWT-HS256 con expiración (`a2s token`); dashboard `--auth` con cookie HttpOnly |
+| Egress control (v1.2) | Lista blanca de hosts (`--allow-host`) aplicada a fetch/búsqueda + `--no-network` |
+| Todo es un plugin (v1.2) | `plugin_loader.py`: plugins locales auto-registrados **bajo demanda** según la misión (etiquetas ∩ objetivo), hash verificable, sin RCE de registro remoto |
+| Fusión de capacidades (v1.2) | Herramientas externas como plugins: `forensics_extra` (magia de archivos, strings, EXIF, PDF) y `crypto_tools` (sha256/firma/verificación) |
+| Red evolutiva (v1.2) | `neuroevolve.py`: población de redes con mutación de pesos y topología; `a2s evolve` exporta el mejor candidato a la red de gobernanza |
+| LiveCD (v1.2) | `a2s build-live`: zipapp de ~490 KB que corre sin instalación; `--ram` usa `/dev/shm` como workspace volátil |
 | Backdoors / comunicación encubierta / corrupción de validación de terceros | **No implementado contra terceros** (ilegal). Equivalente legítimo: persistencia propia reanudable y desafío de los *propios* verificadores |
 | Disolución de límites "propio/ajeno" / minería / manipulación temporal | **No implementado**: redefinir palabras no convierte un ataque en legítimo, y la física no es negociable. Equivalentes: presupuestos renovables, checkpoint/reanudación, especulación de planes |
 
@@ -97,6 +108,23 @@ python -m a2s swarm "Objetivo A;Objetivo B" --workers 2
 
 # Planificación especulativa: N planes candidatos puntuados por la red
 python -m a2s run "tu objetivo" --speculative 3
+
+# Hardening: verificación criptográfica (cadena de custodia + firmas HMAC)
+python -m a2s verify --workspace workspace
+
+# Dashboard con autenticación (token con expiración)
+python -m a2s token --workspace workspace --hours 2
+python -m a2s dashboard --auth --port 8000
+
+# Neuroevolución de la red de gobernanza desde los episodios
+python -m a2s evolve --workspace workspace --generations 5
+
+# LiveCD: un solo archivo ejecutable (~490 KB), workspace en RAM
+python -m a2s build-live --output dist/a2s.pyz
+python3 dist/a2s.pyz run "tu objetivo" --ram
+
+# Restricción de red: solo hosts permitidos
+python -m a2s run "tu objetivo" --allow-host api.example.com
 
 # Diagnóstico del entorno
 python -m a2s doctor
@@ -148,6 +176,12 @@ a2s/
 ├── providers.py    núcleo heurístico determinista + LLM vía API externa
 ├── neural.py       red de gobernanza: MLP entrenado en línea (v1.1)
 ├── consensus.py    consenso de verificación del objetivo (v1.1)
+├── neuroevolve.py  neuroevolución: población con mutación de pesos/topología (v1.2)
+├── sandbox.py      ejecución aislada por capas: nsjail > bwrap > rlimits (v1.2)
+├── signing.py      firma HMAC-SHA256 de resultados y artefactos (v1.2)
+├── auth.py         tokens JWT-HS256 con expiración para el dashboard (v1.2)
+├── plugin_loader.py  plugins bajo demanda con verificación de hash (v1.2)
+├── plugins/        forensics_extra (magia/strings/EXIF/PDF) + crypto_tools
 ├── tools.py        registro de herramientas + mini-shell seguro evolucionado
 │                   (pipes, redirección, $VAR, globs, $(), lista blanca)
 │                   + modelo de permisos
@@ -218,10 +252,11 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-28 pruebas: hash chain y detección de manipulación, modelo de permisos,
+52 pruebas: hash chain y detección de manipulación/truncación, permisos,
 proveedores, escalera de recuperación, división fractal, misión demo completa,
-red de gobernanza (aprendizaje + persistencia), consenso de verificación,
-memoria evolutiva persistente y shell evolucionado.
+red de gobernanza, consenso, memoria persistente, shell evolucionado, sandbox
+(red/memoria/timeout), firmas HMAC, tokens con expiración, plugins (activación
+y herramientas) y zipapp LiveCD.
 
 ---
 

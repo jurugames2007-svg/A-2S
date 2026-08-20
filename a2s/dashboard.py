@@ -128,19 +128,35 @@ async function launch(demo){
   document.getElementById('start').disabled=true;document.getElementById('demo').disabled=true;
   const r=await fetch('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({goal:goal||'',demo:!!demo})});
+  if(r.status===401){const t=prompt('Panel protegido. Pega tu token:');if(t){await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:t})});return launch(demo);}}
   if(!r.ok){add({event:'goal_check',at:new Date().toISOString(),reason:'no se pudo iniciar',achieved:false});}
 }
 document.getElementById('start').onclick=()=>launch(false);
 document.getElementById('demo').onclick=()=>launch(true);
-const es=new EventSource('/api/events');
-es.onmessage=m=>{try{add(JSON.parse(m.data));}catch(e){}};
-fetch('/api/state').then(r=>r.json()).then(s=>{
+async function ensureAuth(){
+  const r=await fetch('/api/state');
+  if(r.status!==401) return r;
+  const token=prompt('Panel protegido. Pega tu token (genera uno con: python -m a2s token):');
+  if(!token) throw new Error('sin token');
+  const lr=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({token:token})});
+  if(!lr.ok){alert('Token inválido o expirado');throw new Error('auth');}
+  return fetch('/api/state');
+}
+function connectSSE(){
+  const es=new EventSource('/api/events');
+  es.onmessage=m=>{try{add(JSON.parse(m.data));}catch(e){}};
+  es.onerror=()=>{es.close();setTimeout(()=>ensureAuth().then(r=>{if(r.ok)connectSSE();}),2000);};
+}
+ensureAuth().then(r=>{if(!r.ok){return;} return r.json();}).then(s=>{
+  if(!s) return;
   (s.events||[]).forEach(add);
   els.iter.textContent=s.iterations||0;
   if(s.running){els.badge.className='badge run';els.badge.textContent='RUNNING';els.state.textContent='EJECUTANDO';running=true;
     document.getElementById('start').disabled=true;document.getElementById('demo').disabled=true;}
   if(s.report&&s.report.success){els.badge.className='badge ok';els.badge.textContent='OBJETIVO CUMPLIDO';els.state.textContent='CUMPLIDO';}
-});
+  connectSSE();
+}).catch(()=>{});
 </script></body></html>"""
 
 
@@ -232,22 +248,31 @@ class MissionManager:
 
 class DashboardServer:
     def __init__(self, port: int = 8000, workspace: str = "workspace",
-                 auto_demo: bool = True, public: bool = False):
+                 auto_demo: bool = True, public: bool = False,
+                 require_auth: bool = False):
         self.port = port
         self.workspace = workspace
         self.public = public
+        self.require_auth = require_auth
         self.host = "0.0.0.0" if public else "127.0.0.1"
         self.hub = EventHub()
         self.missions = MissionManager(self.hub, workspace)
         self.auto_demo = auto_demo
+        self.token_manager = None
+        if require_auth:
+            from .auth import workspace_token_manager
+            self.token_manager = workspace_token_manager(workspace)
 
     def serve_forever(self) -> None:
         server = ThreadingHTTPServer((self.host, self.port), self._handler())
         print(f"[A²S] Panel de control: http://{self.host}:{self.port}/")
-        if self.public:
-            print("[A²S] ⚠ MODO PÚBLICO: cualquier equipo que alcance este puerto "
-                  "puede lanzar misiones que ejecutan código en este host. "
-                  "Usa solo en redes de confianza.")
+        if self.require_auth:
+            print("[A²S] 🔒 AUTENTICACIÓN ACTIVA. Genera un token con: "
+                  f"python -m a2s token --workspace {self.workspace}")
+        elif self.public:
+            print("[A²S] ⚠ MODO PÚBLICO SIN AUTENTICACIÓN: cualquier equipo que "
+                  "alcance este puerto puede lanzar misiones que ejecutan código "
+                  "en este host. Usa --auth en redes no confiables.")
         else:
             print("[A²S] (solo localhost; usa --public para exponerlo en la red)")
         if self.auto_demo:
@@ -263,6 +288,21 @@ class DashboardServer:
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, fmt, *args):  # silencio de acceso
                 pass
+
+            def _auth_ok(self) -> bool:
+                if not outer.require_auth:
+                    return True
+                cookie = self.headers.get("Cookie", "")
+                token = None
+                for part in cookie.split(";"):
+                    if part.strip().startswith("a2s_token="):
+                        token = part.strip().split("=", 1)[1]
+                        break
+                auth = self.headers.get("Authorization", "")
+                if not token and auth.startswith("Bearer "):
+                    token = auth[7:]
+                ok, _ = outer.token_manager.verify(token, scope="dashboard")
+                return ok
 
             def _json(self, obj, code=200):
                 body = json.dumps(obj, ensure_ascii=False).encode()
@@ -280,6 +320,11 @@ class DashboardServer:
                     self.send_header("Content-Length", str(len(body)))
                     self.end_headers()
                     self.wfile.write(body)
+                elif self.path == "/api/login":  # estado de autenticación
+                    self._json({"auth_required": outer.require_auth,
+                                "authenticated": self._auth_ok()})
+                elif not self._auth_ok():
+                    self._json({"error": "no autorizado"}, 401)
                 elif self.path == "/api/events":
                     self.send_response(200)
                     self.send_header("Content-Type", "text/event-stream")
@@ -312,7 +357,29 @@ class DashboardServer:
                     self.send_error(404)
 
             def do_POST(self):
-                if self.path == "/api/start":
+                if self.path == "/api/login":
+                    length = int(self.headers.get("Content-Length", 0))
+                    try:
+                        payload = json.loads(self.rfile.read(length) or b"{}")
+                    except json.JSONDecodeError:
+                        payload = {}
+                    token = payload.get("token", "")
+                    ok, info = outer.token_manager.verify(token, scope="dashboard")
+                    if ok:
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/json; charset=utf-8")
+                        self.send_header(
+                            "Set-Cookie",
+                            f"a2s_token={token}; Path=/; HttpOnly; SameSite=Strict")
+                        body = b'{"status": "autenticado"}'
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        self.wfile.write(body)
+                    else:
+                        self._json({"error": f"token inválido: {info}"}, 401)
+                elif not self._auth_ok():
+                    self._json({"error": "no autorizado"}, 401)
+                elif self.path == "/api/start":
                     length = int(self.headers.get("Content-Length", 0))
                     try:
                         payload = json.loads(self.rfile.read(length) or b"{}")

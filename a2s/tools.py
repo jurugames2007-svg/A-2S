@@ -22,6 +22,7 @@ from typing import Any, Callable, Optional
 
 from .config import SHELL_ALLOWLIST, classify_forbidden
 from .models import Observation, ToolCall
+from .sandbox import Sandbox, SandboxResult
 
 
 @dataclass
@@ -38,44 +39,50 @@ class ToolRegistry:
     """Descubrimiento + invocación segura de herramientas."""
 
     def __init__(self, workspace: str, allow_network: bool = True,
-                 allow_shell: bool = True, shell_unsafe: bool = False):
+                 allow_shell: bool = True, shell_unsafe: bool = False,
+                 network_allowlist: Optional[list[str]] = None,
+                 sandbox: bool = True):
         self.workspace = os.path.abspath(workspace)
         os.makedirs(self.workspace, exist_ok=True)
         self.allow_network = allow_network
         self.allow_shell = allow_shell
         self.shell_unsafe = shell_unsafe
+        self.network_allowlist = list(network_allowlist or [])
         self.denied: list[dict[str, Any]] = []
         self._tools: dict[str, Tool] = {}
+        self.sandbox_enabled = sandbox
+        self.sandbox = Sandbox(self.workspace, allow_network=allow_network)
         self._register_builtins()
 
     # -- descubrimiento -----------------------------------------------------
-    def _register(self, tool: Tool) -> None:
+    def register(self, tool: Tool) -> None:
+        """Registro público (usado por el sistema de plugins)."""
         self._tools[tool.name] = tool
 
     def _register_builtins(self) -> None:
-        self._register(Tool("read_file", "Lee un archivo del espacio de trabajo.",
+        self.register(Tool("read_file", "Lee un archivo del espacio de trabajo.",
                             {"path": "str (ruta relativa al workspace)", "limit": "int opcional"},
                             self.read_file))
-        self._register(Tool("write_file", "Escribe/crea un archivo en el espacio de trabajo.",
+        self.register(Tool("write_file", "Escribe/crea un archivo en el espacio de trabajo.",
                             {"path": "str", "content": "str"},
                             self.write_file, destructive=True))
-        self._register(Tool("list_dir", "Lista el contenido de un directorio del workspace.",
+        self.register(Tool("list_dir", "Lista el contenido de un directorio del workspace.",
                             {"path": "str opcional (por defecto '.')"},
                             self.list_dir))
-        self._register(Tool("shell", "Ejecuta un comando de shell (lista blanca).",
+        self.register(Tool("shell", "Ejecuta un comando de shell (lista blanca).",
                             {"command": "str"},
                             self.shell, destructive=True))
-        self._register(Tool("fetch_url", "Descarga el contenido de una URL externa (APIs, páginas).",
+        self.register(Tool("fetch_url", "Descarga el contenido de una URL externa (APIs, páginas).",
                             {"url": "str", "method": "GET|POST", "body": "str opcional",
                              "headers": "dict opcional", "timeout": "int opcional"},
                             self.fetch_url, network=True))
-        self._register(Tool("web_search", "Búsqueda web vía API externa (DuckDuckGo HTML).",
+        self.register(Tool("web_search", "Búsqueda web vía API externa (DuckDuckGo HTML).",
                             {"query": "str", "max_results": "int opcional"},
                             self.web_search, network=True))
-        self._register(Tool("python_exec", "Ejecuta un fragmento Python aislado (subproceso).",
+        self.register(Tool("python_exec", "Ejecuta un fragmento Python aislado (subproceso).",
                             {"code": "str"},
                             self.python_exec, destructive=True))
-        self._register(Tool("save_artifact", "Guarda un artefacto inmutable (hash) en la bitácora forense.",
+        self.register(Tool("save_artifact", "Guarda un artefacto inmutable (hash) en la bitácora forense.",
                             {"name": "str", "content": "str", "kind": "str opcional"},
                             self.save_artifact, destructive=True))
 
@@ -254,15 +261,25 @@ class ToolRegistry:
             combined += f"\n(exit={final_rc})"
         return combined
 
+    def _host_allowed(self, url: str) -> bool:
+        if not self.network_allowlist:
+            return True
+        host = urllib.parse.urlparse(url).hostname or ""
+        return any(host == a or host.endswith("." + a)
+                   for a in self.network_allowlist)
+
     def fetch_url(self, url: str, method: str = "GET", body: str = "",
                   headers: Optional[dict[str, str]] = None, timeout: int = 30) -> str:
         if not self.allow_network:
             raise PermissionError("red deshabilitada")
         if reason := classify_forbidden(url + (body or "")):
             raise PermissionError(reason)
+        if not self._host_allowed(url):
+            raise PermissionError(f"host '{urllib.parse.urlparse(url).hostname}' "
+                                  "fuera de la lista blanca de red")
         req = urllib.request.Request(url, method=method.upper(),
                                      data=body.encode() if body else None,
-                                     headers={"User-Agent": "A2S/1.0 (+forensic agent)",
+                                     headers={"User-Agent": "A2S/1.2 (+forensic agent)",
                                               **(headers or {})})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = resp.read(200_000)
@@ -286,6 +303,11 @@ class ToolRegistry:
     def python_exec(self, code: str) -> str:
         if reason := classify_forbidden(code):
             raise PermissionError(reason)
+        if self.sandbox_enabled:
+            res = self.sandbox.run_python(code, timeout=60)
+            if res.timed_out:
+                return f"(sandbox {res.level_name}: TIEMPO AGOTADO)\n" + res.output[-1000:]
+            return res.output.strip() or f"(exit={res.returncode}, sin salida)"
         proc = subprocess.run(
             ["python3", "-c", code], capture_output=True, text=True,
             timeout=60, cwd=self.workspace)

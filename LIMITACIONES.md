@@ -3,7 +3,8 @@
 > Documento de transparencia técnica. Aquí no hay maquillaje: esto es lo que
 > el sistema **no puede hacer**, lo que hace **a medias**, los **errores que
 > tiene**, y cómo usarlo para **obtener beneficio real** sin engañarte.
-> Actualizado a v1.1.1.
+> Actualizado a v1.2.0 (hardening: sandbox, firma criptográfica, autenticación,
+> plugins, neuroevolución, LiveCD).
 
 ---
 
@@ -52,20 +53,22 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 2 | **Append O(n²)**: cada entrada releía el archivo completo para obtener el último hash. 800 appends tardaban 2.3s y crecía. | Media (rendimiento) | ✅ corregido (caché del último hash; 3.6× más rápido) |
 | 3 | **`run_fractal` podía exceder el plazo del padre**: el padre esperaba por todos los hijos sin mirar su propio límite de tiempo. | Media | ✅ corregido (el padre cancela hijos al llegar su deadline) |
 | 4 | **Aprendizaje perdido si el proceso muere a mitad**: `strategies.json` y `governance.json` solo se guardaban al final. | Media | ✅ corregido (guardado en cada episodio / cada 10 entrenamientos) |
-| 5 | **Dashboard sin protección**: escuchaba en `0.0.0.0` sin autenticación; cualquiera con acceso al puerto podía lanzar misiones que ejecutan código en el host. | **Crítica** (RCE) | ✅ mitigado: por defecto escucha solo en `127.0.0.1`; `--public` expone con advertencia explícita. Sigue sin autenticación: no expongas en redes no confiables. |
-| 6 | **Evaluador heurístico con falsos positivos**: para el núcleo heurístico, una salida no vacía y sin palabras de error = "éxito" (score 0.8). Un paso puede "pasar" sin haber hecho lo correcto. | Alta (calidad) | 🔴 pendiente: exigir cumplimiento de `success_criteria`, no solo salida no vacía |
-| 7 | **`goal_check` sin verificador de misión es débil**: "¿objetivo cumplido?" ≈ "¿hay salida sin traceback?". Falsos positivos casi seguros en objetivos vagos. | **Crítica** (veracidad) | 🟡 mitigado por diseño: usar SIEMPRE un verificador de misión (la demo lo tiene). Sin verificador, el resultado "✔ CUMPLIDO" es poco fiable. |
-| 8 | **Mini-shell no es POSIX**: no soporta `&&`, `||`, heredocs (`<<`), `>>`, `$(( ))`, asignaciones, ni `$()` con paréntesis anidados. Algunas construcciones fallan o se interpretan mal. | Media | 🔴 pendiente (documentar y/o ampliar gramática) |
-| 9 | **Búsqueda web por scraping**: `web_search` parsea el HTML de DuckDuckGo; si cambian el layout, deja de funcionar; puede ser bloqueada por IP de datacenter; sin paginación ni profundidad. | Media | 🔴 pendiente (aceptar API key opcional) |
-| 10 | **Extracción de JSON del LLM por regex**: el LLM no tiene salida estructurada garantizada; si devuelve prosa con JSON roto, se degrada al heurístico silenciosamente. | Media | 🟡 degradación controlada; pendiente: function-calling/JSON mode |
-| 11 | **Sin retries/backoff en llamadas al LLM**: un error transitorio degrada al heurístico en vez de reintentar. | Baja | 🔴 pendiente |
-| 12 | **Overshoot del plazo dentro de un paso**: el deadline se comprueba *entre* pasos; un comando puede correr hasta 60s después del límite. | Baja | 🟡 aceptado (tiempos de subproceso acotados) |
-| 13 | **Windows no soportado**: los comandos (`find`, `sha256sum`, `stat`, `git`), `python3` y las pruebas asumen POSIX. En Windows la mayoría de misiones fallarán. | Media | 🔴 pendiente (capa de compatibilidad o PowerShell) |
-| 14 | **`supervise` no reanuda el plan**: relanza el objetivo completo desde cero (conservando workspace/memoria), con intentos finitos. No restaura el plan en vuelo. | Baja | 🔴 pendiente (checkpoint de plan) |
-| 15 | **`swarm` sin coordinación**: las réplicas no comparten memoria ni resultados entre sí; el "consenso distribuido" entre nodos no existe. | Baja | 🔴 pendiente |
-| 16 | **`--resume` es cosmético**: verifica el ledger y replanifica desde cero; no restaura pasos pendientes. | Baja | 🔴 pendiente |
-| 17 | **Lecturas concurrentes del ledger** (`verify`/`query` durante appends de hilos) pueden leer una línea a medio escribir y fallar el parseo. | Baja | 🟡 los appends están serializados; `verify` no usa el lock |
-| 18 | **El filtro de `python_exec` es eludible trivialmente** (base64, ofuscación). Ver §5. | — | Por diseño, ver §5 |
+| 5 | **Dashboard sin protección**: escuchaba en `0.0.0.0` sin autenticación; cualquiera con acceso al puerto podía lanzar misiones que ejecutan código en el host. | **Crítica** (RCE) | ✅ corregido en v1.2.0: localhost por defecto, `--public` con advertencia y **`--auth` con tokens HMAC con expiración** (login por cookie HttpOnly) |
+| 6 | **`python_exec` sin contención de recursos** | **Crítica** | ✅ corregido en v1.2.0: **sandbox por capas** (nsjail > bwrap > rlimits), por defecto activo. El nivel rlimits contiene RAM/CPU/procesos/fds y bloquea red por shim — **pero no aísla filesystem** (ver §5). |
+| 7 | **Verificación sin firma**: los resultados podían alterarse sin dejar rastro criptográfico. | Alta (forense) | ✅ corregido en v1.2.0: **firma HMAC-SHA256** de informe y artefactos con secreto del workspace; `a2s verify` comprueba todo. Límite: el secreto es local (ver §5). |
+| 8 | **Evaluador heurístico con falsos positivos**: para el núcleo heurístico, una salida no vacía y sin palabras de error = "éxito" (score 0.8). Un paso puede "pasar" sin haber hecho lo correcto. | Alta (calidad) | 🔴 pendiente: exigir cumplimiento de `success_criteria`, no solo salida no vacía |
+| 9 | **`goal_check` sin verificador de misión es débil**: "¿objetivo cumplido?" ≈ "¿hay salida sin traceback?". Falsos positivos casi seguros en objetivos vagos. | **Crítica** (veracidad) | 🟡 mitigado por diseño: usar SIEMPRE un verificador de misión (la demo lo tiene). Sin verificador, el resultado "✔ CUMPLIDO" es poco fiable. |
+| 10 | **Mini-shell no es POSIX**: no soporta `&&`, `||`, heredocs (`<<`), `>>`, `$(( ))`, asignaciones, ni `$()` con paréntesis anidados. | Media | 🔴 pendiente (documentar y/o ampliar gramática) |
+| 11 | **Búsqueda web por scraping**: `web_search` parsea el HTML de DuckDuckGo; si cambian el layout, deja de funcionar; puede ser bloqueada por IP de datacenter. | Media | 🔴 pendiente (aceptar API key opcional) |
+| 12 | **Extracción de JSON del LLM por regex**: el LLM no tiene salida estructurada garantizada. | Media | 🟡 degradación controlada; pendiente: function-calling/JSON mode |
+| 13 | **Sin retries/backoff en llamadas al LLM**. | Baja | 🔴 pendiente |
+| 14 | **Overshoot del plazo dentro de un paso**: el deadline se comprueba *entre* pasos. | Baja | 🟡 aceptado (tiempos de subproceso acotados) |
+| 15 | **Windows no soportado**: los comandos (`find`, `sha256sum`, `stat`, `git`), `python3` y las pruebas asumen POSIX. | Media | 🔴 pendiente |
+| 16 | **`supervise` no reanuda el plan**; **`swarm` sin coordinación entre réplicas**; **`--resume` cosmético**. | Baja | 🔴 pendiente (checkpoint de plan, merge de aprendizajes) |
+| 17 | **Lecturas concurrentes del ledger** durante appends pueden leer una línea a medio escribir. | Baja | 🟡 los appends están serializados; `verify` no usa el lock |
+| 18 | **El filtro de texto de `python_exec` es eludible** (base64, ofuscación). | — | Por diseño: ahora el sandbox aporta la contención real; el filtro sigue siendo cosmético |
+| 19 | **Egress por iptables no auto-aplicado**: requiere root y administración de firewall; el control de red real hoy es la **lista blanca de hosts** (`--allow-host`) + `--no-network`. | Media | 🟡 lista blanca implementada y testeada; iptables queda como tarea del operador |
+| 20 | **Neuroevolución con buffer pequeño es ruido** (mínimo 8 episodios; resultados útiles desde cientos). | Baja | 🟡 documentado; `a2s evolve` avisa si el buffer es insuficiente |
 
 ---
 
@@ -106,29 +109,47 @@ expansivo" es renunciable: el tope real siempre es `--max-time`.
 
 ---
 
-## 5. Seguridad — la verdad completa
+## 5. Seguridad — la verdad completa (actualizada v1.2.0)
 
-**El "modelo de permisos" es de convención, NO un sandbox.** Tres hechos:
+**El hardening real implementado:**
 
-1. **`python_exec` y `python3` en la lista blanca equivalen a ejecución
-   arbitraria de código** en el host. El filtro por patrones de texto se
-   elude con ofuscación trivial. Sirve para evitar usos *accidentales* de
-   cadenas obvias, no para detener a nadie decidido.
-2. **Las herramientas de red pueden exfiltrar** el contenido del workspace
-   (y, vía shell/python, cualquier archivo legible por el usuario).
-3. **`read_file`/`write_file`/`list_dir` están confinadas al workspace, pero
-   `shell`/`python_exec` NO**: `cat /etc/passwd` está permitido.
+1. **Sandbox por capas** (`a2s/sandbox.py`): nsjail (nivel 3, requiere chroot
+   preparado) → bwrap (nivel 2, sin red ni filesystem) → **rlimits (nivel 1,
+   siempre disponible)**: límites duros de RAM/CPU/procesos/fds + Python `-I`
+   + bloqueo de red por shim. `a2s doctor` informa el nivel activo.
+2. **Firma criptográfica** (`a2s/signing.py`): HMAC-SHA256 del informe y de
+   cada artefacto con un secreto por workspace (0600); `a2s verify` valida
+   cadena + firmas.
+3. **Autenticación** (`a2s/auth.py`): tokens estilo JWT-HS256 con expiración;
+   `a2s token` los emite; el dashboard con `--auth` los exige (login por
+   cookie HttpOnly + SameSite=Strict).
+4. **Control de egress aplicativo**: `--no-network` + lista blanca de hosts
+   (`--allow-host`), aplicada en `fetch_url`/`web_search`.
 
-Por lo tanto:
+**Lo que SIGUE siendo verdad (residuales honestos):**
 
-- Ejecuta misiones **propias** o en entornos que controles.
-- Si procesas objetivos no confiables, hazlo en **VM/contenedor desechable**.
-- `--unsafe` = tu responsabilidad total sobre el host.
-- `--public` en el dashboard = ejecución remota de misiones sin autenticación.
-- La bitácora forense detecta manipulación y truncación del JSONL, pero un
-  atacante con acceso de escritura al directorio `.a2s` puede regenerar un
-  ledger falso coherente. La cadena de custodia protege contra alteraciones
-  *posteriores*, no contra un atacante con control total del medio.
+1. **El nivel rlimits NO es una jaula**: no aísla el filesystem (el código
+   puede leer `/etc/passwd`) ni impide elusión deliberada vía ctypes/syscalls
+   directos o recarga del módulo socket. Nivel 2 (bwrap) sí aísla; nivel 3
+   (nsjail) es el fuerte, pero requiere configuración con root que el
+   programa no hace por ti. Para código hostil: VM/contenedor desechable.
+2. **`shell` no pasa por el sandbox**: sigue siendo la mini-shell con lista
+   blanca; `python_exec` sí está sandboxeado por defecto (`--no-sandbox` lo
+   desactiva, no recomendado).
+3. **El secreto HMAC es local**: quien tenga acceso de escritura al workspace
+   puede re-firmar. Para no-repudio real, copia `.a2s/secret` a un sistema
+   separado. La firma certifica "no alterado después de firmar", NO que la
+   tarea se hizo bien (eso es el verificador de misión).
+4. **Los tokens sin TLS viajan en claro** en redes no confiables; la
+   expiración mitiga el robo, no lo elimina.
+5. **El filtro de texto de `python_exec` sigue siendo eludible**: es
+   convención, no seguridad; la contención real la aporta el sandbox.
+6. **Sin registro remoto de plugins a propósito**: descargar y ejecutar
+   código de un URL en caliente es RCE con pasos extra; los plugins son
+   código local auditable, con verificación de hash opcional (`plugin.json`).
+7. La cadena de custodia protege contra alteración posterior; no contra un
+   atacante con control total del medio (puede regenerar un ledger coherente
+   y, si el secreto está local, re-firmarlo).
 
 ---
 
@@ -157,12 +178,20 @@ Por lo tanto:
 
 ## 7. Roadmap priorizado de mejoras
 
-**P0 — veracidad y seguridad**
+**Hecho en v1.2.0 (Fase 0-1 del plan de hardening/fusión):**
+- ✅ Sandbox por capas (nsjail/bwrap/rlimits) para `python_exec`
+- ✅ Firma criptográfica HMAC de informe y artefactos (`a2s verify`)
+- ✅ Dashboard con autenticación por tokens con expiración
+- ✅ Lista blanca de hosts para egress (`--allow-host`)
+- ✅ Arquitectura de plugins bajo demanda (loader + 2 plugins reales)
+- ✅ Neuroevolución básica (pesos + topología, exporta a governance.json)
+- ✅ LiveCD (zipapp de ~490 KB) + workspace en RAM (`--ram`)
+
+**P0 — veracidad (pendiente)**
 - Evaluador que exija cumplimiento de `success_criteria` (no "salida no vacía").
-- Autenticación por token en el dashboard público + botón de cancelar misión.
+- Botón de cancelar misión en el dashboard.
 - `goal_check` heurístico basado en artefactos (existe el archivo / contiene X).
-- Validación de parámetros de herramienta antes de invocar (evitar intentos
-  muertos con herramientas inexistentes).
+- Validación de parámetros de herramienta antes de invocar.
 
 **P1 — robustez**
 - Retries con backoff en el LLM; JSON mode / function-calling si el endpoint lo soporta.
@@ -170,7 +199,7 @@ Por lo tanto:
 - Compatibilidad Windows (fallback PowerShell / comandos portables).
 - Compartir aprendizajes entre réplicas del `swarm` (merge de strategies).
 - CI (GitHub Actions) ejecutando los tests en cada push.
-- Per-timeout por paso y límite de CPU por misión.
+- Sandbox para `shell` además de `python_exec`; nivel nsjail con chroot preconfigurado.
 
 **P2 — alcance**
 - Persistencia externa opcional (S3-compatible / SQLite sobre HTTP) vía API.
