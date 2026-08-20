@@ -344,6 +344,60 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_learn(args: argparse.Namespace) -> int:
+    """Ciclo de Enriquecimiento: estudiar repos públicos hasta ser capaz
+    (verificación objetiva) de resolver el objetivo."""
+    from .learner import GitHubClient, Learner
+    from .provider_pool import ProviderPool
+    from .providers import get_provider
+
+    config = _config_from_args(args)
+    print(scope_note())
+    provider = get_provider(config.provider, config=config)
+    pool = provider if isinstance(provider, ProviderPool) else None
+    learner = Learner(workspace=config.workspace, pool=pool,
+                      github=GitHubClient(),
+                      repos_per_cycle=args.repos)
+
+    def attempt(knowledge: str):
+        goal = args.goal if not knowledge else \
+            f"{args.goal}\n\n{knowledge}"
+        return run_goal(goal, config=config)
+
+    print(f"\n[A²S] ⚛ Ciclo de Enriquecimiento: hasta {args.cycles} ciclo(s), "
+          f"{args.repos} repo(s)/ciclo, resumen "
+          f"{'pool SORL' if pool else 'extractivo (sin LLM)'}")
+
+    def on_cycle(n: int, info: dict) -> None:
+        mark = "✔" if info["won"] else "◐"
+        print(f"[A²S] ciclo {n}: {mark} "
+              f"{'objetivo verificado' if info['won'] else 'no verificado'} · "
+              f"{info.get('knowledge_cards', 0)} ficha(s) aplicadas")
+        if info.get("new_cards"):
+            print(f"        aprendido de: {', '.join(info['new_cards'])}")
+        if info.get("gap_query"):
+            print(f"        brecha detectada → «{info['gap_query']}»")
+
+    report = learner.enrich_until_capable(
+        args.goal, attempt, verifier=lambda r: bool(getattr(r, "success", False)),
+        max_cycles=args.cycles, on_cycle=on_cycle,
+        failures_of=lambda r: getattr(r, "final_note", ""))
+
+    print()
+    if report["capable"]:
+        print(f"[A²S] ✔ CAPAZ — {report['confidence']}")
+        print(f"     fichas de conocimiento acumuladas: {report['cards_total']} "
+              f"(persistidas en {config.workspace}/.a2s/knowledge/)")
+        if hasattr(report.get("last_result"), "final_note"):
+            print()
+            print(render_text(report["last_result"]))
+        return 0
+    print(f"[A²S] ◐ {report['confidence']}")
+    print("     (las fichas persisten: la siguiente ejecución arranca ya "
+          "enriquecida; amplía con --cycles)")
+    return 2
+
+
 def cmd_pool_status(args: argparse.Namespace) -> int:
     """SORL: estado del pool de recursos legítimos (cuotas, salud, coste)."""
     from .provider_pool import build_pool_provider
@@ -473,6 +527,17 @@ def main(argv: list[str] | None = None) -> int:
     p_demo = sub.add_parser("demo", help="misión demo: informe forense autónomo")
     _add_common(p_demo)
     p_demo.set_defaults(func=cmd_demo)
+
+    p_learn = sub.add_parser(
+        "learn", help="Ciclo de Enriquecimiento: estudia repos públicos de GitHub "
+                      "hasta verificar que sabe resolver el objetivo")
+    p_learn.add_argument("goal", help="problema a resolver (la brecha se detecta sola)")
+    p_learn.add_argument("--cycles", type=int, default=3,
+                         help="máximo de ciclos intentar→aprender→reintentar")
+    p_learn.add_argument("--repos", type=int, default=4,
+                         help="repositorios estudiados por ciclo")
+    _add_common(p_learn)
+    p_learn.set_defaults(func=cmd_learn)
 
     p_dash = sub.add_parser("dashboard", help="panel de control web en vivo")
     p_dash.add_argument("--port", type=int, default=8000)

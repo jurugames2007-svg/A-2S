@@ -335,3 +335,64 @@ Legítimos. Transparencia total sobre lo que es y lo que no es:
   latencia de tus propios recursos; no es un "escáner" de nada ajeno.
 - **BOINC/cómputo voluntario y spot instances: NO implementados.** Sería la
   vía legítima para escalar más allá de las claves propias; queda en roadmap.
+
+---
+
+## 11. Ciclo de Enriquecimiento (v1.5): la verdad completa
+
+`learner.py` implementa el "búscalo en GitHub hasta sentirte capaz". Así se
+tradujo de forma verificable y qué no se maquilla:
+
+| Pedido | Implementación real |
+|---|---|
+| "Buscar repositorios de GitHub" | API oficial de búsqueda (`/search/repositories`, `/repos/{}/readme`) con la clave del OPERADOR (`GITHUB_TOKEN`/`GH_TOKEN`), ventanas de cuota auto-impuestas por debajo del límite real (20/min auth vs 30; 8/min sin token vs 10) y `Retry-After` respetado con espera acotada y UN reintento |
+| "Enriquecerse" | Fichas de conocimiento (fuente + licencia + resumen + receta + extracto) persistidas en `.a2s/knowledge/` y reinyectadas en la planificación; resumen vía pool SORL (fanout) o extractivo stdlib sin LLM |
+| "Hasta sentirse capaz" | **El criterio es el verificador del objetivo, no una sensación**: `capaz` ⇔ misión verificada. La "confianza" se reporta como evidencia (fichas aplicadas/con éxito, ciclos, brechas) |
+
+### 11.1. Fronteras de diseño (no configurables)
+
+- **Solo lectura**: nunca se ejecuta código de los repos estudiados ni se
+  instala nada de ellos (riesgo de supply-chain cero por construcción).
+- **No hay SORD**: no se buscan claves/endpoints expuestos para usarlos; se
+  estudia documentación pública como conocimiento. La línea de §1.1 sigue.
+- **Modelo de permisos**: cada ficha pasa `classify_forbidden`; contenido
+  que describa conductas prohibidas se rechaza y queda en el registro.
+- **Presupuesto acotado**: máx. 60 llamadas de API por sesión y 1 espera de
+  rate limit; agotar el presupuesto es parada honesta, no bucle infinito.
+
+### 11.2. Límites y medias verdades conocidos
+
+- **La calidad de lo aprendido depende del resumidor**: sin LLM (sin pool),
+  el resumen es extractivo (primeras frases + cabeceras) — pobre pero
+  honesto; con pool SORL, cada ficha es un resumen real del README.
+- **La selección de repos es por estrellas del ranking de GitHub**, no por
+  afinidad semántica fina: para consultas de brecha muy específicas puede
+  devolver repos mediocres (verificado en vivo: ★0 para una consulta rara).
+- La **detección de brecha heurística** (sin LLM) usa identificadores
+  técnicos del fallo (EXIF, CamelCase, snake_case); la primera versión
+  mezclaba palabras del error ("Error module named") y no encontraba nada —
+  corregido y con test de regresión.
+- **La atribución de éxito a fichas es aproximada**: se acredita a las
+  últimas fichas inyectadas, no a un contrafactual real.
+- **No se clona ni se indexa el código** de los repos (solo README): buscar
+  patrones dentro del código (`search/code`) está en roadmap.
+
+## 12. Escalar más allá de las claves propias: BOINC/spot (diseño, NO implementado)
+
+La vía legítima para más cómputo que el que tus claves dan:
+
+1. **Cómputo voluntario (BOINC)**: tareas embolsadas (bag-of-tasks) que
+   voluntarios ejecutan CONSENTIDAmente — modelo Folding@home. Diseño: un
+   servidor de colas (el ledger JSONL ya es append-only) + cliente BOINC
+   que reclama subtareas `fanout` y publica resultados firmados (HMAC del
+   workspace ya existe). Solo tiene sentido para subtareas sin datos
+   sensibles y verificables barato (la firma + verificación de muestras ya
+   está). NO implementado: requiere infraestructura pública propia.
+2. **Instancias spot/preemptibles**: entrenamiento/inferencia masiva a
+   ~0.1x precio aceptando interrupciones. A²S ya tiene las piezas
+   (checkpoint en ledger, memoria persistente, `supervise` que relanza);
+   falta el provisionador (Terraform/CLI) y el worker que reclama trabajo.
+   NO implementado: es herramienta del OPERADOR, no del agente.
+
+Lo que NO habrá: usar la cuota de terceros sin consentimiento. Ese es el
+SORD de siempre con otro nombre, y sigue siendo no.

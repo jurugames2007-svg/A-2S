@@ -32,6 +32,17 @@
 > `fanout`/`execute_dag`. Comandos: `a2s pool-status`, `a2s pool-check`.
 > Ver `LIMITACIONES.md` §10.
 
+> **v1.5 — Ciclo de Enriquecimiento (`a2s learn`):** el agente detecta su
+> brecha de conocimiento ante un problema, **busca repos públicos en GitHub**
+> (API oficial, clave del operador, rate limits respetados incl.
+> `Retry-After`), estudia los READMEs (resumen vía pool SORL o extractivo
+> stdlib), destila **fichas de conocimiento** (fuente + licencia + receta,
+> persistidas en `.a2s/knowledge/`, filtradas por el modelo de permisos) y
+> reintenta **hasta que el verificador del objetivo confirma capacidad** —
+> no una "sensación". Frontera dura: asimila texto, **nunca ejecuta código
+> de lo estudiado**, y no sondea endpoints ajenos (línea anti-SORD intacta).
+> Ver `LIMITACIONES.md` §11.
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -151,6 +162,9 @@ python -m a2s doctor
 # Pool SORL: orquesta tus recursos legítimos (claves propias + Ollama local)
 python -m a2s pool-status && python -m a2s run "tu objetivo" --provider pool
 
+# Ciclo de Enriquecimiento: busca en GitHub y aprende hasta ser capaz
+python -m a2s learn "extraer metadatos EXIF de imágenes en python" --cycles 3
+
 # Mapa de reinterpretación operativa de la directiva
 python -m a2s map
 ```
@@ -240,6 +254,30 @@ dag = pool.execute_dag([                                          # grafo con de
 propio operador. No descubre ni sondea endpoints de terceros, no rota IPs ni
 falsea cabeceras, y respeta los límites de cada proveedor — la "agregación"
 es de recursos autorizados, no ajenos.
+
+### Ciclo de Enriquecimiento (v1.5) — aprender de repos públicos
+
+```bash
+python -m a2s learn "resolver X" --cycles 3 --repos 4
+```
+
+El agente intenta el objetivo; si el verificador no pasa, **detecta la
+brecha** (LLM del pool o heurística de identificadores técnicos), **busca en
+GitHub** con la clave del operador (ventanas de cuota auto-impuestas por
+debajo de los límites reales; un 403 con `Retry-After` se espera y se
+respeta, sin reintentos en caliente), **estudia los READMEs** (fanout del
+pool SORL o resumen extractivo stdlib) y destila **fichas de conocimiento**
+(fuente + licencia + receta + extracto) que persisten en
+`workspace/.a2s/knowledge/` y se reinyectan en la planificación. El bucle
+termina cuando el **verificador del objetivo** pasa ("capaz" = evidencia, no
+sensación) o cuando se agota el presupuesto (informe honesto; las fichas
+quedan para la siguiente ejecución). Cada ficha pasa el modelo de permisos:
+contenido que describa conductas prohibidas se rechaza y se registra.
+
+**Fronteras:** solo lectura de código público; **nunca ejecuta código de los
+repos estudiados** (el supply-chain no se toca); licencias registradas en
+cada ficha; no busca ni usa endpoints/claves ajenos — la línea anti-SORD
+sigue intacta.
 
 ### Opciones principales
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "a2s"
-version = "1.4.2"
+version = "1.5.0"
 description = "A²S — Agente autónomo con loops auto-optimizados, superación de estancamiento, memoria evolutiva y registro forense con cadena de custodia."
 readme = "README.md"
 requires-python = ">=3.9"

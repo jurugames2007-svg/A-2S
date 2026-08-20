@@ -137,6 +137,14 @@ CAPABILITY_MAP = [
      "términos, modelos locales) con cuotas por endpoint, failover que "
      "respeta Retry-After, telemetría persistente y fanout/DAG paralelo. "
      "Los límites se orquestan, no se evaden."),
+    ("Enriquecimiento autónomo buscando en recursos públicos",
+     "Ciclo de Enriquecimiento (v1.5, learner.py): detecta la brecha de "
+     "conocimiento, busca repos públicos vía la API oficial de GitHub "
+     "(clave del operador, cuotas respetadas incl. Retry-After), estudia "
+     "los READMEs y destila fichas de conocimiento (fuente + licencia + "
+     "receta) que se reinyectan en la planificación — hasta que el "
+     "verificador del objetivo confirma capacidad. 'Sentirse capaz' = "
+     "verificación, no sensación; nunca se ejecuta código de lo estudiado."),
 ]
 
 
