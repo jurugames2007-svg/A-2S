@@ -1,0 +1,13 @@
+# Artefactos generados por el agente (espacio de trabajo)
+workspace/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Entornos virtuales
+.venv/
+venv/

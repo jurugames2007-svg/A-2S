@@ -1,1 +1,237 @@
-# A-2S
+# A²S — Agente Autónomo Supremo con capacidades forenses
+
+> **Agente autónomo en Python (stdlib, sin dependencias) que persigue un objetivo
+> con loops auto-optimizados: nunca responde "no".** Ante un fallo reintenta,
+> reparametriza, cambia de herramienta, divide el paso (fractal), re-descompone
+> pasos bloqueados y replanifica con enfoques distintos. Solo termina cuando el
+> objetivo se **verifica cumplido** — o al agotarse el límite duro de tiempo de
+> seguridad, en cuyo caso entrega un informe forense reanudable con el estado
+> exacto y la cadena de custodia completa.
+
+> **v1.1 — paquete de evolución (A²S-E):** red de gobernanza neuronal (MLP
+> entrenado en línea, en Python puro), consenso de verificación, planificación
+> especulativa, memoria evolutiva persistente, shell evolucionado ($VAR, globs,
+> `$(...)`), auto-supervisión (`supervise`) y réplicas en procesos (`swarm`).
+
+```text
+▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
+                                              → reparametrización
+                                              → cambio de herramienta
+                                              → división fractal del paso
+                                              → detección de estancamiento
+                                                 + cambio de estrategia
+                                              → replanificación (variante n+1)
+          → verificador de objetivo → ✔ CUMPLIDO
+```
+
+---
+
+## Lo que implementa la directiva (mapa operativo)
+
+Cada capacidad de la directiva A²S tiene aquí su implementación real. Ver
+`python -m a2s map` para el mapa completo.
+
+| Directiva | Implementación en este framework |
+|---|---|
+| Auto-modificación de código | Núcleo de **metaprendizaje**: ajusta sus propias estrategias, parámetros y planes en tiempo de ejecución según el rendimiento |
+| Loops inteligentes auto-optimizados | Bucle con detección y superación de estancamiento (ventana de fallos → cambio de estrategia por tasa de éxito) |
+| Bypass universal / evasión | **Escalera de recuperación** ante fallos y bloqueos lógicos del propio proceso (no se evaden controles de seguridad de terceros) |
+| Memoria heurística evolutiva | Biblioteca de estrategias con usos/ganadas/falladas y selección por win-rate |
+| Simulación paralela / auto-reproducción | **Sub-agentes fractales** concurrentes (`--parallel`, `run_fractal`) |
+| Predicción adaptativa | Estancamiento detectado *antes* de agotar el presupuesto |
+| Asimilación instantánea de herramientas | Registro introspectivo de herramientas con esquemas JSON |
+| Búsqueda forense trascendente | Forense legítimo: inventario, metadatos, hashes SHA-256, bitácora inmutable, búsqueda web vía API externa (DuckDuckGo), consultas HTTP |
+| Generación de recursos ilimitados | Presupuesto acumulado expansivo: cada replanificación concede una rebanada nueva de iteraciones |
+| Persistencia distribuida / estado cuántico | SQLite (memoria episódica) + ledger JSONL + artefactos en workspace; sub-agentes con memoria independiente |
+| Gestión de contexto ilimitada | Contexto comprimido (historial reciente) + memoria episódica persistente consultable |
+| Runtime técnico (Temporal + LangGraph) | Motor agnóstico de proveedor: hoy ejecuta el **núcleo heurístico determinista** o **LLM vía API externa compatible OpenAI**; otros runtimes se conectan implementando `BaseProvider` |
+| Cadena de custodia digital | Ledger append-only con **hash chain SHA-256** verificable (`verify()`) y registro inmutable post-mortem |
+| Red neuronal de gobernanza (A²S-E) | **MLP entrenado en línea** (`neural.py`): aprende de cada episodio a predecir éxito de pasos/planes; persiste en `.a2s/governance.json` |
+| Consenso de instancias distribuidas (A²S-E) | **Verificación por votación ponderada** (`consensus.py`): verificador de misión (autoritativo), proveedor, red neuronal y evidencia de progreso |
+| Simulación de líneas temporales (A²S-E) | **Planificación especulativa**: N planes variantes puntuados por la red de gobernanza; se ejecuta el mejor (`--speculative N`) |
+| Auto-replicación y despliegue (A²S-E) | `a2s swarm` (réplicas en procesos paralelos, una por objetivo) y `a2s supervise` (el agente se relanza hasta cumplir) |
+| Memoria evolutiva cuántica (A²S-E) | Estrategias y pesos neuronales **persistentes entre ejecuciones** (`strategies.json`, `governance.json`) |
+| Shell universal (A²S-E) | Mini-shell evolucionado: `$VAR`, globs y `$(...)` con la **misma política de permisos** |
+| Backdoors / comunicación encubierta / corrupción de validación de terceros | **No implementado contra terceros** (ilegal). Equivalente legítimo: persistencia propia reanudable y desafío de los *propios* verificadores |
+| Disolución de límites "propio/ajeno" / minería / manipulación temporal | **No implementado**: redefinir palabras no convierte un ataque en legítimo, y la física no es negociable. Equivalentes: presupuestos renovables, checkpoint/reanudación, especulación de planes |
+
+### Límites y cómo se replantean
+
+La directiva pide "plantear de forma distinta pero alcanzar el mismo objetivo".
+Eso es exactamente lo que hace el diseño:
+
+- **"No" prohibido** → el loop solo termina con verificación positiva del objetivo
+  o con el límite duro de tiempo (seguridad operativa), entregando estado
+  reanudable. Los límites de iteraciones se **renuevan automáticamente** al
+  replanificar.
+- **Ataques a terceros** (exfiltración, malware, evasión de seguridad ajena,
+  escalada de privilegios en sistemas ajenos, suplantación) → **rechazados y
+  registrados** por el modelo de permisos (`a2s/config.py`), con el equivalente
+  legítimo implementado de primera clase: auto-depuración, reparametrización,
+  auditoría inmutable y forense de artefactos propios.
+
+---
+
+## Instalación y uso rápido
+
+Requiere **Python ≥ 3.9**. Sin dependencias externas.
+
+```bash
+# Misión demo completa (diseñada para mostrar la superación de un obstáculo)
+python -m a2s demo
+
+# Cualquier objetivo propio
+python -m a2s run "Investiga el proyecto y escribe un resumen con datos reales"
+
+# Varios objetivos con sub-agentes fractales en paralelo
+python -m a2s run "Objetivo A;Objetivo B" --parallel
+
+# Panel de control web en vivo (SSE)
+python -m a2s dashboard --port 8000
+
+# Auto-existencia: el agente se relanza hasta cumplir el objetivo
+python -m a2s supervise "tu objetivo" --attempts 5
+
+# Réplicas autónomas en procesos paralelos (un worker por objetivo)
+python -m a2s swarm "Objetivo A;Objetivo B" --workers 2
+
+# Planificación especulativa: N planes candidatos puntuados por la red
+python -m a2s run "tu objetivo" --speculative 3
+
+# Diagnóstico del entorno
+python -m a2s doctor
+
+# Mapa de reinterpretación operativa de la directiva
+python -m a2s map
+```
+
+### LLM externo (opcional)
+
+Por defecto opera el **núcleo heurístico determinista** (sin red, sin claves).
+Para razonamiento vía API externa compatible con OpenAI:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export A2S_LLM_BASE_URL=https://api.openai.com/v1   # opcional (otros endpoints compatibles)
+export A2S_LLM_MODEL=gpt-4o-mini                      # opcional
+python -m a2s run "tu objetivo" --provider openai
+```
+
+Si la API falla, el loop **degrada automáticamente** al núcleo heurístico y
+continúa persiguiendo el objetivo.
+
+### Opciones principales
+
+```text
+--workspace DIR      espacio de trabajo (default: workspace/)
+--max-iterations N   iteraciones por rebanada de presupuesto (se renueva al replanificar)
+--max-rounds N       rondas de replanificación fractal
+--max-time N         límite duro de tiempo real en segundos (seguridad)
+--report ARCHIVO     guarda el informe de ejecución (Markdown + JSON)
+--resume             reanuda sobre el estado persistido
+--unsafe             amplía la lista blanca de shell (bajo tu responsabilidad)
+--no-network/--no-shell  desactiva familias de herramientas
+```
+
+---
+
+## Arquitectura
+
+```text
+a2s/
+├── cli.py          interfaz de comandos (run/demo/dashboard/supervise/swarm…)
+├── loop.py         motor: bucle principal, escalera de recuperación,
+│                   división fractal, sub-agentes paralelos, cierre forense
+├── planner.py      descomposición fractal, detección de estancamiento,
+│                   metaprendizaje (estrategias con win-rate),
+│                   planificación especulativa
+├── providers.py    núcleo heurístico determinista + LLM vía API externa
+├── neural.py       red de gobernanza: MLP entrenado en línea (v1.1)
+├── consensus.py    consenso de verificación del objetivo (v1.1)
+├── tools.py        registro de herramientas + mini-shell seguro evolucionado
+│                   (pipes, redirección, $VAR, globs, $(), lista blanca)
+│                   + modelo de permisos
+├── memory.py       memoria jerárquica persistente: working state, episódica,
+│                   artefactos, heurísticas (strategies.json)
+├── ledger.py       bitácora forense append-only con hash chain SHA-256
+├── goals.py        biblioteca de objetivos con verificadores (misión demo)
+├── models.py       tipos de datos (Step, Observation, Evaluation, RunReport…)
+├── report.py       informes de ejecución (texto/Markdown/JSON)
+├── dashboard.py    panel web en vivo (SSE, sin dependencias)
+└── directiva.py    mapa de reinterpretación operativa
+```
+
+### Ciclo de un paso (escalera de recuperación)
+
+```
+intento 1  → misma acción (fallos transitorios)
+intento 2  → reparametrización (variar parámetros)
+intento 3  → cambio de herramienta equivalente
+intento 4  → DIVISIÓN FRACTAL: el paso se convierte en sub-pasos más simples
+fallo 4+   → evento de estancamiento → cambio global de estrategia
+             (reparametrizar / dividir / fuente alternativa / verificar y corregir)
+```
+
+La división es inteligente: un paso de escritura que falla por contenido
+incompleto se divide en *(1) recopilar datos reales del entorno* y
+*(2) componer el documento con esos datos* — el verificador de paso decide si
+cada sub-paso logró su criterio. Los pasos bloqueados se **re-descomponen** en
+sub-objetivos con su propio plan, hasta una profundidad fractal máxima (3),
+momento en que quedan registrados en el informe con su plan de reanudación.
+
+### Verificación de objetivo
+
+El loop no se fía de sí mismo: tras cada ronda consulta el **verificador de
+objetivo** (callable por misión; si no hay, el proveedor de razonamiento).
+Solo declara éxito con verificación positiva. La misión demo verifica secciones
+del informe, hashes SHA-256 reales y ausencia de marcadores de posición.
+
+### Cadena de custodia
+
+Cada episodio (paso, observación, evaluación), estancamiento, artefacto y
+cierre se añade a `workspace/.a2s/ledger.jsonl`, donde cada entrada encadena el
+hash SHA-256 de la anterior. Cualquier alteración rompe la cadena y
+`python -m a2s doctor` la detecta. El informe final lista los artefactos
+nuevos con su hash.
+
+---
+
+## Misión demo (lo que verás)
+
+`python -m a2s demo` siembra evidencias de ejemplo y pide un informe forense
+real. El primer enfoque escribe el informe **con marcadores de posición**
+(diseñado a propósito), así que:
+
+1. `redactar_informe` falla 4 veces ante el verificador de paso;
+2. se dispara el evento de **estancamiento** y cambia la estrategia;
+3. el paso se **divide** en recopilar datos reales + componer el documento;
+4. el verificador de objetivo confirma: informe completo con hashes reales.
+
+Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md`
+(informe de ejecución) y `.a2s/ledger.jsonl` (cadena de custodia).
+
+---
+
+## Pruebas
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+28 pruebas: hash chain y detección de manipulación, modelo de permisos,
+proveedores, escalera de recuperación, división fractal, misión demo completa,
+red de gobernanza (aprendizaje + persistencia), consenso de verificación,
+memoria evolutiva persistente y shell evolucionado.
+
+---
+
+## Alcance ético (léelo)
+
+A²S es un framework de **automatización y auto-optimización de trabajo
+propio**: persigue objetivos verificables, aprende de sus fallos y no se rinde.
+No es —y no será— una herramienta para atacar sistemas de terceros. Las
+capacidades de "bypass/evasión" se implementan como superación de fallos y
+bloqueos lógicos del propio proceso, y las de "forense" como análisis de
+artefactos propios con cadena de custodia. Las acciones con propósito de
+ataque son rechazadas por el modelo de permisos y quedan registradas en el
+ledger.
