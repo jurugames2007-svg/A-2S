@@ -129,6 +129,14 @@ CAPABILITY_MAP = [
      "a2s build-live: zipapp de ~490 KB (un solo archivo, python3 en el "
      "host destino); --ram usa /dev/shm como workspace volátil. Core en "
      "RAM, plugins activados solo si la misión los pide."),
+    ("Cómputo ilimitado orquestando recursos ajenos (SORD)",
+     "NO implementado: el uso no autorizado de servicios de terceros no se "
+     "vuelve legítimo cambiándole el nombre a la técnica. Equivalente "
+     "legítimo (v1.4): SORL, pool provider_pool — orquesta los recursos "
+     "PROPIOS del operador (claves propias, free tiers dentro de sus "
+     "términos, modelos locales) con cuotas por endpoint, failover que "
+     "respeta Retry-After, telemetría persistente y fanout/DAG paralelo. "
+     "Los límites se orquestan, no se evaden."),
 ]
 
 

@@ -299,11 +299,19 @@ class OpenAICompatProvider(BaseProvider):
         return self.fallback.goal_check(goal, summary)
 
 
-def get_provider(kind: str, fallback_ok: bool = True) -> BaseProvider:
-    """auto → OpenAI si hay clave, si no heurístico. Sin excepciones posibles."""
+def get_provider(kind: str, fallback_ok: bool = True,
+                 config: Any = None) -> BaseProvider:
+    """auto → OpenAI si hay clave, si no heurístico. Sin excepciones posibles.
+
+    ``pool`` → SORL: meta-proveedor que orquesta todos los recursos legítimos
+    del operador (ver ``provider_pool.py``).
+    """
     fallback = HeuristicProvider()
     if kind == "heuristic":
         return fallback
+    if kind == "pool":
+        from .provider_pool import build_pool_provider
+        return build_pool_provider(config=config)
     if kind == "openai":
         return OpenAICompatProvider(fallback=fallback)
     if os.environ.get("OPENAI_API_KEY"):

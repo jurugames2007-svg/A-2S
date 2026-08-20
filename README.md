@@ -20,6 +20,16 @@
 > patrones de riesgo inspirado en repo-forensics). Clasificación completa de
 > las herramientas externas en `LIMITACIONES.md` §9.
 
+> **v1.4 — SORL (pool de recursos legítimos):** meta-proveedor `--provider pool`
+> que orquesta **los recursos a los que el operador tiene derecho de uso**
+> (claves propias, free tiers dentro de sus términos, Ollama local) detrás de
+> una única interfaz: scheduler multi-objetivo (coste/velocidad/fiabilidad con
+> penalización por riesgo de cuota), cuotas rpm por endpoint, **failover que
+> respeta `Retry-After`** (cuarentena + migración de carga, nunca evasión de
+> límites), circuit breaker, telemetría persistente (JSONL, aprendizaje entre
+> ejecuciones) y ejecución distribuida `fanout`/`execute_dag`. Comandos:
+> `a2s pool-status`, `a2s pool-check`. Ver `LIMITACIONES.md` §10.
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -69,6 +79,7 @@ Cada capacidad de la directiva A²S tiene aquí su implementación real. Ver
 | LiveCD (v1.2) | `a2s build-live`: zipapp de ~490 KB que corre sin instalación; `--ram` usa `/dev/shm` como workspace volátil |
 | Fusión DFIR (v1.3) | Puente a herramientas forenses externas instaladas (Sleuth Kit, bulk_extractor, Volatility, Plaso) con lista blanca estricta y confinamiento de rutas |
 | Auditoría defensiva (v1.3) | `repo_audit`: escáner de repositorios/plugins locales (patrones de riesgo con severidad + hashes SHA-256) |
+| Computación distribuida "gratuita" sobre recursos ajenos | **No implementado** (uso no autorizado de servicios de terceros). Legítimo y **sí implementado (v1.4)**: SORL `provider_pool` — orquestación de los recursos *propios* del operador con cuotas, failover que respeta `Retry-After`, telemetría persistente y fanout/DAG |
 | Backdoors / comunicación encubierta / corrupción de validación de terceros | **No implementado contra terceros** (ilegal). Equivalente legítimo: persistencia propia reanudable y desafío de los *propios* verificadores |
 | Disolución de límites "propio/ajeno" / minería / manipulación temporal | **No implementado**: redefinir palabras no convierte un ataque en legítimo, y la física no es negociable. Equivalentes: presupuestos renovables, checkpoint/reanudación, especulación de planes |
 
@@ -135,6 +146,9 @@ python -m a2s run "tu objetivo" --allow-host api.example.com
 # Diagnóstico del entorno
 python -m a2s doctor
 
+# Pool SORL: orquesta tus recursos legítimos (claves propias + Ollama local)
+python -m a2s pool-status && python -m a2s run "tu objetivo" --provider pool
+
 # Mapa de reinterpretación operativa de la directiva
 python -m a2s map
 ```
@@ -153,6 +167,60 @@ python -m a2s run "tu objetivo" --provider openai
 
 Si la API falla, el loop **degrada automáticamente** al núcleo heurístico y
 continúa persiguiendo el objetivo.
+
+### Pool SORL — orquestación de recursos legítimos (v1.4)
+
+El **S**istema de **O**rquestación de **R**ecursos **L**egítimos agrega todos
+los motores de razonamiento a los que *tienes derecho de uso* detrás de un
+único proveedor. La capacidad agregada del pool reemplaza a cualquier API
+individual; los límites de cada nodo se gestionan, no se evaden.
+
+```bash
+# Autodescubrimiento: usa las claves que ya tengas en el entorno
+export GROQ_API_KEY=...          # y/o GEMINI_API_KEY, GITHUB_TOKEN,
+export OPENROUTER_API_KEY=...    # OPENAI_API_KEY… (+ Ollama local si corre)
+python -m a2s pool-status        # qué ve el pool, cuotas y salud
+python -m a2s pool-check         # 1 petición mínima por endpoint (valida claves)
+python -m a2s run "tu objetivo" --provider pool
+```
+
+O declara el pool explícitamente en `workspace/.a2s/pool.json`
+(plantilla en `examples/pool.example.json`, con expansión `${VAR}`):
+
+```json
+{"strategy": "multi_objective",
+ "weights": {"speed": 0.25, "cost": 0.4, "reliability": 0.15,
+             "capability": 0.15, "quota_risk": 0.05},
+ "endpoints": [
+   {"name": "groq", "base_url": "https://api.groq.com/openai/v1",
+    "api_key": "${GROQ_API_KEY}", "model": "llama-3.1-8b-instant",
+    "cost_tier": "free", "rpm": 25, "capabilities": ["fast", "general"]}
+ ]}
+```
+
+Comportamiento ante saturación: un `429`/`503` pone el endpoint en
+**cuarentena** durante el `Retry-After` indicado (o backoff exponencial) y la
+tarea migra al siguiente mejor recurso. Las latencias y tasas de éxito se
+persisten en `workspace/.a2s/pool/` y alimentan al scheduler en ejecuciones
+futuras (`Ejecutar → Medir → Aprender → Optimizar`). Si todo el pool cae,
+degrada al núcleo heurístico: el objetivo se persigue igualmente.
+
+Para cargas masivas, el pool expone ejecución distribuida legítima:
+
+```python
+from a2s.provider_pool import ProviderPool
+pool = ProviderPool([...])                       # o build_pool_provider()
+res = pool.fanout(["resume el doc 1", "resume el doc 2", ...])   # map paralelo
+dag = pool.execute_dag([                                          # grafo con deps
+    {"id": "a", "prompt": "extraer entidades del corpus"},
+    {"id": "b", "prompt": "agrupar por temática", "depends_on": ["a"]},
+], aggregate=lambda r: r["results"]["b"])
+```
+
+**Frontera de diseño (no configurable):** el pool solo contiene recursos del
+propio operador. No descubre ni sondea endpoints de terceros, no rota IPs ni
+falsea cabeceras, y respeta los límites de cada proveedor — la "agregación"
+es de recursos autorizados, no ajenos.
 
 ### Opciones principales
 

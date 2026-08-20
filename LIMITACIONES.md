@@ -259,3 +259,62 @@ Si el operador quiere usar las herramientas ofensivas **por su cuenta** en su
 propio entorno autorizado (lab, red team contratado), puede hacerlo fuera de
 A²S: el agente no las invoca, no las lista y el modelo de permisos rechaza
 objetivos que lo pidan (quedan registrados en el ledger como denegados).
+
+---
+
+## 10. SORL — pool de recursos legítimos (v1.4): la verdad completa
+
+`provider_pool.py` implementa el Sistema de Orquestación de Recursos
+Legítimos. Transparencia total sobre lo que es y lo que no es:
+
+### 10.1. Lo que NO es (por diseño, no va a cambiar)
+
+- **No es un sistema para usar APIs ajenas sin permiso.** No descubre,
+  clona, sondea ni consume endpoints de terceros encontrados en repos o en
+  internet. El pool solo contiene: (a) endpoints declarados por el operador
+  en `pool.json`, (b) endpoints cuyas **claves posee el operador** y están en
+  su entorno (`GROQ_API_KEY`, `GEMINI_API_KEY`, `GITHUB_TOKEN`,
+  `OPENROUTER_API_KEY`, `OPENAI_API_KEY`), y (c) Ollama local si corre en la
+  propia máquina.
+- **No evade rate limits.** No hay rotación de IPs, no se falsifican
+  cabeceras (`X-Forwarded-For` u otras), no hay reintentos en caliente. Un
+  `429`/`503` se interpreta como señal de estado: cuarentena durante
+  `Retry-After` (o backoff exponencial 5s→300s) y migración de la carga a
+  otro recurso **autorizado**. Redefinir palabras no convierte la evasión en
+  "benchmarking": aquí no hay nada que redefinir.
+- **No genera recursos.** Agregar 3 free tiers no crea cuota infinita: crea
+  la suma de las cuotas que el operador legítimamente tiene, gestionada sin
+  desperdiciarla. Si todo el pool se agota, **degrada al núcleo heurístico**
+  (y espera, si `Retry-After` es razonable ≤45s).
+
+### 10.2. Lo que SÍ es
+
+| Componente | Qué hace de verdad |
+|---|---|
+| `TaskScheduler` | Elige endpoint por estrategia: `round_robin`, `cost_first`, `speed_first` o `multi_objective` (utilidad = velocidad + coste + fiabilidad + aptitud − riesgo de cuota; pesos configurables) |
+| `RateWindow` | Ventana deslizante de rpm por endpoint: el pool **se auto-limita antes** de recibir un 429 |
+| Failover | 429/503 → cuarentena + siguiente mejor endpoint; otros fallos → circuit breaker (3 fallos → abierto 30s, duplicando hasta 300s) |
+| `Telemetry` | p50/p95, tasa de éxito, 429s, tokens y coste estimado por endpoint; JSONL + snapshot en `workspace/.a2s/pool/`; **se recarga al iniciar** (el scheduler aprende entre ejecuciones) |
+| `fanout` / `execute_dag` | Map paralelo y DAG por olas topológicas (ThreadPool, stdlib) con failover por tarea y dependencias respetadas |
+| Fallback | Endpoint `heuristic` siempre presente: el pool nunca devuelve "imposible" |
+
+### 10.3. Límites y medias verdades conocidos
+
+- Los **rpm por defecto** del autodescubrimiento (groq 25, gemini 10, github
+  14, openrouter 15, openai 60) son estimaciones conservadoras de free tiers
+  que **cambian sin avisar**; ajústalos en `pool.json` si tienes datos
+  mejores (`a2s pool-status` muestra el uso real).
+- El **aprendizaje entre ejecuciones** es simple: telemetría acumulada
+  (medias), no reentrenamiento de pesos. Los pesos del scheduler se ajustan
+  a mano en `pool.json` — la auto-optimización de pesos NO está implementada.
+- La **calidad por tipo de tarea** (`capabilities`) se declara, no se mide:
+  si `llama-3.1-8b` resulta malo planificando, nadie lo degradará solo.
+- `execute_dag` falla honesto: si una tarea agota el pool, sus dependientes
+  quedan `skipped` (no se inventan resultados) — distinto del loop principal,
+  que reparametriza: el DAG es una API de herramienta, no el núcleo.
+- **Prometheus/Grafana no integrados** (el core es stdlib a propósito):
+  `a2s pool-status --json` da el mismo dato para graphite/grafana externos.
+- `pool-check` hace **1 petición real** por endpoint: valida claves y mide
+  latencia de tus propios recursos; no es un "escáner" de nada ajeno.
+- **BOINC/cómputo voluntario y spot instances: NO implementados.** Sería la
+  vía legítima para escalar más allá de las claves propias; queda en roadmap.

@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 
 from . import __version__
 from .config import Config
@@ -57,6 +58,10 @@ def _config_from_args(args: argparse.Namespace) -> Config:
         cfg.sandbox = False
     if getattr(args, "evolve", None):
         cfg.evolve_generations = args.evolve
+    if getattr(args, "pool_config", None):
+        cfg.pool_config = args.pool_config
+    if getattr(args, "pool_strategy", None):
+        cfg.pool_strategy = args.pool_strategy
     if getattr(args, "ram", False):
         cfg.workspace = ram_workspace()
     return cfg
@@ -323,12 +328,107 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(f"                base_url: {base}")
     else:
         print("  LLM externo:   sin OPENAI_API_KEY → núcleo heurístico determinista")
+    from .provider_pool import discover_endpoints_from_env
+    pool_eps = discover_endpoints_from_env()
+    if pool_eps:
+        print(f"  Pool SORL:     {len(pool_eps)} endpoint(s) legítimo(s) detectado(s): "
+              f"{', '.join(e.name for e in pool_eps)} (a2s pool-status / --provider pool)")
+    else:
+        print("  Pool SORL:     sin claves propias detectadas (GROQ/GEMINI/GITHUB/… "
+              "o workspace/.a2s/pool.json) → solo fallback heurístico")
     try:
         socket.create_connection(("duckduckgo.com", 443), timeout=5).close()
         print("  Red externa:   disponible (búsqueda web y fetch habilitados)")
     except OSError:
         print("  Red externa:   NO disponible (las herramientas de red fallarán y el loop las reparametrizará)")
     return 0
+
+
+def cmd_pool_status(args: argparse.Namespace) -> int:
+    """SORL: estado del pool de recursos legítimos (cuotas, salud, coste)."""
+    from .provider_pool import build_pool_provider
+    cfg = Config(workspace=args.workspace, quiet=True,
+                 pool_config=args.pool_config, pool_strategy=args.pool_strategy)
+    pool = build_pool_provider(config=cfg)
+    try:
+        st = pool.status()
+        if args.json:
+            print(json.dumps(st, ensure_ascii=False, indent=2))
+            return 0
+        t = st["totals"]
+        print("A²S — pool SORL (recursos legítimos del operador)")
+        print(f"  Estrategia:     {st['strategy']}  ·  pesos: "
+              f"{ {k: round(v, 2) for k, v in st['weights'].items()} }")
+        print(f"  Endpoints:      {t['endpoints_active']} activo(s), "
+              f"{t['endpoints_saturated']} saturado(s)/en cuarentena")
+        print(f"  Histórico:      {t['total_calls']} llamadas, {t['total_ok']} ok, "
+              f"coste estimado ${t['est_cost']}")
+        print()
+        hdr = f"  {'endpoint':<16}{'tier':<7}{'rpm':>4}{'uso':>5}{'cuarentena':>11}{'p50':>7}{'éxito':>7}  modelo/estado"
+        print(hdr)
+        print("  " + "-" * (len(hdr) - 2))
+        for e in st["endpoints"]:
+            quar = f"{e['cooldown_remaining_s']:.0f}s" if e["cooldown_remaining_s"] > 0 else "-"
+            p50 = f"{e['p50_ms']}ms" if e.get("p50_ms") is not None else "-"
+            rate = f"{e['success_rate']*100:.0f}%" if e.get("success_rate") is not None else "-"
+            note = e["model"] if e["role"] == "member" else f"({e['role']})"
+            if e.get("disabled_reason"):
+                note = f"DESACTIVADO: {e['disabled_reason']}"
+            elif e.get("circuit_open"):
+                note += " [circuito abierto]"
+            print(f"  {e['name']:<16}{e['cost_tier']:<7}{e['rpm'] or '-':>4}"
+                  f"{e['window_used']:>5}{quar:>11}{p50:>7}{rate:>7}  {note}")
+        if t["endpoints_active"] == 0:
+            print("\n  ⚠ sin endpoints activos: exporta GROQ_API_KEY / GEMINI_API_KEY / "
+                  "GITHUB_TOKEN… o crea workspace/.a2s/pool.json (ver examples/pool.example.json)")
+        return 0
+    finally:
+        pool.close()
+
+
+def cmd_pool_check(args: argparse.Namespace) -> int:
+    """SORL: comprobación de salud — 1 petición mínima por endpoint (respeta cuotas)."""
+    from .provider_pool import build_pool_provider
+    cfg = Config(workspace=args.workspace, quiet=True,
+                 pool_config=args.pool_config, pool_strategy=args.pool_strategy)
+    pool = build_pool_provider(config=cfg)
+    try:
+        members = [e for e in pool.endpoints if e.active and e.role == "member"]
+        print(f"A²S — comprobación del pool: {len(members)} endpoint(s) "
+              "(1 petición pequeña por endpoint)")
+        failures = 0
+        for ep in members:
+            st = pool._states[ep.name]
+            if not pool._windows[ep.name].try_acquire():
+                print(f"  ◐ {ep.name:<16} sin cuota disponible ahora (rpm={ep.rpm}) — omitido")
+                continue
+            t0 = time.monotonic()
+            try:
+                data = pool._send(ep, {"model": ep.model, "max_tokens": 4,
+                                       "messages": [{"role": "user", "content": "ping"}]})
+                ms = (time.monotonic() - t0) * 1000
+                st.record_success()
+                pool.telemetry.record(ep.name, ok=True, latency=ms / 1000, kind="health",
+                                      tokens=4)
+                print(f"  ✔ {ep.name:<16} {ms:6.0f} ms  {ep.model}")
+            except Exception as exc:  # noqa: BLE001 — diagnóstico por endpoint
+                failures += 1
+                reason = f"HTTP {exc.code}" if isinstance(exc, urllib.error.HTTPError) \
+                    else f"{type(exc).__name__}"
+                st.record_failure(reason, time.monotonic())
+                pool.telemetry.record(ep.name, ok=False,
+                                      latency=time.monotonic() - t0, kind="health",
+                                      status=getattr(exc, "code", None))
+                print(f"  ✗ {ep.name:<16} {reason} — revisa la clave/base_url ({ep.base_url})")
+        pool.close()
+        if failures:
+            print(f"\n{failures} endpoint(s) con fallos — el scheduler los degradará "
+                  "hasta que se recuperen (failover automático).")
+            return 1
+        print("\n✔ pool operativo")
+        return 0
+    finally:
+        pool.telemetry.save_snapshot()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -403,6 +503,23 @@ def main(argv: list[str] | None = None) -> int:
     p_doc.add_argument("--workspace", default="workspace")
     p_doc.set_defaults(func=cmd_doctor)
 
+    p_ps = sub.add_parser("pool-status",
+                          help="SORL: estado del pool de proveedores (cuotas, salud, coste)")
+    p_ps.add_argument("--workspace", default="workspace")
+    p_ps.add_argument("--pool-config", default=None,
+                      help="ruta del JSON del pool (default: workspace/.a2s/pool.json o autodescubrimiento)")
+    p_ps.add_argument("--pool-strategy", default=None,
+                      help="round_robin | cost_first | speed_first | multi_objective")
+    p_ps.add_argument("--json", action="store_true", help="salida JSON")
+    p_ps.set_defaults(func=cmd_pool_status)
+
+    p_pc = sub.add_parser("pool-check",
+                          help="SORL: comprobación de salud del pool (1 petición por endpoint)")
+    p_pc.add_argument("--workspace", default="workspace")
+    p_pc.add_argument("--pool-config", default=None)
+    p_pc.add_argument("--pool-strategy", default=None)
+    p_pc.set_defaults(func=cmd_pool_check)
+
     p_map = sub.add_parser("map", help="mapa de reinterpretación operativa de la directiva")
     p_map.set_defaults(func=lambda _a: (print_capability_map(), 0)[1])
 
@@ -412,8 +529,9 @@ def main(argv: list[str] | None = None) -> int:
 
 def _add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--workspace", default="workspace", help="espacio de trabajo (default: workspace)")
-    p.add_argument("--provider", choices=["auto", "heuristic", "openai"], default="auto",
-                   help="motor de razonamiento (auto: OpenAI si hay clave, si no heurístico)")
+    p.add_argument("--provider", choices=["auto", "heuristic", "openai", "pool"], default="auto",
+                   help="motor de razonamiento (auto: OpenAI si hay clave, si no heurístico; "
+                        "pool: SORL, orquesta todos los recursos legítimos del operador)")
     p.add_argument("--max-iterations", type=int, default=60,
                    help="iteraciones por rebanada de presupuesto (se renueva al replanificar)")
     p.add_argument("--max-rounds", type=int, default=6, help="rondas máximas de replanificación")
@@ -439,6 +557,11 @@ def _add_common(p: argparse.ArgumentParser) -> None:
                    help="permitir solo este host en la red (repetible; vacío = todos)")
     p.add_argument("--evolve", type=int, default=0,
                    help="generaciones de neuroevolución al finalizar la misión")
+    p.add_argument("--pool-config", default=None,
+                   help="ruta del JSON del pool SORL (con --provider pool)")
+    p.add_argument("--pool-strategy", default=None,
+                   help="estrategia del pool SORL: round_robin, cost_first, "
+                        "speed_first o multi_objective")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,60 @@
+{
+  "_doc": "Configuración del pool SORL (SORL = recursos LEGÍTIMOS del operador). Copia este archivo a workspace/.a2s/pool.json o pasa --pool-config. Los valores ${VAR} se expanden desde el entorno; si una variable no existe, el endpoint queda desactivado (visible en 'a2s pool-status').",
+  "strategy": "multi_objective",
+  "weights": { "speed": 0.25, "cost": 0.4, "reliability": 0.15, "capability": 0.15, "quota_risk": 0.05 },
+  "max_parallel": 8,
+  "endpoints": [
+    {
+      "name": "ollama-local",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "api_key": "ollama",
+      "model": "llama3.2",
+      "cost_tier": "free",
+      "quality": 0.75,
+      "rpm": 0,
+      "timeout": 180,
+      "capabilities": ["general", "summarize"]
+    },
+    {
+      "name": "groq",
+      "base_url": "https://api.groq.com/openai/v1",
+      "api_key": "${GROQ_API_KEY}",
+      "model": "llama-3.1-8b-instant",
+      "cost_tier": "free",
+      "quality": 0.8,
+      "rpm": 25,
+      "timeout": 60,
+      "capabilities": ["fast", "general"]
+    },
+    {
+      "name": "gemini",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "api_key": "${GEMINI_API_KEY}",
+      "model": "gemini-2.0-flash",
+      "cost_tier": "free",
+      "quality": 0.9,
+      "rpm": 10,
+      "capabilities": ["plan", "summarize", "general"]
+    },
+    {
+      "name": "openrouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key": "${OPENROUTER_API_KEY}",
+      "model": "meta-llama/llama-3.1-8b-instruct:free",
+      "cost_tier": "cheap",
+      "quality": 0.75,
+      "rpm": 15,
+      "extra_headers": { "X-Title": "A2S-agent" }
+    },
+    {
+      "name": "openai",
+      "base_url": "https://api.openai.com/v1",
+      "api_key": "${OPENAI_API_KEY}",
+      "model": "gpt-4o-mini",
+      "cost_tier": "paid",
+      "quality": 1.0,
+      "rpm": 60,
+      "capabilities": ["plan", "evaluate", "code", "general"]
+    }
+  ]
+}
