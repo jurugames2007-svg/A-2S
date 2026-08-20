@@ -304,9 +304,19 @@ Legítimos. Transparencia total sobre lo que es y lo que no es:
   14, openrouter 15, openai 60) son estimaciones conservadoras de free tiers
   que **cambian sin avisar**; ajústalos en `pool.json` si tienes datos
   mejores (`a2s pool-status` muestra el uso real).
-- El **aprendizaje entre ejecuciones** es simple: telemetría acumulada
-  (medias), no reentrenamiento de pesos. Los pesos del scheduler se ajustan
-  a mano en `pool.json` — la auto-optimización de pesos NO está implementada.
+- El **aprendizaje entre ejecuciones** tiene dos niveles, ambos heurísticos y
+  acotados (no reentrenamiento): (1) **rpm aprendido** — si un proveedor
+  satura antes de lo declarado, el pool aprende el rpm real observado
+  (80% de las peticiones en vuelo al recibir el 429) y se auto-limita en
+  ejecuciones futuras, con recuperación gradual (+1 rpm tras ≥20 éxitos
+  limpios); (2) **micro-ajuste de pesos** — muchas saturaciones suben
+  `quota_risk` (máx 0.30) y bajan `cost` (mín 0.05); muchos errores suben
+  `reliability`. Los pesos explícitos del operador bloquean el ajuste. La
+  optimización completa de pesos (p. ej. por gradiente o bandits) NO está
+  implementada.
+- La **tasa de éxito excluye los 429s** (saturación ≠ fallo del endpoint; la
+  saturación la gestionan cuarentena y riesgo de cuota). Métrica honesta:
+  "¿funciona cuando estamos dentro de cuota?".
 - La **calidad por tipo de tarea** (`capabilities`) se declara, no se mide:
   si `llama-3.1-8b` resulta malo planificando, nadie lo degradará solo.
 - `execute_dag` falla honesto: si una tarea agota el pool, sus dependientes

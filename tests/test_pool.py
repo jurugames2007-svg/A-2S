@@ -304,7 +304,7 @@ class TestDag(unittest.TestCase):
             {"id": "D", "prompt": "D", "depends_on": ["B", "C"]},
         ]
         out = pool.execute_dag(
-            tasks, aggregate=lambda r: [r[k] for k in ("A", "B", "C", "D")])
+            tasks, aggregate=lambda r: [r["results"][k] for k in ("A", "B", "C", "D")])
         self.assertEqual(out["failed"], [])
         self.assertEqual(out["executed"], 4)
         self.assertEqual(out["aggregate"],
@@ -400,6 +400,100 @@ class TestConfiguracion(unittest.TestCase):
         self.assertIn("a", names)
         self.assertIn("heuristic", names)                    # fallback presente
         self.assertEqual(st["totals"]["endpoints_active"], 1)
+
+
+class TestAprendizajeCuotaYPesos(unittest.TestCase):
+    """El bucle Aprender→Optimizar: rpm efectivo observado y micro-ajuste de
+    pesos, persistidos en el snapshot y aplicados en la siguiente ejecución."""
+
+    def test_aprende_rpm_real_y_elimina_429(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        ws = tmp.name
+        # "servidor" que admite 5 peticiones/minuto de verdad
+        state = {"calls": 0}
+
+        def server_a(ep, payload):
+            state["calls"] += 1
+            if state["calls"] > 5:
+                raise _http_error(429, {"Retry-After": "60"})
+            return _ok("ok")
+
+        pool1 = ProviderPool([_ep("a", rpm=100)], workspace=ws, transport=server_a)
+        # max_parallel=1 → determinista: 5 ok, la 6ª recibe 429 (used=6)
+        # → aprende rpm efectivo = int(6 * 0.8) = 4
+        pool1.fanout([f"p{i}" for i in range(12)], max_parallel=1)
+        learned = pool1.telemetry.learned_rpm.get("a")
+        self.assertEqual(learned, 4)
+        pool1.close()
+
+        state2 = {"calls": 0, "429": 0}
+
+        def server_a2(ep, payload):
+            state2["calls"] += 1
+            if state2["calls"] > 5:
+                state2["429"] += 1
+                raise _http_error(429, {"Retry-After": "60"})
+            return _ok("ok")
+
+        pool2 = ProviderPool([_ep("a", rpm=100)], workspace=ws, transport=server_a2)
+        # la ventana arranca ya auto-limitada al rpm aprendido
+        self.assertEqual(pool2._windows["a"].rpm, 4)
+        pool2.fanout([f"q{i}" for i in range(12)], max_parallel=1)
+        self.assertEqual(state2["429"], 0)                  # cero saturaciones
+        self.assertEqual(state2["calls"], 4)                # respetó su cuota real
+        pool2.close()
+
+    def test_pesos_sugeridos_se_aplican_si_no_hay_pesos_fijados(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        ws = tmp.name
+
+        def siempre_429(ep, payload):
+            raise _http_error(429, {"Retry-After": "60"})
+
+        pool1 = ProviderPool([_ep("a"), _ep("b")], workspace=ws,
+                             transport=siempre_429)
+        for _ in range(12):            # sin pasar por _chat: sin esperas
+            pool1._call_once(pool1.endpoints[0], pool1._states["a"],
+                             [{"role": "user", "content": "x"}], "general", 10, "")
+        pool1.close()
+        sug = pool1.telemetry.weight_suggestions
+        self.assertGreater(sug.get("quota_risk", 0), 0.05)  # subió el riesgo
+        self.assertLess(sug.get("cost", 1.0), 0.40)         # bajó el coste
+
+        def ok_t(ep, payload):
+            return _ok("ok")
+
+        pool2 = ProviderPool([_ep("a")], workspace=ws, transport=ok_t)
+        self.assertAlmostEqual(pool2.scheduler.weights["quota_risk"],
+                               sug["quota_risk"])
+        # pesos explícitos del operador: bloquean el ajuste aprendido
+        pool3 = ProviderPool([_ep("a")], workspace=ws, weights={"cost": 1.0},
+                             transport=ok_t)
+        self.assertEqual(pool3.scheduler.weights["cost"], 1.0)
+        self.assertAlmostEqual(pool3.scheduler.weights["quota_risk"], 0.05)
+
+    def test_recuperacion_gradual_del_rpm(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        tel = Telemetry(tmp.name)
+        tel.learned_rpm["a"] = 4
+        tel.clean_since_429["a"] = 25                        # ≥20 éxitos limpios
+        tel.save_snapshot(configured_rpm={"a": 100})
+        tel.close()
+        tel2 = Telemetry(tmp.name)
+        self.assertEqual(tel2.learned_rpm.get("a"), 5)       # +1 rpm recuperado
+        self.assertEqual(tel2.effective_rpm("a", 100), 5)
+
+    def test_rpm_declarado_ilimitado_pero_satura(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        tel = Telemetry(tmp.name)
+        tel.note_rate_limit_hit("x", window_used=8)
+        self.assertEqual(tel.effective_rpm("x", 0), 6)       # declarado 0=∞
+        self.assertEqual(tel.effective_rpm("x", 30), 6)      # min(30, 6)
+        tel.close()
 
 
 class TestPoolComoProviderAuto(unittest.TestCase):

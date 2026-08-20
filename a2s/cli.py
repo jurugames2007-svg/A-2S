@@ -372,11 +372,14 @@ def cmd_pool_status(args: argparse.Namespace) -> int:
             p50 = f"{e['p50_ms']}ms" if e.get("p50_ms") is not None else "-"
             rate = f"{e['success_rate']*100:.0f}%" if e.get("success_rate") is not None else "-"
             note = e["model"] if e["role"] == "member" else f"({e['role']})"
+            if e.get("rpm_learned"):
+                note += f" [rpm aprendido: {e['rpm_effective']} (declarado {e['rpm']})]"
             if e.get("disabled_reason"):
                 note = f"DESACTIVADO: {e['disabled_reason']}"
             elif e.get("circuit_open"):
                 note += " [circuito abierto]"
-            print(f"  {e['name']:<16}{e['cost_tier']:<7}{e['rpm'] or '-':>4}"
+            rpm_show = e.get("rpm_effective", e["rpm"])
+            print(f"  {e['name']:<16}{e['cost_tier']:<7}{rpm_show or '-':>4}"
                   f"{e['window_used']:>5}{quar:>11}{p50:>7}{rate:>7}  {note}")
         if t["endpoints_active"] == 0:
             print("\n  ⚠ sin endpoints activos: exporta GROQ_API_KEY / GEMINI_API_KEY / "

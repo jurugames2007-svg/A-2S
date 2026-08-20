@@ -202,8 +202,17 @@ Comportamiento ante saturación: un `429`/`503` pone el endpoint en
 **cuarentena** durante el `Retry-After` indicado (o backoff exponencial) y la
 tarea migra al siguiente mejor recurso. Las latencias y tasas de éxito se
 persisten en `workspace/.a2s/pool/` y alimentan al scheduler en ejecuciones
-futuras (`Ejecutar → Medir → Aprender → Optimizar`). Si todo el pool cae,
-degrada al núcleo heurístico: el objetivo se persigue igualmente.
+futuras (`Ejecutar → Medir → Aprender → Optimizar`): si un proveedor satura
+antes de lo declarado, el pool **aprende su rpm real** y se auto-limita desde
+el arranque siguiente (con recuperación gradual), y los pesos del scheduler
+se micro-ajustan de forma acotada salvo que el operador los fije. Si todo el
+pool cae, degrada al núcleo heurístico: el objetivo se persigue igualmente.
+
+**Prueba todo sin claves**: `examples/mock_llm_server.py` simula tres
+proveedores OpenAI-compatibles (gratis-rápido con cuota estrecha, gratis-medio
+y pago) con 429+`Retry-After` reales; `examples/sorl_demo.py` +
+`examples/pool.mock.json` muestran el reparto, el failover, el DAG y la
+convergencia del rpm aprendido (3 ejecuciones: 429s → aprende → 0 429s).
 
 Para cargas masivas, el pool expone ejecución distribuida legítima:
 

@@ -200,17 +200,27 @@ class EndpointState:
 # Telemetría: la memoria del sistema (JSONL + snapshot, sin dependencias)
 # --------------------------------------------------------------------------
 
+DEFAULT_WEIGHTS = {"speed": 0.25, "cost": 0.40, "reliability": 0.15,
+                   "capability": 0.15, "quota_risk": 0.05}
+
+
 class Telemetry:
     """Métricas por endpoint, persistidas en ``workspace/.a2s/pool/``.
 
     El scheduler recarga el snapshot al iniciar: latencias y tasas de éxito
-    aprendidas en ejecuciones anteriores alimentan la planificación (el bucle
-    ``Ejecutar → Medir → Aprender → Optimizar`` del SORL).
+    aprendidas en ejecuciones anteriores alimentan la planificación, y el
+    sistema **aprende el rpm real** de cada endpoint (cuando un proveedor
+    satura antes de lo declarado, el pool se auto-limita) más un micro-ajuste
+    acotado de los pesos del scheduler. Es heurística acumulativa, no
+    reentrenamiento: documentado en LIMITACIONES.md §10.3.
     """
 
     def __init__(self, directory: Optional[str] = None) -> None:
         self.directory = directory
         self.calls: dict[str, dict[str, Any]] = {}   # endpoint → agregados
+        self.learned_rpm: dict[str, int] = {}        # endpoint → rpm efectivo observado
+        self.weight_suggestions: dict[str, float] = {}  # micro-ajustes sugeridos
+        self.clean_since_429: dict[str, int] = {}    # éxitos seguidos sin 429 (sesión)
         self._fh = None
         self._snapshots = 0
         if directory:
@@ -239,6 +249,10 @@ class Telemetry:
         agg["est_cost"] += est_cost
         if kind:
             agg["kinds"][kind] = agg["kinds"].get(kind, 0) + 1
+        if ok:
+            self.clean_since_429[endpoint] = self.clean_since_429.get(endpoint, 0) + 1
+        elif status == 429:
+            self.clean_since_429[endpoint] = 0
         self._append_jsonl({
             "t": now_iso(), "endpoint": endpoint, "kind": kind, "ok": ok,
             "latency": round(latency, 3), "status": status,
@@ -252,10 +266,16 @@ class Telemetry:
     # -- consultas ---------------------------------------------------------
 
     def success_rate(self, endpoint: str) -> Optional[float]:
+        """Tasa de éxito EXCLUYENDO 429s: la saturación no es falta de
+        fiabilidad del endpoint (la gestiona la cuarentena y el riesgo de
+        cuota); aquí se mide "¿funciona cuando estamos dentro de cuota?"."""
         agg = self.calls.get(endpoint)
-        if not agg or agg["total"] < 3:
+        if not agg:
+            return None
+        denom = agg["ok"] + agg["errors"]
+        if denom < 3:
             return None                       # sin datos suficientes
-        return agg["ok"] / agg["total"]
+        return agg["ok"] / denom
 
     def latency(self, endpoint: str, pct: float = 0.5) -> Optional[float]:
         agg = self.calls.get(endpoint)
@@ -268,15 +288,72 @@ class Telemetry:
     def summary(self) -> dict[str, Any]:
         out = {}
         for name, agg in self.calls.items():
+            ok_plus_err = agg["ok"] + agg["errors"]
             out[name] = {
                 "total": agg["total"], "ok": agg["ok"],
                 "rate_limited": agg["rate_limited"], "errors": agg["errors"],
-                "success_rate": (agg["ok"] / agg["total"]) if agg["total"] else None,
+                # éxito = funciona dentro de cuota (429s excluidos: saturación
+                # ≠ fallo; la gestiona la cuarentena y el riesgo de cuota)
+                "success_rate": (agg["ok"] / ok_plus_err) if ok_plus_err >= 3 else None,
                 "p50_ms": None if self.latency(name) is None else round(self.latency(name) * 1000),
                 "p95_ms": None if self.latency(name, .95) is None else round(self.latency(name, .95) * 1000),
                 "tokens": agg["tokens"], "est_cost": round(agg["est_cost"], 4),
             }
         return out
+
+    # -- aprendizaje (rpm real observado + micro-ajuste de pesos) ------------
+
+    def note_rate_limit_hit(self, endpoint: str, window_used: int) -> None:
+        """El proveedor saturó con menos peticiones de las declaradas: aprende
+        el rpm efectivo (80% de lo observado) para auto-limitarse antes."""
+        cand = max(1, int(window_used * 0.8))
+        cur = self.learned_rpm.get(endpoint)
+        self.learned_rpm[endpoint] = cand if cur is None else max(1, min(cur, cand))
+
+    def _tune_weights(self) -> None:
+        """Micro-ajuste ACOTADO de pesos del scheduler según lo observado.
+
+        Heurística simple y conservadora (no gradiente): si hubo muchas
+        saturaciones → más peso al riesgo de cuota y menos al coste; si hubo
+        muchos errores → más peso a la fiabilidad. Los ajustes persisten y se
+        aplican solo si el operador NO fijó pesos explícitos.
+        """
+        total = sum(a["total"] for a in self.calls.values())
+        if total < 10:
+            return
+        rl = sum(a["rate_limited"] for a in self.calls.values())
+        errs = sum(a["errors"] for a in self.calls.values())
+        sug = dict(self.weight_suggestions)
+
+        def get(key: str) -> float:
+            return sug.get(key, DEFAULT_WEIGHTS[key])
+
+        changed = False
+        if rl / total > 0.05:
+            new = min(0.30, get("quota_risk") + 0.05)
+            if new != get("quota_risk"):
+                sug["quota_risk"], changed = new, True
+            new_cost = max(0.05, get("cost") - 0.05)
+            if new_cost != get("cost"):
+                sug["cost"], changed = new_cost, True
+        if errs / total > 0.10:
+            new = min(0.35, get("reliability") + 0.05)
+            if new != get("reliability"):
+                sug["reliability"], changed = new, True
+            new_speed = max(0.05, get("speed") - 0.05)
+            if new_speed != get("speed"):
+                sug["speed"], changed = new_speed, True
+        if changed:
+            self.weight_suggestions = sug
+
+    def effective_rpm(self, endpoint: str, configured: int) -> int:
+        """rpm a usar: el aprendido (si existe y es más conservador)."""
+        learned = self.learned_rpm.get(endpoint)
+        if learned is None:
+            return configured
+        if configured <= 0:
+            return learned               # declarado ilimitado pero saturó
+        return min(configured, learned)
 
     # -- persistencia --------------------------------------------------------
 
@@ -292,11 +369,23 @@ class Telemetry:
         self._fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
         self._fh.flush()
 
-    def save_snapshot(self) -> None:
+    def save_snapshot(self, configured_rpm: Optional[dict[str, int]] = None) -> None:
         path = self._path("state.json")
         if not path:
             return
-        snap = {"saved_at": now_iso(), "endpoints": {}}
+        self._tune_weights()
+        # Recuperación gradual del rpm aprendido: tras ≥20 éxitos seguidos sin
+        # saturación, se le devuelve +1 rpm (hasta el configurado). Si vuelve a
+        # saturar, note_rate_limit_hit lo baja de nuevo — homeostasis.
+        for name in list(self.learned_rpm):
+            cfg = (configured_rpm or {}).get(name, 0)
+            if self.clean_since_429.get(name, 0) >= 20 and (cfg <= 0 or self.learned_rpm[name] < cfg):
+                self.learned_rpm[name] += 1
+                if cfg > 0:
+                    self.learned_rpm[name] = min(self.learned_rpm[name], cfg)
+        snap = {"saved_at": now_iso(), "endpoints": {},
+                "learned_rpm": self.learned_rpm,
+                "weights": self.weight_suggestions}
         for name, agg in self.calls.items():
             lat = sorted(agg["latencies"])
             snap["endpoints"][name] = {
@@ -338,6 +427,8 @@ class Telemetry:
             agg["tokens"] = int(data.get("tokens", 0))
             agg["est_cost"] = float(data.get("est_cost", 0.0))
             agg["kinds"] = dict(data.get("kinds", {}))
+        self.learned_rpm = {k: int(v) for k, v in snap.get("learned_rpm", {}).items()}
+        self.weight_suggestions = {k: float(v) for k, v in snap.get("weights", {}).items()}
 
     def close(self) -> None:
         if self._fh is not None:
@@ -348,10 +439,6 @@ class Telemetry:
 # --------------------------------------------------------------------------
 # Scheduler: decide qué endpoint ejecuta cada tarea
 # --------------------------------------------------------------------------
-
-DEFAULT_WEIGHTS = {"speed": 0.25, "cost": 0.40, "reliability": 0.15,
-                   "capability": 0.15, "quota_risk": 0.05}
-
 
 class TaskScheduler:
     """Asignación multi-criterio de tareas a endpoints disponibles.
@@ -467,11 +554,17 @@ class ProviderPool(BaseProvider):
         self._transport = transport
         self._lock = threading.RLock()
         self._states = {e.name: EndpointState() for e in self.endpoints}
-        self._windows = {e.name: RateWindow(e.rpm) for e in self.endpoints}
         tel_dir = os.path.join(os.path.abspath(workspace), ".a2s", "pool") if workspace else None
         self.telemetry = Telemetry(tel_dir)
+        # rpm efectivo: si ejecuciones anteriores aprendieron que un endpoint
+        # satura antes de lo declarado, auto-limitarse desde el arranque.
+        self._windows = {e.name: RateWindow(self.telemetry.effective_rpm(e.name, e.rpm))
+                         for e in self.endpoints}
         self.scheduler = TaskScheduler(strategy, weights)
         self.scheduler.telemetry = self.telemetry
+        # Micro-ajuste de pesos aprendido: solo si el operador no fijó pesos.
+        if weights is None and self.telemetry.weight_suggestions:
+            self.scheduler.weights.update(self.telemetry.weight_suggestions)
         self._triples = [(e, self._states[e.name], self._windows[e.name])
                          for e in self.endpoints]
         # Persistir el aprendizaje aunque el proceso termine sin close()
@@ -574,6 +667,10 @@ class ProviderPool(BaseProvider):
                 backoff = retry_after if retry_after is not None else \
                     min(300.0, 5.0 * (2 ** (st.consecutive_429 - 1)))
                 st.quarantine(backoff, now, f"HTTP {status} (cuarentena {backoff:.0f}s)")
+                # Aprendizaje: el rpm declarado era optimista → aprender el real.
+                if status == 429:
+                    self.telemetry.note_rate_limit_hit(ep.name,
+                                                       self._windows[ep.name].used())
                 if self.verbose:
                     print(f"[A²S-pool] ◐ {ep.name}: HTTP {status} → cuarentena "
                           f"{backoff:.0f}s (se respeta el límite; la carga migra)",
@@ -757,7 +854,9 @@ class ProviderPool(BaseProvider):
         out = {"results": results, "failed": sorted(failed),
                "executed": len(results) - len(failed), "total": len(tasks)}
         if aggregate is not None:
-            out["aggregate"] = aggregate(results)
+            # el agregador recibe el resumen completo (results + failed) para
+            # poder decidir qué hacer con las tareas sin resultado
+            out["aggregate"] = aggregate(out)
         return out
 
     # -- estado ----------------------------------------------------------------
@@ -770,6 +869,8 @@ class ProviderPool(BaseProvider):
                 eps.append({
                     "name": ep.name, "base_url": ep.base_url, "model": ep.model,
                     "role": ep.role, "cost_tier": ep.cost_tier, "rpm": ep.rpm,
+                    "rpm_effective": win.rpm,
+                    "rpm_learned": self.telemetry.learned_rpm.get(ep.name),
                     "active": ep.active, "disabled_reason": ep.disabled_reason,
                     "cooldown_remaining_s": max(0.0, round(st.cooldown_until - now, 1)),
                     "circuit_open": st.circuit_open(now),
@@ -794,7 +895,8 @@ class ProviderPool(BaseProvider):
     def close(self) -> None:
         with self._lock:
             try:
-                self.telemetry.save_snapshot()
+                self.telemetry.save_snapshot(
+                    configured_rpm={e.name: e.rpm for e in self.endpoints})
             except OSError:
                 pass        # p.ej. workspace volátil eliminado antes del exit
             self.telemetry.close()
