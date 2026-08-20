@@ -1,0 +1,1440 @@
+%PDF-1.4
+%âãÏÓ
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 1039 >>
+stream
+BT /F2 34.0 Tf 52.0 630.0 Td (A²S) Tj ET
+BT /F3 13.0 Tf 52.0 581.6 Td (Agente Autónomo Supremo con capacidades forenses) Tj ET
+BT /F2 20.0 Tf 52.0 535.0 Td (Informe de Análisis Integral ? A²S v1.6.0) Tj ET
+BT /F1 10.5 Tf 52.0 505.1 Td (250 criterios en 14 categorías · metodología: análisis estático \(AST\), métricas medidas,) Tj ET
+BT /F1 10.5 Tf 52.0 491.2 Td (ejecución de la suite completa y verificaciones en vivo documentadas en el historial del) Tj ET
+BT /F1 10.5 Tf 52.0 477.3 Td (proyecto.) Tj ET
+BT /F3 9.5 Tf 52.0 446.0 Td (Fecha: 2026-08-20 · Rama: arena/01a02086-a-2s · Licencia: MIT) Tj ET
+BT /F1 10.0 Tf 52.0 399.9 Td (Convención de veredictos por criterio: [SÍ] implementado y verificable · [PARCIAL] implementado) Tj ET
+BT /F1 10.0 Tf 52.0 386.7 Td (con matices declarados · [NO] ausente \(y por qué\). Ningún criterio se maquilla: los NO son parte) Tj ET
+BT /F1 10.0 Tf 52.0 373.5 Td (del resultado.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (1 / 31) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Length 5519 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Resumen ejecutivo) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F1 9.3 Tf 52.0 753.6 Td (A²S es un framework de agente autónomo en Python puro \(stdlib, cero dependencias\) que persigue objetivos) Tj ET
+BT /F1 9.3 Tf 52.0 741.3 Td (con loops auto-optimizados hasta verificar su cumplimiento, y entrega informes con cadena de custodia) Tj ET
+BT /F1 9.3 Tf 52.0 729.0 Td (criptográfica. La versión analizada \(1.6.0\) integra cuatro capas complementarias: \(1\) núcleo de) Tj ET
+BT /F1 9.3 Tf 52.0 716.7 Td (recuperación fractal con escalera reintento->reparametrización->cambio de) Tj ET
+BT /F1 9.3 Tf 52.0 704.5 Td (herramienta->división->replanificación; \(2\) SORL, un pool de proveedores legítimos con tres niveles de) Tj ET
+BT /F1 9.3 Tf 52.0 692.2 Td (aprendizaje \(cuota real observada, micro-ajuste de pesos, aptitud medida por tipo de tarea con puerta de) Tj ET
+BT /F1 9.3 Tf 52.0 679.9 Td (incompetencia\); \(3\) el Ciclo de Enriquecimiento, que aprende de repositorios públicos de GitHub hasta) Tj ET
+BT /F1 9.3 Tf 52.0 667.6 Td (verificar capacidad; y \(4\) el nivel determinista \(FSM + vigía por eventos\) que resuelve lo predecible) Tj ET
+BT /F1 9.3 Tf 52.0 655.4 Td (sin gastar un token y escala lo imprevisto al agente.) Tj ET
+BT /F1 9.3 Tf 52.0 639.6 Td (Su rasgo diferencial no es la potencia \(un Auto-GPT con GPT-4 razona mejor\) sino la confianza) Tj ET
+BT /F1 9.3 Tf 52.0 627.3 Td (verificable: cada decisión deja huella auditable \(ledger con hash chain, firmas HMAC, telemetría\), cada) Tj ET
+BT /F1 9.3 Tf 52.0 615.0 Td (límite está documentado como contrato \(LIMITACIONES.md, 13 secciones\) y las fronteras éticas están) Tj ET
+BT /F1 9.3 Tf 52.0 602.7 Td (ejecutadas en el modelo de permisos, no prometidas en un documento. Ponderado sobre 250 criterios:) Tj ET
+BT /F1 9.3 Tf 52.0 590.5 Td (3,7/5, con máximo en documentación/ética \(5,0\) y mínimo en UI/UX \(2,5\).) Tj ET
+BT /F2 12.5 Tf 52.0 568.7 Td (Métricas medidas del código) Tj ET
+BT /F2 9.0 Tf 52.0 549.2 Td (Versión analizada) Tj ET
+BT /F1 9.0 Tf 202.0 537.3 Td (1.6.0 \(rama arena/01a02086-a-2s, commits 58ca50f..03eab6f\)) Tj ET
+BT /F2 9.0 Tf 52.0 523.9 Td (Líneas de código \(a2s/\)) Tj ET
+BT /F1 9.0 Tf 202.0 512.1 Td (6.489 en 24 módulos Python \(stdlib al 100%\)) Tj ET
+BT /F2 9.0 Tf 52.0 498.7 Td (Funciones / clases) Tj ET
+BT /F1 9.0 Tf 202.0 486.8 Td (309 funciones · 51 clases · CC media 4,8) Tj ET
+BT /F2 9.0 Tf 52.0 473.4 Td (Complejidad máx. \(hotspots\)) Tj ET
+BT /F1 9.0 Tf 202.0 461.5 Td (shell=33, execute_dag=31, evolve_step=26, _handler=23, execute_step=19) Tj ET
+BT /F2 9.0 Tf 52.0 448.2 Td (Pruebas) Tj ET
+BT /F1 9.0 Tf 202.0 436.3 Td (139 tests en 11 suites · ~3,4 s · 6 corridas consecutivas en verde) Tj ET
+BT /F2 9.0 Tf 52.0 422.9 Td (Dependencias externas) Tj ET
+BT /F1 9.0 Tf 202.0 411.0 Td (0 \(ni runtime ni build más allá de setuptools\)) Tj ET
+BT /F2 9.0 Tf 52.0 397.6 Td (Documentación) Tj ET
+BT /F1 9.0 Tf 202.0 385.8 Td (README 427 líneas · LIMITACIONES 439 líneas · 6 ejemplos ejecutables) Tj ET
+BT /F2 9.0 Tf 52.0 372.4 Td (Interfaces de usuario) Tj ET
+BT /F1 9.0 Tf 202.0 360.5 Td (CLI \(14 comandos\) · dashboard SSE · API Python · informes PDF/MD firmables) Tj ET
+BT /F2 9.0 Tf 52.0 347.1 Td (Persistencia) Tj ET
+BT /F1 9.0 Tf 202.0 335.2 Td (SQLite + JSONL append-only \(hash chain\) + JSON atómico + artefactos HMAC) Tj ET
+BT /F2 9.0 Tf 52.0 321.9 Td (Verificación en vivo) Tj ET
+BT /F1 9.0 Tf 202.0 310.0 Td (SORL: failover/429/aprendizaje · CE: API real GitHub · FSM: escalado nivel 0->1) Tj ET
+BT /F2 12.5 Tf 52.0 290.6 Td (Puntuaciones por categoría \(0-5\)) Tj ET
+BT /F2 8.0 Tf 52.0 271.1 Td (categoría                                                             nota            ) Tj ET
+0.55 G 0.5 w 52.0 260.5 m 543.0 260.5 l S 0 G
+BT /F4 8.0 Tf 52.0 260.5 Td (C1 Arquitectura                                                       4,0             ) Tj ET
+BT /F4 8.0 Tf 52.0 250.0 Td (C2 Funcionalidad                                                      3,5             ) Tj ET
+BT /F4 8.0 Tf 52.0 239.4 Td (C3 UI/UX                                                              2,5             ) Tj ET
+BT /F4 8.0 Tf 52.0 228.9 Td (C4 Analítica                                                          3,5             ) Tj ET
+BT /F4 8.0 Tf 52.0 218.3 Td (C5 Crecimiento                                                        3,0             ) Tj ET
+BT /F4 8.0 Tf 52.0 207.7 Td (C6 Seguridad                                                          3,5             ) Tj ET
+BT /F4 8.0 Tf 52.0 197.2 Td (C7 Fiabilidad                                                         3,5             ) Tj ET
+BT /F4 8.0 Tf 52.0 186.6 Td (C8 Código/Pruebas                                                     3,5             ) Tj ET
+BT /F4 8.0 Tf 52.0 176.1 Td (C9 Documentación                                                      5,0             ) Tj ET
+BT /F4 8.0 Tf 52.0 165.5 Td (C10 Ética                                                             5,0             ) Tj ET
+BT /F4 8.0 Tf 52.0 154.9 Td (C11 Operación/Coste                                                   3,5             ) Tj ET
+BT /F4 8.0 Tf 52.0 144.4 Td (C12 Escalabilidad                                                     3,0             ) Tj ET
+BT /F4 8.0 Tf 52.0 133.8 Td (C13 Comparativa                                                       3,5             ) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (2 / 31) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Length 5846 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 1 ? Arquitectura y Fundamentos Técnicos) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (1. Paradigma de programación) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([PARCIAL] Principal: imperativo orientado a objetos con dataclasses \(models.py, fsm.py\); secundarios:) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (funcional ligero \(closures/comprensiones en scheduler y transports\), declarativo \(especificaciones) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (JSON de FSM/watch/pool interpretadas por motores\) y metaprogramación contenida \(plugin_loader registra) Tj ET
+BT /F1 9.3 Tf 60.0 701.9 Td (por etiquetas, sin RCE remoto\).) Tj ET
+BT /F2 10.5 Tf 52.0 686.1 Td (2. Complejidad ciclomática) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td ([SÍ medida] 309 funciones, CC media 4,8 \(sana; umbral clásico 10\). Hotspots CC>19: tools.py:shell=33) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (\(mini-shell con pipes/redirección/sustitución\), provider_pool.py:execute_dag=31,) Tj ET
+BT /F1 9.3 Tf 60.0 646.7 Td (planner.py:evolve_step=26, dashboard.py:_handler=23, loop.py:execute_step=19. Los cinco tienen tests) Tj ET
+BT /F1 9.3 Tf 60.0 634.4 Td (dedicados pero son los candidatos a refactorizar.) Tj ET
+BT /F2 10.5 Tf 52.0 618.6 Td (3. Acoplamiento y cohesión) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td ([PARCIAL] Coesión alta por módulo \(una preocupación por archivo\). Acoplamiento bajo y unidireccional) Tj ET
+BT /F1 9.3 Tf 60.0 591.5 Td (\(cli->loop->planner/tools; learner->provider_pool->providers\); se evita la circularidad con imports) Tj ET
+BT /F1 9.3 Tf 60.0 579.2 Td (perezosos \(providers->provider_pool dentro de get_provider\). Punto débil: cli.py conoce a todos \(753) Tj ET
+BT /F1 9.3 Tf 60.0 566.9 Td (LOC, fachada creciente\).) Tj ET
+BT /F2 10.5 Tf 52.0 551.2 Td (4. Patrones de diseño) Tj ET
+BT /F1 9.3 Tf 60.0 536.3 Td ([SÍ] Strategy \(BaseProvider: heurístico/OpenAI/pool; estrategias del scheduler\), Factory) Tj ET
+BT /F1 9.3 Tf 60.0 524.0 Td (\(get_provider, build_pool_provider\), Adapter \(plugins externos como herramientas\), Registry) Tj ET
+BT /F1 9.3 Tf 60.0 511.8 Td (\(ToolRegistry, plugin_loader\), Observer \(SSE del dashboard, on_event del watcher\), Circuit Breaker) Tj ET
+BT /F1 9.3 Tf 60.0 499.5 Td (\(SORL\), Retry con backoff \(pool y learner\), State \(FSM\), Pipe & Filters \(execute_dag\), Chain of) Tj ET
+BT /F1 9.3 Tf 60.0 487.2 Td (Responsibility \(escalera de recuperación\), Facade \(ProviderPool\).) Tj ET
+BT /F2 10.5 Tf 52.0 471.4 Td (5. Antipatrones identificados) Tj ET
+BT /F1 9.3 Tf 60.0 456.6 Td ([SÍ identificados] \(a\) God-function en cmd_run/cli y dashboard._handler; \(b\) duplicación de) Tj ET
+BT /F1 9.3 Tf 60.0 444.3 Td (construcción de prompts LLM entre providers.py y provider_pool.py; \(c\) logging por print\(\) en vez de) Tj ET
+BT /F1 9.3 Tf 60.0 432.0 Td (módulo logging; \(d\) fascination: heurística que puntúa 'éxito' cualquier salida no vacía \(LIMITACIONES) Tj ET
+BT /F1 9.3 Tf 60.0 419.7 Td (§2 nº8-9 lo declara abiertamente\). Ninguno bloqueante; los cuatro están en la lista de deuda.) Tj ET
+BT /F2 10.5 Tf 52.0 404.0 Td (6. Estrategia de gestión de estado) Tj ET
+BT /F1 9.3 Tf 60.0 389.1 Td ([SÍ, híbrida] Mutable en ejecución \(dataclasses Step/EndpointState\), externalizada y persistente entre) Tj ET
+BT /F1 9.3 Tf 60.0 376.8 Td (ejecuciones \(SQLite episódico, strategies.json, governance.json, state.json del pool, fichas de) Tj ET
+BT /F1 9.3 Tf 60.0 364.6 Td (conocimiento\), e inmutable-auditable para la cadena de custodia \(ledger JSONL append-only con hash) Tj ET
+BT /F1 9.3 Tf 60.0 352.3 Td (chain\). El estado nunca vive solo en RAM.) Tj ET
+BT /F2 10.5 Tf 52.0 336.5 Td (7. Modelo de concurrencia) Tj ET
+BT /F1 9.3 Tf 60.0 321.6 Td ([SÍ] Hilos \(ThreadPoolExecutor para fanout/DAG/fractales; locks RLock en pool y watcher\), procesos) Tj ET
+BT /F1 9.3 Tf 60.0 309.4 Td (\(swarm: un worker por objetivo; sandbox de python_exec por subproceso\) y un hilo de servidor HTTP) Tj ET
+BT /F1 9.3 Tf 60.0 297.1 Td (\(webhook del watcher\). No usa asyncio: con I/O de red acotado y stdlib-only, los hilos bastan y) Tj ET
+BT /F1 9.3 Tf 60.0 284.8 Td (simplifican el razonamiento.) Tj ET
+BT /F2 10.5 Tf 52.0 269.0 Td (8. Eficiencia de algoritmos \(Big O\)) Tj ET
+BT /F1 9.3 Tf 60.0 254.2 Td ([SÍ] Ventana deslizante de cuota O\(rpm\); orden topológico del DAG O\(V+E\); utility del scheduler O\(1\)) Tj ET
+BT /F1 9.3 Tf 60.0 241.9 Td (por endpoint; ledger con caché de último hash: append O\(1\) amortizado \(bug O\(n²\) corregido en v1.1,) Tj ET
+BT /F1 9.3 Tf 60.0 229.6 Td (3,6× más rápido\); verificación de cadena O\(n\); emparejado de planes heurísticos) Tj ET
+BT /F1 9.3 Tf 60.0 217.3 Td (O\(plantillas×palabras\). Sin algoritmos superpolinómicos.) Tj ET
+BT /F2 10.5 Tf 52.0 201.6 Td (9. Estructura de datos subyacente) Tj ET
+BT /F1 9.3 Tf 60.0 186.7 Td ([SÍ] Elegantes para su nicho: deque para ventanas de rate-limit, dicts como índices \(herramientas,) Tj ET
+BT /F1 9.3 Tf 60.0 174.4 Td (estados FSM, telemetría\), listas de pasos con depends_on, JSONL append-only como log, SQLite para) Tj ET
+BT /F1 9.3 Tf 60.0 162.2 Td (episodios. Idoneidad correcta; falta un índice invertido/emprendido para búsqueda semántica en la) Tj ET
+BT /F1 9.3 Tf 60.0 149.9 Td (memoria \(gap declarado\).) Tj ET
+BT /F2 10.5 Tf 52.0 134.1 Td (10. Gestión de memoria) Tj ET
+BT /F1 9.3 Tf 60.0 119.2 Td ([SÍ] Recolector de Python; gestión explícita y correcta de recursos externos \(handle de) Tj ET
+BT /F1 9.3 Tf 60.0 107.0 Td (telemetry.jsonl cerrado en close\(\) con atexit resiliente; servidores con shutdown\). Buffers acotados) Tj ET
+BT /F1 9.3 Tf 60.0 94.7 Td (\(lecturas HTTP limitadas a 60-200 KB; latencias con deque maxlen=200\).) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (3 / 31) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Length 5759 >>
+stream
+BT /F2 10.5 Tf 52.0 790.0 Td (11. Stack tecnológico y justificación) Tj ET
+BT /F1 9.3 Tf 60.0 775.1 Td ([SÍ] Python >=3.9, 100% stdlib \(urllib, sqlite3, http.server, threading, zipfile\). Justificación) Tj ET
+BT /F1 9.3 Tf 60.0 762.9 Td (estructural: LiveCD de ~500 KB ejecutable sin instalación, superficie de ataque de supply-chain nula y) Tj ET
+BT /F1 9.3 Tf 60.0 750.6 Td (auditabilidad total del código. El coste asumido: reimplementar \(mini-shell, cliente HTTP, motor PDF\)) Tj ET
+BT /F1 9.3 Tf 60.0 738.3 Td (en vez de depender.) Tj ET
+BT /F2 10.5 Tf 52.0 722.5 Td (12. Dependencias y su gestión) Tj ET
+BT /F1 9.3 Tf 60.0 707.7 Td ([SÍ: cero] No hay dependencias externas de ejecución \(pyproject solo declara el paquete\). Cero CVEs) Tj ET
+BT /F1 9.3 Tf 60.0 695.4 Td (posibles de terceros; sin lockfile necesario. Las herramientas forenses externas \(Sleuth Kit,) Tj ET
+BT /F1 9.3 Tf 60.0 683.1 Td (Volatility...\) son opcionales del operador, con lista blanca.) Tj ET
+BT /F2 10.5 Tf 52.0 667.3 Td (13. Compatibilidad y portabilidad) Tj ET
+BT /F1 9.3 Tf 60.0 652.5 Td ([PARCIAL] Python puro: portable a cualquier POSIX. Sesgo UNIX: /dev/shm para --ram, rlimits,) Tj ET
+BT /F1 9.3 Tf 60.0 640.2 Td (nsjail/bwrap opcionales \(degrada a nivel rlimits\). Windows: el núcleo corre, pero sandbox avanzado y) Tj ET
+BT /F1 9.3 Tf 60.0 627.9 Td (algunas herramientas shell no. Hardware: desde una Raspberry Pi \(RAM de proceso ~decenas de MB\); sin) Tj ET
+BT /F1 9.3 Tf 60.0 615.7 Td (requisitos de GPU.) Tj ET
+BT /F2 10.5 Tf 52.0 599.9 Td (14. Interoperabilidad) Tj ET
+BT /F1 9.3 Tf 60.0 585.0 Td ([SÍ] Toda la frontera externa es HTTP+JSON: API compatible OpenAI \(chat/completions\) para cualquier) Tj ET
+BT /F1 9.3 Tf 60.0 572.7 Td (LLM, REST de GitHub, webhooks entrantes, JSON exportable en cada comando \(--json\). No hay) Tj ET
+BT /F1 9.3 Tf 60.0 560.5 Td (gRPC/protobuf ni SDKs de lenguajes: la interoperabilidad es por contrato REST simple, suficiente para) Tj ET
+BT /F1 9.3 Tf 60.0 548.2 Td (el dominio.) Tj ET
+BT /F2 10.5 Tf 52.0 532.4 Td (15. Capacidad de refactorización) Tj ET
+BT /F1 9.3 Tf 60.0 517.6 Td ([PARCIAL] Red de seguridad: 139 tests \(incluidos contratos del proveedor y regresiones de bugs) Tj ET
+BT /F1 9.3 Tf 60.0 505.3 Td (históricos\) + verificación criptográfica del ledger. Riesgo: sin medición de cobertura formal ni tests) Tj ET
+BT /F1 9.3 Tf 60.0 493.0 Td (de mutación, los refactors de las 5 funciones CC>19 son delicados; recomendado extraer execute_dag y) Tj ET
+BT /F1 9.3 Tf 60.0 480.7 Td (shell a módulos propios con tests primero.) Tj ET
+BT /F2 10.5 Tf 52.0 465.0 Td (16. Deuda técnica cuantificada) Tj ET
+BT /F1 9.3 Tf 60.0 450.1 Td ([SÍ] Cuantificada en este informe: CC media 4,8 con 5 funciones >19; ~90 LOC duplicados de prompts;) Tj ET
+BT /F1 9.3 Tf 60.0 437.8 Td (cli.py en crecimiento \(25+ flags\); mensajes i18n hardcodeados; win-rate sin decaimiento \(sesgo de) Tj ET
+BT /F1 9.3 Tf 60.0 425.5 Td (popularidad\); sin CHANGELOG formal. Estimación honesta: 2-3 jornadas de refactor puro para ponerlo) Tj ET
+BT /F1 9.3 Tf 60.0 413.3 Td (todo por debajo de CC 15.) Tj ET
+BT /F2 10.5 Tf 52.0 397.5 Td (17. Resiliencia a fallos) Tj ET
+BT /F1 9.3 Tf 60.0 382.6 Td ([SÍ] Degradación en cascada demostrada en vivo: endpoint LLM caído -> cuarentena -> failover ->) Tj ET
+BT /F1 9.3 Tf 60.0 370.4 Td (fallback heurístico -> misión cumplida igualmente. Circuit breaker, backoff exponencial, checkpoints) Tj ET
+BT /F1 9.3 Tf 60.0 358.1 Td (reanudables, supervise \(relanzamiento hasta éxito\), sandbox que contiene fallos de memoria/CPU en) Tj ET
+BT /F1 9.3 Tf 60.0 345.8 Td (python_exec.) Tj ET
+BT /F2 10.5 Tf 52.0 330.0 Td (18. Tolerancia a particiones \(CAP\)) Tj ET
+BT /F1 9.3 Tf 60.0 315.2 Td ([PARCIAL] Es un sistema de nodo único: no hay partición interna que tolerar \(C fuerte por diseño\).) Tj ET
+BT /F1 9.3 Tf 60.0 302.9 Td (Ante particiones EXTERNAS \(proveedores LLM/GitHub caídos o lentos\), el pool prioriza disponibilidad) Tj ET
+BT /F1 9.3 Tf 60.0 290.6 Td (con consistencia eventual de su telemetría: cada proceso decide con el último snapshot y lo reconcilia) Tj ET
+BT /F1 9.3 Tf 60.0 278.3 Td (al cerrar. Trade-off documentado, no accidental.) Tj ET
+BT /F2 10.5 Tf 52.0 262.6 Td (19. Consistencia de datos) Tj ET
+BT /F1 9.3 Tf 60.0 247.7 Td ([SÍ] Fuerte y verificable dentro del workspace: ledger append-only con hash chain SHA-256 y detección) Tj ET
+BT /F1 9.3 Tf 60.0 235.4 Td (de truncación \(v1.1.1\), firmas HMAC de informe y artefactos \(a2s verify\). Eventual solo en la capa de) Tj ET
+BT /F1 9.3 Tf 60.0 223.2 Td (aprendizaje agregado del pool \(snapshots por proceso\).) Tj ET
+BT /F2 10.5 Tf 52.0 207.4 Td (20. Latencia end-to-end) Tj ET
+BT /F1 9.3 Tf 60.0 192.5 Td ([SÍ medida] Nivel 0 \(FSM\): milisegundos por transición, misión completa en <1 s. Nivel 1 heurístico:) Tj ET
+BT /F1 9.3 Tf 60.0 180.2 Td (misión demo en segundos \(6 iteraciones, ~0,1 s de ledger\). Con LLM: dominada por el proveedor \(p50) Tj ET
+BT /F1 9.3 Tf 60.0 168.0 Td (medidos en vivo: 23-251 ms según endpoint; hasta 120 s de timeout\). El fanout paralelo convierte N) Tj ET
+BT /F1 9.3 Tf 60.0 155.7 Td (llamadas en ~max\(N/paralelismo\) muros.) Tj ET
+BT /F2 10.5 Tf 52.0 139.9 Td (21. Rendimiento bajo carga) Tj ET
+BT /F1 9.3 Tf 60.0 125.1 Td ([PARCIAL] Verificado empíricamente hasta escala de demostración \(12 subtareas/8 hilos, enjambres de N) Tj ET
+BT /F1 9.3 Tf 60.0 112.8 Td (procesos, 139 tests en 3,4 s\). Sin benchmarks de estrés formales ni perfiles de CPU: la política de) Tj ET
+BT /F1 9.3 Tf 60.0 100.5 Td (cuotas auto-impuesta del pool es el principal protector bajo carga real.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (4 / 31) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Length 2224 >>
+stream
+BT /F2 10.5 Tf 52.0 790.0 Td (22. Consumo de recursos) Tj ET
+BT /F1 9.3 Tf 60.0 775.1 Td ([SÍ] CPU/RAM mínimos \(proceso Python estándar; LiveCD ~500 KB en disco, workspace volátil en RAM) Tj ET
+BT /F1 9.3 Tf 60.0 762.9 Td (opcional\). Red: solo la que usan proveedor/GitHub con ventanas de cuota conservadoras. Disco:) Tj ET
+BT /F1 9.3 Tf 60.0 750.6 Td (SQLite+JSONL de crecimiento lineal y acotado por maxlen en latencias \(rotación del telemetry.jsonl no) Tj ET
+BT /F1 9.3 Tf 60.0 738.3 Td (automática: gap menor\).) Tj ET
+BT /F2 10.5 Tf 52.0 722.5 Td (23. Estrategia de persistencia) Tj ET
+BT /F1 9.3 Tf 60.0 707.7 Td ([SÍ, local-first] Cinco capas: SQLite \(memoria episódica\), JSONL append-only con hash chain \(ledger\),) Tj ET
+BT /F1 9.3 Tf 60.0 695.4 Td (archivos JSON con escritura atómica os.replace \(estrategias, gobernanza, state del pool, fichas de) Tj ET
+BT /F1 9.3 Tf 60.0 683.1 Td (conocimiento\), artefactos firmados en workspace, y snapshots temporales \(telemetría\). Todo dentro del) Tj ET
+BT /F1 9.3 Tf 60.0 670.8 Td (workspace: copiar el workspace = migrar el sistema.) Tj ET
+BT /F2 10.5 Tf 52.0 655.1 Td (24. Introspección y depuración en runtime) Tj ET
+BT /F1 9.3 Tf 60.0 640.2 Td ([SÍ] a2s doctor \(diagnóstico de entorno/sandbox/red\), a2s verify \(cripto\), pool-status --json, traza) Tj ET
+BT /F1 9.3 Tf 60.0 627.9 Td (de estados del FSM, verbose por ronda de planificación, dashboard SSE en vivo, ledger consultable por) Tj ET
+BT /F1 9.3 Tf 60.0 615.7 Td (evento. Falta: tracing distribuido y profiler integrado \(cProfile externo siempre disponible al ser) Tj ET
+BT /F1 9.3 Tf 60.0 603.4 Td (Python\).) Tj ET
+BT /F2 10.5 Tf 52.0 587.6 Td (25. Complejidad computacional teórica vs empírica) Tj ET
+BT /F1 9.3 Tf 60.0 572.7 Td ([PARCIAL] Las cotas teóricas están razonadas en el código \(ver criterio 8\); las empíricas existen pero) Tj ET
+BT /F1 9.3 Tf 60.0 560.5 Td (dispersas: suite 139/3,4 s, learner 5,1 s con API real, latencias p50/p95 por endpoint en telemetría.) Tj ET
+BT /F1 9.3 Tf 60.0 548.2 Td (No hay un banco de pruebas formal que una ambas caras \(roadmap\).) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (5 / 31) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Length 5505 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 2 ? Funcionalidades y Características) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (26. Alcance funcional vs especificación original) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([SÍ] La directiva original \(ambiciosa y con peticiones ilegales\) está mapeada 1:1 en directiva.py:) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (cada capacidad pedida tiene implementación legítima equivalente o un NO explícito razonado \(backdoors,) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (minería, manipulación temporal\). La tabla del README es el contrato de alcance y LIMITACIONES §1-13 su) Tj ET
+BT /F1 9.3 Tf 60.0 701.9 Td (contrapartida crítica.) Tj ET
+BT /F2 10.5 Tf 52.0 686.1 Td (27. Completitud de features) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td ([PARCIAL] Completas y verificadas en vivo: loop de recuperación fractal, SORL con tres niveles de) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (aprendizaje, CE con API real de GitHub, FSM/watcher con escalado, firma HMAC, sandbox por capas,) Tj ET
+BT /F1 9.3 Tf 60.0 646.7 Td (dashboard. Incompletas por diseño: búsqueda de código GitHub \(solo README\), provisionamiento spot,) Tj ET
+BT /F1 9.3 Tf 60.0 634.4 Td (BOINC \(diseño en §12\).) Tj ET
+BT /F2 10.5 Tf 52.0 618.6 Td (28. Robustez ante entradas no esperadas) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td ([SÍ] Capas múltiples: classify_forbidden \(30+ patrones de abuso\), validación estática de) Tj ET
+BT /F1 9.3 Tf 60.0 591.5 Td (especificaciones FSM antes de ejecutar, _extract_json tolerante a prosa, validators de esquema por) Tj ET
+BT /F1 9.3 Tf 60.0 579.2 Td (kind en el pool, errores de acción convertidos en observaciones enrutables. Falta fuzzing sistemático) Tj ET
+BT /F1 9.3 Tf 60.0 566.9 Td (\(roadmap\).) Tj ET
+BT /F2 10.5 Tf 52.0 551.2 Td (29. Extensibilidad) Tj ET
+BT /F1 9.3 Tf 60.0 536.3 Td ([SÍ] Tres puntos de extensión limpios: implementar BaseProvider \(nuevo motor de razonamiento\), plugins) Tj ET
+BT /F1 9.3 Tf 60.0 524.0 Td (con etiquetas cargados bajo demanda, endpoints del pool por configuración JSON. Añadir una herramienta) Tj ET
+BT /F1 9.3 Tf 60.0 511.8 Td (= registrarla en ToolRegistry.) Tj ET
+BT /F2 10.5 Tf 52.0 496.0 Td (30. Modularidad funcional) Tj ET
+BT /F1 9.3 Tf 60.0 481.1 Td ([SÍ] 24 módulos con fronteras claras por preocupación \(loop, planner, memory, ledger, signing, auth,) Tj ET
+BT /F1 9.3 Tf 60.0 468.8 Td (sandbox, providers, provider_pool, learner, fsm, dashboard...\). La granularidad de paquete es plana) Tj ET
+BT /F1 9.3 Tf 60.0 456.6 Td (\(sin subpaquetes\): aceptable a 6,5 k LOC.) Tj ET
+BT /F2 10.5 Tf 52.0 440.8 Td (31. Granularidad de funciones y servicios) Tj ET
+BT /F1 9.3 Tf 60.0 425.9 Td ([PARCIAL] Herramientas atómicas bien granuladas \(read_file, sha256sum...\); comandos CLI) Tj ET
+BT /F1 9.3 Tf 60.0 413.7 Td (deliberadamente gruesos \(una misión = un comando\). El DAG y el fanout permiten elegir granularidad de) Tj ET
+BT /F1 9.3 Tf 60.0 401.4 Td (subtareas en runtime.) Tj ET
+BT /F2 10.5 Tf 52.0 385.6 Td (32. Parametrización y configurabilidad) Tj ET
+BT /F1 9.3 Tf 60.0 370.7 Td ([SÍ] Config con 25+ parámetros, flags CLI espejo, variables de entorno \(A2S_*\), pool.json \(endpoints,) Tj ET
+BT /F1 9.3 Tf 60.0 358.5 Td (pesos, estrategia\), especificaciones FSM/watch JSON, límites adaptativos renovables por) Tj ET
+BT /F1 9.3 Tf 60.0 346.2 Td (replanificación. Todo el comportamiento límite es del operador.) Tj ET
+BT /F2 10.5 Tf 52.0 330.4 Td (33. Automatización de procesos internos) Tj ET
+BT /F1 9.3 Tf 60.0 315.6 Td ([SÍ] Replanificación automática, failover sin intervención, auto-aprendizaje de cuota real,) Tj ET
+BT /F1 9.3 Tf 60.0 303.3 Td (micro-ajuste de pesos, puerta de incompetencia por medición, relanzamiento supervise, rotación de) Tj ET
+BT /F1 9.3 Tf 60.0 291.0 Td (variantes ante estancamiento. El sistema se autogestiona dentro de los presupuestos fijados.) Tj ET
+BT /F2 10.5 Tf 52.0 275.2 Td (34. Capacidad de scripting del usuario) Tj ET
+BT /F1 9.3 Tf 60.0 260.4 Td ([SÍ] Mini-shell del agente \($VAR, globs, $\(...\) con la misma política de permisos\), python_exec) Tj ET
+BT /F1 9.3 Tf 60.0 248.1 Td (aislado, y API Python importable \(ProviderPool, FSMEngine, Learner son ciudadanos de primera: los) Tj ET
+BT /F1 9.3 Tf 60.0 235.8 Td (ejemplos/ son scripts reales\).) Tj ET
+BT /F2 10.5 Tf 52.0 220.0 Td (35. Flujos de trabajo soportados) Tj ET
+BT /F1 9.3 Tf 60.0 205.2 Td ([SÍ] Lineal \(run\), fractal en paralelo \(run_fractal/swarm\), especulativo \(N planes puntuados por la) Tj ET
+BT /F1 9.3 Tf 60.0 192.9 Td (red de gobernanza\), DAG con dependencias \(execute_dag\), dirigido por eventos \(watch\) y determinista) Tj ET
+BT /F1 9.3 Tf 60.0 180.6 Td (\(fsm\). Componibles entre sí \(watch puede escalar a run\).) Tj ET
+BT /F2 10.5 Tf 52.0 164.9 Td (36. Gestión de identidades y accesos \(IAM\)) Tj ET
+BT /F1 9.3 Tf 60.0 150.0 Td ([PARCIAL] Autenticación de un rol: tokens JWT-HS256 con expiración para el dashboard \(cookie) Tj ET
+BT /F1 9.3 Tf 60.0 137.7 Td (HttpOnly\), tokens por workspace. Sin RBAC ni multiusuario real: es una herramienta de operador único) Tj ET
+BT /F1 9.3 Tf 60.0 125.4 Td (por diseño \(gap si se despliega como servicio\).) Tj ET
+BT /F2 10.5 Tf 52.0 109.7 Td (37. Auditoría y logging de acciones) Tj ET
+BT /F1 9.3 Tf 60.0 94.8 Td ([SÍ, fortaleza] Ledger append-only con hash chain verificable \(detecta modificación y truncación\),) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (6 / 31) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Length 5353 >>
+stream
+BT /F1 9.3 Tf 60.0 790.0 Td (firmas HMAC por artefacto, telemetry.jsonl del pool, watch.jsonl del vigía, registro de acciones) Tj ET
+BT /F1 9.3 Tf 60.0 777.7 Td (denegadas por el modelo de permisos. Cadena de custodia de nivel forense.) Tj ET
+BT /F2 10.5 Tf 52.0 761.9 Td (38. Seguridad a nivel funcional) Tj ET
+BT /F1 9.3 Tf 60.0 747.1 Td ([PARCIAL] Sin SQL dinámico \(sqlite parametrizada\), mini-shell sin shell=True \(shlex + lista blanca\),) Tj ET
+BT /F1 9.3 Tf 60.0 734.8 Td (paths confinados al workspace, allowlist de red. El dashboard es básico y NO ha pasado una auditoría) Tj ET
+BT /F1 9.3 Tf 60.0 722.5 Td (web formal \(CSRF/ClickJacking no modelados\): no exponerlo sin reverse proxy. Declarado, no oculto.) Tj ET
+BT /F2 10.5 Tf 52.0 706.8 Td (39. Funcionalidades asíncronas) Tj ET
+BT /F1 9.3 Tf 60.0 691.9 Td ([PARCIAL] Asíncronía por hilos \(fanout, SSE, webhook\) y procesos \(swarm\); no existe asyncio \(decisión) Tj ET
+BT /F1 9.3 Tf 60.0 679.6 Td (stdlib documentada\). Para el I/O acotado del dominio es suficiente; un C10K de miles de webhooks) Tj ET
+BT /F1 9.3 Tf 60.0 667.3 Td (simultáneos no es el caso de uso.) Tj ET
+BT /F2 10.5 Tf 52.0 651.6 Td (40. Funcionalidades en tiempo real) Tj ET
+BT /F1 9.3 Tf 60.0 636.7 Td ([SÍ] Dashboard con Server-Sent Events \(misiones en vivo\), watcher reactivo \(file/webhook disparan en) Tj ET
+BT /F1 9.3 Tf 60.0 624.4 Td (<1 s\), métricas del pool en caliente. Sin WebSockets bidireccionales \(no se necesitan: el flujo es de) Tj ET
+BT /F1 9.3 Tf 60.0 612.2 Td (salida\).) Tj ET
+BT /F2 10.5 Tf 52.0 596.4 Td (41. Procesamiento por lotes \(batch\)) Tj ET
+BT /F1 9.3 Tf 60.0 581.5 Td ([SÍ] fanout \(map paralelo con cuotas\), execute_dag \(lotes con dependencias\), swarm \(lote de objetivos,) Tj ET
+BT /F1 9.3 Tf 60.0 569.2 Td (un worker cada uno\), learn \(lote de ciclos de estudio\). Demostrado en vivo: 12 subtareas sobre 3) Tj ET
+BT /F1 9.3 Tf 60.0 557.0 Td (endpoints respetando cuotas.) Tj ET
+BT /F2 10.5 Tf 52.0 541.2 Td (42. Internacionalización y localización) Tj ET
+BT /F1 9.3 Tf 60.0 526.3 Td ([NO] Mensajes en español de primera clase, hardcodeados \(identidad deliberada del proyecto\). Sin) Tj ET
+BT /F1 9.3 Tf 60.0 514.1 Td (catálogos gettext ni locale switching. Para un agente de operador, aceptable; para producto global,) Tj ET
+BT /F1 9.3 Tf 60.0 501.8 Td (deuda.) Tj ET
+BT /F2 10.5 Tf 52.0 486.0 Td (43. Accesibilidad \(WCAG\)) Tj ET
+BT /F1 9.3 Tf 60.0 471.1 Td ([NO formal] CLI: depende del terminal del usuario. Dashboard: HTML mínimo sin auditoría WCAG) Tj ET
+BT /F1 9.3 Tf 60.0 458.9 Td (\(contraste, roles ARIA, navegación por teclado no verificada\). Si el dashboard se vuelve producto,) Tj ET
+BT /F1 9.3 Tf 60.0 446.6 Td (esto pasa de gap a bloqueo.) Tj ET
+BT /F2 10.5 Tf 52.0 430.8 Td (44. Funcionalidades offline) Tj ET
+BT /F1 9.3 Tf 60.0 416.0 Td ([SÍ] Modo 100% offline verificado: núcleo heurístico determinista sin red ni claves \(--no-network\),) Tj ET
+BT /F1 9.3 Tf 60.0 403.7 Td (sandbox bloquea red por shim. La sincronización 'online' \(pool, CE\) es aditiva: su aprendizaje) Tj ET
+BT /F1 9.3 Tf 60.0 391.4 Td (persiste y se reutiliza cuando vuelve la red.) Tj ET
+BT /F2 10.5 Tf 52.0 375.6 Td (45. Importación/exportación de datos) Tj ET
+BT /F1 9.3 Tf 60.0 360.8 Td ([PARCIAL] Exportación sólida: informes MD+JSON firmados, pool-status --json, ledger consultable,) Tj ET
+BT /F1 9.3 Tf 60.0 348.5 Td (fichas JSON. Importación limitada: especificaciones \(pool/fsm/watch\) y objetivos; sin conectores) Tj ET
+BT /F1 9.3 Tf 60.0 336.2 Td (CSV/DB externos de propósito general.) Tj ET
+BT /F2 10.5 Tf 52.0 320.4 Td (46. Versionado de datos y rollback) Tj ET
+BT /F1 9.3 Tf 60.0 305.6 Td ([PARCIAL] El ledger es inmutable \(append-only: la historia nunca se reescribe\) y los snapshots usan) Tj ET
+BT /F1 9.3 Tf 60.0 293.3 Td (escritura atómica con reemplazo. Rollback real = restaurar copia del workspace \(documentado\); sin) Tj ET
+BT /F1 9.3 Tf 60.0 281.0 Td (migraciones versionadas de esquema \(gap\).) Tj ET
+BT /F2 10.5 Tf 52.0 265.3 Td (47. Integración con APIs de terceros) Tj ET
+BT /F1 9.3 Tf 60.0 250.4 Td ([SÍ] Cualquier endpoint compatible OpenAI \(OpenAI, Groq, Gemini, GitHub Models, OpenRouter, Ollama) Tj ET
+BT /F1 9.3 Tf 60.0 238.1 Td (local\) con claves del operador y cuotas respetadas; REST de GitHub \(búsqueda + README, Retry-After) Tj ET
+BT /F1 9.3 Tf 60.0 225.8 Td (obedecido\); búsqueda DuckDuckGo; fetch HTTP genérico con allowlist.) Tj ET
+BT /F2 10.5 Tf 52.0 210.1 Td (48. Capacidades de búsqueda) Tj ET
+BT /F1 9.3 Tf 60.0 195.2 Td ([PARCIAL] Búsqueda web \(DDG\), búsqueda en GitHub \(repositorios\), grep/list_dir locales del agente. Sin) Tj ET
+BT /F1 9.3 Tf 60.0 182.9 Td (búsqueda semántica/vectorial en la memoria episódica ni faceteada: gap estructural declarado en) Tj ET
+BT /F1 9.3 Tf 60.0 170.7 Td (§13.2/roadmap.) Tj ET
+BT /F2 10.5 Tf 52.0 154.9 Td (49. Funcionalidades de notificación) Tj ET
+BT /F1 9.3 Tf 60.0 140.0 Td ([NO] Notifica por consola, dashboard y archivos \(informe, watch.jsonl\). Sin email, push ni webhooks) Tj ET
+BT /F1 9.3 Tf 60.0 127.7 Td (salientes. El webhook ENTRANTE existe; el saliente es roadmap trivial \(postear el resultado del) Tj ET
+BT /F1 9.3 Tf 60.0 115.5 Td (escalado\).) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (7 / 31) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Length 2565 >>
+stream
+BT /F2 10.5 Tf 52.0 790.0 Td (50. Colaboración multiusuario) Tj ET
+BT /F1 9.3 Tf 60.0 775.1 Td ([NO] Modelo de operador único por workspace. El 'equipo' más parecido es el enjambre: réplicas) Tj ET
+BT /F1 9.3 Tf 60.0 762.9 Td (aisladas con memoria propia por objetivo, sin shared-state colaborativo.) Tj ET
+BT /F2 10.5 Tf 52.0 747.1 Td (51. Gestión de conflictos colaborativos) Tj ET
+BT /F1 9.3 Tf 60.0 732.2 Td ([NO/NA] Al no haber escritura concurrente multiusuario, no hay conflictos de edición. La concurrencia) Tj ET
+BT /F1 9.3 Tf 60.0 720.0 Td (interna se serializa por locks y el ledger ordena causalmente los eventos \(single-writer por) Tj ET
+BT /F1 9.3 Tf 60.0 707.7 Td (workspace\).) Tj ET
+BT /F2 10.5 Tf 52.0 691.9 Td (52. Personalización de la experiencia) Tj ET
+BT /F1 9.3 Tf 60.0 677.0 Td ([PARCIAL] Personalizable por configuración \(estrategias del pool, pesos, umbrales, plantillas de) Tj ET
+BT /F1 9.3 Tf 60.0 664.8 Td (planes heurísticos editables como datos\). Sin perfil por usuario ni preferencias persistentes de UI.) Tj ET
+BT /F2 10.5 Tf 52.0 649.0 Td (53. Capacidad de aprendizaje y adaptación \(ML\)) Tj ET
+BT /F1 9.3 Tf 60.0 634.1 Td ([SÍ, honesto] MLP de gobernanza entrenado online \(predice éxito de pasos\), neuroevolución de topología) Tj ET
+BT /F1 9.3 Tf 60.0 621.9 Td (y pesos \(a2s evolve\), selección de estrategias por win-rate, rpm aprendido por observación, aptitud) Tj ET
+BT /F1 9.3 Tf 60.0 609.6 Td (medida por kind con puerta de incompetencia. Todo ligero y explicable; nada de deep learning pesado) Tj ET
+BT /F1 9.3 Tf 60.0 597.3 Td (\(por diseño stdlib\).) Tj ET
+BT /F2 10.5 Tf 52.0 581.5 Td (54. Análisis y reporting) Tj ET
+BT /F1 9.3 Tf 60.0 566.7 Td ([SÍ] Informe forense autónomo por misión \(MD+JSON firmado con HMAC\), render legible, pool-status con) Tj ET
+BT /F1 9.3 Tf 60.0 554.4 Td (p50/p95/éxito/coste por endpoint, resumen ejecutivo del learn, traza de estados del FSM. Los informes) Tj ET
+BT /F1 9.3 Tf 60.0 542.1 Td (son artefactos firmados: auditables.) Tj ET
+BT /F2 10.5 Tf 52.0 526.3 Td (55. Automatización de respuestas a eventos) Tj ET
+BT /F1 9.3 Tf 60.0 511.5 Td ([SÍ] El watcher completo: interval con jitter / cambio de archivo / webhook -> máquina determinista ->) Tj ET
+BT /F1 9.3 Tf 60.0 499.2 Td (si el evento es imprevisto, escala sola al agente que lo resuelve y queda todo en watch.jsonl.) Tj ET
+BT /F1 9.3 Tf 60.0 486.9 Td (Verificado en vivo con los tres disparadores.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (8 / 31) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Length 5310 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 3 ? Interfaz de Usuario y Experiencia \(UI/UX\)) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (56. Principios de diseño seguidos) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([PARCIAL] A CLI se le aplican Nielsen por analogía: consistencia, visibilidad del estado \(trazas por) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (ronda\), prevención de errores \(confirmaciones implícitas vía lista blanca\), ayuda integrada. No hay) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (diseño formal guiado por heurísticas documentadas: la UI es instrumental para operadores técnicos.) Tj ET
+BT /F2 10.5 Tf 52.0 698.4 Td (57. Consistencia visual y de interacción) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td ([SÍ] Convenciones estables en todos los comandos: prefijo [A²S] con marca de estado) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (\(logro/parcial/fallo/error\), tablas alineadas en pool-status, mismas flags comunes en) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (run/demo/learn/fsm/watch. El dashboard repite la identidad visual del CLI.) Tj ET
+BT /F2 10.5 Tf 52.0 643.2 Td (58. Jerarquía visual y claridad) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td ([SÍ] En consola: títulos de ronda sangrados, tablas con cabecera y regla, traza de estados como) Tj ET
+BT /F1 9.3 Tf 60.0 616.0 Td (flechas \(leer -> clasificar -> registrar -> hecho\). La información crítica \(veredicto final firmado\)) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td (siempre cierra la salida.) Tj ET
+BT /F2 10.5 Tf 52.0 588.0 Td (59. Affordance de elementos interactivos) Tj ET
+BT /F1 9.3 Tf 60.0 573.1 Td ([PARCIAL] --help por subcomando con descripciones accionables; flags con defaults documentados;) Tj ET
+BT /F1 9.3 Tf 60.0 560.9 Td (mensajes que dicen qué hacer después \('exporta GROQ_API_KEY', 'usa --attempts para ampliar'\). El) Tj ET
+BT /F1 9.3 Tf 60.0 548.6 Td (dashboard tiene botones mínimos y funcionales.) Tj ET
+BT /F2 10.5 Tf 52.0 532.8 Td (60. Feedback al usuario) Tj ET
+BT /F1 9.3 Tf 60.0 517.9 Td ([SÍ] Inmediato y granular: cada paso de cada ronda se imprime con su veredicto, el pool anuncia) Tj ET
+BT /F1 9.3 Tf 60.0 505.7 Td (cuarentenas y migraciones en vivo, el learn reporta fichas nuevas y brechas detectadas, el watcher) Tj ET
+BT /F1 9.3 Tf 60.0 493.4 Td (marca cada evento con su resolución por nivel.) Tj ET
+BT /F2 10.5 Tf 52.0 477.6 Td (61. Minimización de carga cognitiva) Tj ET
+BT /F1 9.3 Tf 60.0 462.8 Td ([PARCIAL] Buen avance por defaults sensatos \(auto, demo, doctor\); pero la superficie total \(25+ flags,) Tj ET
+BT /F1 9.3 Tf 60.0 450.5 Td (14 comandos\) exige lectura del README. a2s map y el mapa de capacidades son los paliativos) Tj ET
+BT /F1 9.3 Tf 60.0 438.2 Td (estructurales.) Tj ET
+BT /F2 10.5 Tf 52.0 422.4 Td (62. Eficiencia de usabilidad) Tj ET
+BT /F1 9.3 Tf 60.0 407.6 Td ([SÍ] Tareas clave en 1-2 comandos: misión \(run objetivo\), diagnóstico \(doctor\), pool \(pool-status\),) Tj ET
+BT /F1 9.3 Tf 60.0 395.3 Td (vigilancia \(watch spec\). Los flujos largos \(learn\) son un solo comando con progreso por ciclo.) Tj ET
+BT /F2 10.5 Tf 52.0 379.5 Td (63. Curva de aprendizaje) Tj ET
+BT /F1 9.3 Tf 60.0 364.7 Td ([SÍ dual] Novato: demo + README con ejemplos copiables + doctor explicativo. Experto: API Python) Tj ET
+BT /F1 9.3 Tf 60.0 352.4 Td (interna, especificaciones JSON, plugins. El escalón real está en entender el modelo mental) Tj ET
+BT /F1 9.3 Tf 60.0 340.1 Td (\(presupuestos adaptativos, escalada de recuperación\): documentado con diagramas ASCII.) Tj ET
+BT /F2 10.5 Tf 52.0 324.3 Td (64. Diseño responsivo) Tj ET
+BT /F1 9.3 Tf 60.0 309.5 Td ([PARCIAL] Consola: el texto se envuelve al ancho del terminal \(líneas truncadas con aviso\). Dashboard:) Tj ET
+BT /F1 9.3 Tf 60.0 297.2 Td (HTML simple sin media queries: funcional en móvil, no optimizado.) Tj ET
+BT /F2 10.5 Tf 52.0 281.4 Td (65. Uso del color) Tj ET
+BT /F1 9.3 Tf 60.0 266.6 Td ([PARCIAL] En consola se usa semántica de símbolos más que color \(funciona también en b/n y lectores de) Tj ET
+BT /F1 9.3 Tf 60.0 254.3 Td (terminal\). El dashboard usa color con moderación \(estado verde/ámbar\). No hay paleta definida) Tj ET
+BT /F1 9.3 Tf 60.0 242.0 Td (formalmente.) Tj ET
+BT /F2 10.5 Tf 52.0 226.2 Td (66. Tipografía y legibilidad) Tj ET
+BT /F1 9.3 Tf 60.0 211.4 Td ([SÍ] Consola monoespaciada \(alineación perfecta de tablas\); dashboard sans-serif sistema; informe PDF) Tj ET
+BT /F1 9.3 Tf 60.0 199.1 Td (generado con Helvetica/Courier y jerarquía 17/12,5/10,5/9,3 pt.) Tj ET
+BT /F2 10.5 Tf 52.0 183.3 Td (67. Iconografía) Tj ET
+BT /F1 9.3 Tf 60.0 168.5 Td ([PARCIAL] Símbolos consistentes \(logro, parcial, fallo, escala, engranaje, átomo\) con significado fijo) Tj ET
+BT /F1 9.3 Tf 60.0 156.2 Td (aprendible; riesgo de ambigüedad para nuevos usuarios o lectores de pantalla \(los símbolos no tienen) Tj ET
+BT /F1 9.3 Tf 60.0 143.9 Td (texto alternativo en consola: limitación del medio\).) Tj ET
+BT /F2 10.5 Tf 52.0 128.1 Td (68. Gestión del espacio en blanco) Tj ET
+BT /F1 9.3 Tf 60.0 113.3 Td ([SÍ] Salidas aireadas: tablas con regla separadora, bloques separados por línea en blanco, informes) Tj ET
+BT /F1 9.3 Tf 60.0 101.0 Td (con secciones. En PDF, márgenes de 52 pt y sangrías por nivel.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (9 / 31) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Length 2634 >>
+stream
+BT /F2 10.5 Tf 52.0 790.0 Td (69. Patrones de navegación) Tj ET
+BT /F1 9.3 Tf 60.0 775.1 Td ([SÍ] CLI por subcomandos \(verbos\) con --help coherente; dashboard de una página con flujo lineal;) Tj ET
+BT /F1 9.3 Tf 60.0 762.9 Td (informes con índice implícito por secciones. Sin navegación anidada confusa.) Tj ET
+BT /F2 10.5 Tf 52.0 747.1 Td (70. Diseño de formularios y tasa de error) Tj ET
+BT /F1 9.3 Tf 60.0 732.2 Td ([PARCIAL] El único formulario es el login del dashboard \(token de un campo, baja tasa de error) Tj ET
+BT /F1 9.3 Tf 60.0 720.0 Td (posible\). La entrada principal es por argumentos: argparse valida tipos y choices, los errores son) Tj ET
+BT /F1 9.3 Tf 60.0 707.7 Td (claros. Sin medición empírica de tasas.) Tj ET
+BT /F2 10.5 Tf 52.0 691.9 Td (71. Manejo de errores desde el usuario) Tj ET
+BT /F1 9.3 Tf 60.0 677.0 Td ([SÍ, fortaleza] Errores accionables, no stacktraces desnudos: 'revisa la clave/base_url', 'sin claves) Tj ET
+BT /F1 9.3 Tf 60.0 664.8 Td (detectadas: exporta X o crea pool.json', especificación FSM inválida lista cada error con línea de) Tj ET
+BT /F1 9.3 Tf 60.0 652.5 Td (contexto. El sistema nunca muere en silencio: degrada e informa.) Tj ET
+BT /F2 10.5 Tf 52.0 636.7 Td (72. Microinteracciones) Tj ET
+BT /F1 9.3 Tf 60.0 621.9 Td ([PARCIAL] En consola: las marcas de progreso por paso son la microinteracción. En dashboard: SSE) Tj ET
+BT /F1 9.3 Tf 60.0 609.6 Td (actualiza en vivo. No hay animaciones \(deliberado: sobriedad forense\).) Tj ET
+BT /F2 10.5 Tf 52.0 593.8 Td (73. Estética emocional) Tj ET
+BT /F1 9.3 Tf 60.0 578.9 Td ([SÍ] Identidad reconocible: el tono 'supremo pero honesto' es coherente en README, mensajes y) Tj ET
+BT /F1 9.3 Tf 60.0 566.7 Td (LIMITACIONES; la honestidad radical como rasgo de marca genera confianza real \(contracto de) Tj ET
+BT /F1 9.3 Tf 60.0 554.4 Td (expectativas: LIMITACIONES.md\).) Tj ET
+BT /F2 10.5 Tf 52.0 538.6 Td (74. Personalización de la interfaz) Tj ET
+BT /F1 9.3 Tf 60.0 523.8 Td ([NO] Sin temas, sin layout configurable, sin preferencias de UI persistentes. La personalización real) Tj ET
+BT /F1 9.3 Tf 60.0 511.5 Td (es arquitectónica \(config/estrategias\), no cosmética.) Tj ET
+BT /F2 10.5 Tf 52.0 495.7 Td (75. Accesibilidad de la interfaz) Tj ET
+BT /F1 9.3 Tf 60.0 480.8 Td ([NO formal] Contraste del dashboard no auditado, sin ARIA, símbolos unicode sin alternativa textual en) Tj ET
+BT /F1 9.3 Tf 60.0 468.6 Td (consola. En CLI, la accesibilidad depende del emulador de terminal del usuario. Deuda declarada.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (10 / 31) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Length 5529 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 4 ? Capacidad Analítica y de Resolución de Problemas) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (76. Abstracción del problema) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([SÍ] Cuatro capas de abstracción estables: objetivo -> plan \(estrategia+pasos\) -> paso \(criterios de) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (éxito verificables\) -> ToolCall \(params JSON\). El agente razona en objetivos y verifica en evidencia:) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (la abstracción separa intención de ejecución.) Tj ET
+BT /F2 10.5 Tf 52.0 698.4 Td (77. Descomposición de problemas) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td ([SÍ, núcleo del proyecto] División fractal recursiva \(paso bloqueado -> sub-agentes\), DAG por olas) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (topológicas, fanout map, enjambre por objetivos. Cada subtarea hereda presupuesto fraccionado) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (\(subagent_share\) y verificación propia.) Tj ET
+BT /F2 10.5 Tf 52.0 643.2 Td (78. Reconocimiento de patrones) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td ([PARCIAL] Emparejado por palabras clave \(plantillas heurísticas\), regex objetivas \(FSM\), medición de) Tj ET
+BT /F1 9.3 Tf 60.0 616.0 Td (aptitud por kind \(patrón estadístico de fallos de esquema\). Sin reconocimiento estadístico profundo de) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td (patrones en datos \(no es un sistema de ML general: el MLP de gobernanza predice éxito, no descubre) Tj ET
+BT /F1 9.3 Tf 60.0 591.5 Td (patrones\).) Tj ET
+BT /F2 10.5 Tf 52.0 575.7 Td (79. Razonamiento deductivo, inductivo y abductivo) Tj ET
+BT /F1 9.3 Tf 60.0 560.9 Td ([PARCIAL] Deductivo: verificación contra success_criteria \(el veredicto se deriva de la evidencia\).) Tj ET
+BT /F1 9.3 Tf 60.0 548.6 Td (Inductivo: win-rates, p50, rpm aprendido \(generaliza de lo observado\). Abductivo: solo con LLM externo) Tj ET
+BT /F1 9.3 Tf 60.0 536.3 Td (\(generar la mejor explicación del fallo\); el núcleo heurístico no hipotetiza: por eso su evaluación es) Tj ET
+BT /F1 9.3 Tf 60.0 524.0 Td (débil \(§2 nº9\).) Tj ET
+BT /F2 10.5 Tf 52.0 508.3 Td (80. Pensamiento crítico y alternativas) Tj ET
+BT /F1 9.3 Tf 60.0 493.4 Td ([SÍ] Planificación especulativa: N planes variantes compiten y la red de gobernanza elige;) Tj ET
+BT /F1 9.3 Tf 60.0 481.1 Td (reparametrización con obligación de NO repetir el enfoque fallido; escalera de recuperación que agota) Tj ET
+BT /F1 9.3 Tf 60.0 468.8 Td (una vía antes de cambiar de estrategia.) Tj ET
+BT /F2 10.5 Tf 52.0 453.1 Td (81. Pensamiento sistémico) Tj ET
+BT /F1 9.3 Tf 60.0 438.2 Td ([SÍ] El pool modela el sistema completo de recursos \(latencias, cuotas, coste, aptitud, fallos\) y) Tj ET
+BT /F1 9.3 Tf 60.0 425.9 Td (optimiza globalmente, no por llamada; LIMITACIONES documenta las interacciones \(p. ej. 'si tu FSM) Tj ET
+BT /F1 9.3 Tf 60.0 413.7 Td (escala cada minuto, el coste 0 se evapora'\).) Tj ET
+BT /F2 10.5 Tf 52.0 397.9 Td (82. Heurística aplicada) Tj ET
+BT /F1 9.3 Tf 60.0 383.0 Td ([SÍ] Biblioteca de estrategias con win-rate, ventana de estancamiento, función de utilidad) Tj ET
+BT /F1 9.3 Tf 60.0 370.7 Td (multi-objetivo ponderada, brechas por identificadores técnicos, resumen extractivo. Heurísticas) Tj ET
+BT /F1 9.3 Tf 60.0 358.5 Td (explicables y parametrizables, no cajas negras.) Tj ET
+BT /F2 10.5 Tf 52.0 342.7 Td (83. Algorítmica del pensamiento) Tj ET
+BT /F1 9.3 Tf 60.0 327.8 Td ([SÍ] Todo lo que decide está en términos algorítmicos verificables: orden topológico, backoff) Tj ET
+BT /F1 9.3 Tf 60.0 315.6 Td (exponencial, ventana deslizante, suavizado bayesiano \(3 pseudo-muestras\), selección por argmax de) Tj ET
+BT /F1 9.3 Tf 60.0 303.3 Td (utilidad. Nada de 'magia': cada decisión tiene código y test.) Tj ET
+BT /F2 10.5 Tf 52.0 287.5 Td (84. Síntesis de información dispersa) Tj ET
+BT /F1 9.3 Tf 60.0 272.6 Td ([PARCIAL] goal_check sintetiza el summary de la misión; aggregate del DAG combina resultados) Tj ET
+BT /F1 9.3 Tf 60.0 260.4 Td (parciales; fichas CE destilan READMEs. La síntesis de calidad \(resumen coherente\) requiere LLM: el) Tj ET
+BT /F1 9.3 Tf 60.0 248.1 Td (modo stdlib es extractivo \(pobre pero honesto, §11.2\).) Tj ET
+BT /F2 10.5 Tf 52.0 232.3 Td (85. Análisis de causa raíz \(RCA\)) Tj ET
+BT /F1 9.3 Tf 60.0 217.5 Td ([PARCIAL] El escalado FSM reporta exactamente 'qué transición faltaba' \(RCA de especificación\); el) Tj ET
+BT /F1 9.3 Tf 60.0 205.2 Td (ledger permite reconstruir causalmente cualquier fallo; el informe post-mortem guarda estado exacto) Tj ET
+BT /F1 9.3 Tf 60.0 192.9 Td (reanudable. No hay RCA automático de fallos complejos \(el operador analiza con verify/doctor\).) Tj ET
+BT /F2 10.5 Tf 52.0 177.1 Td (86. Modelado matemático) Tj ET
+BT /F1 9.3 Tf 60.0 162.3 Td ([SÍ] Función de utilidad lineal ponderada con restricciones; MLP con sigmoide y entrenamiento online) Tj ET
+BT /F1 9.3 Tf 60.0 150.0 Td (por error; fitness de neuroevolución sobre holdout; estimadores de cuota \(80% de lo observado en) Tj ET
+BT /F1 9.3 Tf 60.0 137.7 Td (vuelo\) y de coste \(tokens×tarifa por tier\).) Tj ET
+BT /F2 10.5 Tf 52.0 121.9 Td (87. Simulación de escenarios) Tj ET
+BT /F1 9.3 Tf 60.0 107.1 Td ([SÍ] Planificación especulativa: se generan N futuros \(planes variantes\), se puntúan con la red) Tj ET
+BT /F1 9.3 Tf 60.0 94.8 Td (entrenada en episodios reales y se ejecuta el mejor. Es simulación de banda con validación empírica) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (11 / 31) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Length 5663 >>
+stream
+BT /F1 9.3 Tf 60.0 790.0 Td (posterior \(el win-rate real retroalimenta\).) Tj ET
+BT /F2 10.5 Tf 52.0 774.2 Td (88. Optimización de procesos y recursos) Tj ET
+BT /F1 9.3 Tf 60.0 759.4 Td ([SÍ] Scheduler multi-objetivo \(coste/velocidad/fiabilidad/aptitud ? riesgo de cuota\), rpm aprendido) Tj ET
+BT /F1 9.3 Tf 60.0 747.1 Td (con homeostasis, free-first con pago solo para lo que solo el pago sabe hacer \(demostrado: 6/6 planes) Tj ET
+BT /F1 9.3 Tf 60.0 734.8 Td (válidos al endpoint competente, gratis para el resto\).) Tj ET
+BT /F2 10.5 Tf 52.0 719.0 Td (89. Toma de decisiones bajo incertidumbre) Tj ET
+BT /F1 9.3 Tf 60.0 704.2 Td ([SÍ] Verificación por consenso ponderado de 4 fuentes \(misión autoritativa, proveedor, red neuronal,) Tj ET
+BT /F1 9.3 Tf 60.0 691.9 Td (evidencia de progreso\); decisiones del pool con telemetría parcial \(priors suavizados\); presupuestos) Tj ET
+BT /F1 9.3 Tf 60.0 679.6 Td (renovables que evitan apostar todo a un intento.) Tj ET
+BT /F2 10.5 Tf 52.0 663.8 Td (90. Gestión de la ambigüedad) Tj ET
+BT /F1 9.3 Tf 60.0 649.0 Td ([PARCIAL] El evaluador distingue failed \(reparametrizable\) vs blocked \(cambiar de estrategia\):) Tj ET
+BT /F1 9.3 Tf 60.0 636.7 Td (taxonomía explícita de ambigüedad. Pero objetivos vagos sin verificador de misión producen falsos) Tj ET
+BT /F1 9.3 Tf 60.0 624.4 Td ('cumplido' \(LIMITACIONES §2 nº9: advertencia permanente\).) Tj ET
+BT /F2 10.5 Tf 52.0 608.7 Td (91. Resolución de conflictos lógicos y de datos) Tj ET
+BT /F1 9.3 Tf 60.0 593.8 Td ([SÍ] verify del ledger detecta contradicciones \(truncación, firma incoherente\); circuito con media) Tj ET
+BT /F1 9.3 Tf 60.0 581.5 Td (apertura resuelve el conflicto '¿caído o saturado?'; escritura atómica con os.replace elimina lecturas) Tj ET
+BT /F1 9.3 Tf 60.0 569.2 Td (a medias; single-writer por workspace.) Tj ET
+BT /F2 10.5 Tf 52.0 553.5 Td (92. Trazabilidad de decisiones) Tj ET
+BT /F1 9.3 Tf 60.0 538.6 Td ([SÍ, fortaleza] Cada decisión deja huella verificable: pool_provider en cada plan LLM, traza de) Tj ET
+BT /F1 9.3 Tf 60.0 526.3 Td (estados FSM, telemetría por llamada, ledger encadenado con HMAC, fichas con fuente y licencia. Se) Tj ET
+BT /F1 9.3 Tf 60.0 514.1 Td (puede auditar por qué se tomó CUALQUIER decisión.) Tj ET
+BT /F2 10.5 Tf 52.0 498.3 Td (93. Evaluación de trade-offs) Tj ET
+BT /F1 9.3 Tf 60.0 483.4 Td ([SÍ] Los trade-offs estructurales están escritos y razonados, no implícitos: stdlib vs ecosistema,) Tj ET
+BT /F1 9.3 Tf 60.0 471.1 Td (LiveCD vs ML pesado, FSM barata vs inflexible, coste vs aptitud, esperar Retry-After vs migrar. El) Tj ET
+BT /F1 9.3 Tf 60.0 458.9 Td (informe que lee es en sí un ejercicio de trade-offs.) Tj ET
+BT /F2 10.5 Tf 52.0 443.1 Td (94. Pensamiento lateral y creatividad) Tj ET
+BT /F1 9.3 Tf 60.0 428.2 Td ([PARCIAL] Reinterpretación de la directiva \(cada petción imposible -> equivalente legítimo\) es) Tj ET
+BT /F1 9.3 Tf 60.0 416.0 Td (pensamiento lateral institucionalizado; rotación de variantes y cambio de herramienta ante) Tj ET
+BT /F1 9.3 Tf 60.0 403.7 Td (estancamiento. La creatividad genuina \(soluciones nuevas\) llega con LLM o con el operador: el núcleo) Tj ET
+BT /F1 9.3 Tf 60.0 391.4 Td (es deliberadamente conservador.) Tj ET
+BT /F2 10.5 Tf 52.0 375.6 Td (95. Depuración sistemática) Tj ET
+BT /F1 9.3 Tf 60.0 360.8 Td ([SÍ] doctor \(entorno\), verify \(cripto\), pool-check \(salud por endpoint\), verbose por ronda, errores) Tj ET
+BT /F1 9.3 Tf 60.0 348.5 Td (como observaciones enrutables en FSM, tests de regresión por cada bug corregido \(la conversión) Tj ET
+BT /F1 9.3 Tf 60.0 336.2 Td ('\(acción sin salida\)' corrupta, la brecha que mezclaba 'Error module named'...\).) Tj ET
+BT /F2 10.5 Tf 52.0 320.4 Td (96. Análisis de precedentes) Tj ET
+BT /F1 9.3 Tf 60.0 305.6 Td ([SÍ] El mapa de directiva referencia 53 repositorios del estado del arte clasificados \(§9 de) Tj ET
+BT /F1 9.3 Tf 60.0 293.3 Td (LIMITACIONES\); el CE busca y asimila precedentes reales de GitHub para problemas nuevos; los planes) Tj ET
+BT /F1 9.3 Tf 60.0 281.0 Td (heurísticos son precedentes codificados.) Tj ET
+BT /F2 10.5 Tf 52.0 265.3 Td (97. Formulación y validación de hipótesis) Tj ET
+BT /F1 9.3 Tf 60.0 250.4 Td ([SÍ] Hipótesis = plan/variante; validación = verificador de objetivo + criterios por paso; puntuación) Tj ET
+BT /F1 9.3 Tf 60.0 238.1 Td (previa por red de gobernanza \(hipótesis sobre la hipótesis\); el win-rate posterior cierra el ciclo.) Tj ET
+BT /F1 9.3 Tf 60.0 225.8 Td (Falsacionista por diseño: sin verificación positiva, nada está 'cumplido'.) Tj ET
+BT /F2 10.5 Tf 52.0 210.1 Td (98. Reconocimiento de sesgos) Tj ET
+BT /F1 9.3 Tf 60.0 195.2 Td ([PARCIAL] Sesgos estructurales mitigados: 429s excluidos de la tasa de éxito \(no culpar al saturado\),) Tj ET
+BT /F1 9.3 Tf 60.0 182.9 Td (prior bayesiano contra el pánico de 1 muestra, confianza reportada como evidencia \(no sensación\).) Tj ET
+BT /F1 9.3 Tf 60.0 170.7 Td (Sesgos restantes declarados: win-rate sin decaimiento \(popularidad histórica\), selección CE por) Tj ET
+BT /F1 9.3 Tf 60.0 158.4 Td (estrellas \(popularidad\).) Tj ET
+BT /F2 10.5 Tf 52.0 142.6 Td (99. Gestión de la complejidad) Tj ET
+BT /F1 9.3 Tf 60.0 127.7 Td ([SÍ] Estratificada: nivel 0 determinista para lo predecible, nivel 1 agente para lo imprevisto, CE) Tj ET
+BT /F1 9.3 Tf 60.0 115.5 Td (para lo desconocido. Cada capa solo despierta a la siguiente cuando hace falta: la complejidad se paga) Tj ET
+BT /F1 9.3 Tf 60.0 103.2 Td (solo cuando se usa \(y el informe de escalado dice exactamente qué faltó\).) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (12 / 31) Tj ET
+endstream
+endobj
+17 0 obj
+<< /Length 555 >>
+stream
+BT /F2 10.5 Tf 52.0 790.0 Td (100. Adaptación de estrategias en marcha) Tj ET
+BT /F1 9.3 Tf 60.0 775.1 Td ([SÍ] La escalera completa: reintento -> reparametrización -> cambio de herramienta -> división fractal) Tj ET
+BT /F1 9.3 Tf 60.0 762.9 Td (-> detección de estancamiento \(ventana de fallos\) -> replanificación con variante distinta. A nivel) Tj ET
+BT /F1 9.3 Tf 60.0 750.6 Td (pool: cuarentena, circuito, rpm aprendido, pesos.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (13 / 31) Tj ET
+endstream
+endobj
+18 0 obj
+<< /Length 5739 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 5 ? Capacidad de Investigación y Crecimiento Autónomo) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (101. Autonomía en definir objetivos de investigación) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([PARCIAL] El CE formula solo sus consultas de brecha a partir de fallos reales; supervise/goals) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (persiguen objetivos sin intervención. Pero el objetivo MACRO siempre lo fija el operador: no hay) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td ('curiosidad' autónoma \(elección de qué investigar sin misión\): correcto para una herramienta, límite) Tj ET
+BT /F1 9.3 Tf 60.0 701.9 Td (real de 'agente supremo'.) Tj ET
+BT /F2 10.5 Tf 52.0 686.1 Td (102. Búsqueda y recuperación de información) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td ([SÍ] GitHub Search API \(repositorios por relevancia/estrellas, READMEs crudos\), búsqueda web DDG,) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (fetch HTTP genérico con allowlist, listado/lectura local. Con presupuesto \(60 llamadas/sesión\) y) Tj ET
+BT /F1 9.3 Tf 60.0 646.7 Td (ventanas de cuota bajo el límite real.) Tj ET
+BT /F2 10.5 Tf 52.0 630.9 Td (103. Evaluación crítica de fuentes) Tj ET
+BT /F1 9.3 Tf 60.0 616.0 Td ([PARCIAL] Señales usadas: estrellas \(proxy de calidad, débil: documentado el caso de un repo de 0) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td (estrellas para consulta rara\), licencia \(registrada siempre\), win-rate propio de la ficha tras uso.) Tj ET
+BT /F1 9.3 Tf 60.0 591.5 Td (Sin evaluación de autoría, frescura \(updated_at disponible, no ponderado\) ni contraste cruzado de) Tj ET
+BT /F1 9.3 Tf 60.0 579.2 Td (fuentes.) Tj ET
+BT /F2 10.5 Tf 52.0 563.4 Td (104. Síntesis de estado del arte) Tj ET
+BT /F1 9.3 Tf 60.0 548.6 Td ([PARCIAL] Con pool LLM: resúmenes y recetas por repo, fusionables en contexto de planificación \(fichas) Tj ET
+BT /F1 9.3 Tf 60.0 536.3 Td (top-4 por win-rate\). Sin LLM: extractivo pobre. No genera 'informe de estado del arte' formal) Tj ET
+BT /F1 9.3 Tf 60.0 524.0 Td (comparativo: es síntesis operativa, no académica.) Tj ET
+BT /F2 10.5 Tf 52.0 508.3 Td (105. Generación de nuevas hipótesis de investigación) Tj ET
+BT /F1 9.3 Tf 60.0 493.4 Td ([PARCIAL] Las brechas detectadas son hipótesis de conocimiento faltante; la planificación especulativa) Tj ET
+BT /F1 9.3 Tf 60.0 481.1 Td (genera hipótesis de acción. No genera hipótesis científicas de nuevo cuño: eso requiere LLM y) Tj ET
+BT /F1 9.3 Tf 60.0 468.8 Td (verificación externa \(honestamente fuera de alcance stdlib\).) Tj ET
+BT /F2 10.5 Tf 52.0 453.1 Td (106. Diseño de experimentos) Tj ET
+BT /F1 9.3 Tf 60.0 438.2 Td ([PARCIAL] El sistema experimenta constantemente \(variantes de plan compiten, endpoints se prueban y) Tj ET
+BT /F1 9.3 Tf 60.0 425.9 Td (miden\) pero no DISEÑA experimentos controlados \(sin A/B formal con hipótesis nula, sin tamaños de) Tj ET
+BT /F1 9.3 Tf 60.0 413.7 Td (muestra pre-fijados\). Es experimentación adaptativa, no metodología experimental.) Tj ET
+BT /F2 10.5 Tf 52.0 397.9 Td (107. Capacidad de meta-análisis) Tj ET
+BT /F1 9.3 Tf 60.0 383.0 Td ([PARCIAL] Agrega telemetría histórica \(p50/p95, win-rates, tasas de éxito por kind\) y la usa para) Tj ET
+BT /F1 9.3 Tf 60.0 370.7 Td (decidir; el dashboard/estado dan la vista global. No hay meta-análisis estadístico formal \(intervalos) Tj ET
+BT /F1 9.3 Tf 60.0 358.5 Td (de confianza, efectos de tamaño\).) Tj ET
+BT /F2 10.5 Tf 52.0 342.7 Td (108. Aprendizaje continuo) Tj ET
+BT /F1 9.3 Tf 60.0 327.8 Td ([SÍ] Persiste y reaprovecha entre ejecuciones: estrategias \(win-rate\), pesos de gobernanza \(MLP\), rpm) Tj ET
+BT /F1 9.3 Tf 60.0 315.6 Td (efectivo, pesos del scheduler, aptitudes medidas, fichas de conocimiento. Cada ejecución arranca más) Tj ET
+BT /F1 9.3 Tf 60.0 303.3 Td (sabia que la anterior \(verificado en vivo: 429s -> aprende -> 0 429s en la tercera ronda\).) Tj ET
+BT /F2 10.5 Tf 52.0 287.5 Td (109. Des-aprendizaje \(unlearning\)) Tj ET
+BT /F1 9.3 Tf 60.0 272.6 Td ([PARCIAL] Existe degradación controlada: recuperación gradual del rpm \(+1 tras 20 éxitos limpios\),) Tj ET
+BT /F1 9.3 Tf 60.0 260.4 Td (ventana de fallos que jubila estrategias en desuso. NO existe caducidad de fichas de conocimiento ni) Tj ET
+BT /F1 9.3 Tf 60.0 248.1 Td (decaimiento de win-rates: el conocimiento obsoleto persiste hasta borrarlo a mano \(gap declarado\).) Tj ET
+BT /F2 10.5 Tf 52.0 232.3 Td (110. Curación de lo aprendido \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 217.5 Td ([PARCIAL] Las fichas llevan win-rate atribuido y el contexto prioriza las ganadoras; el contenido) Tj ET
+BT /F1 9.3 Tf 60.0 205.2 Td (prohibido se rechaza en la puerta. Pero no hay poda automática de fichas perdedoras ni detección de) Tj ET
+BT /F1 9.3 Tf 60.0 192.9 Td (contradicciones entre fichas.) Tj ET
+BT /F2 10.5 Tf 52.0 177.1 Td (111. Memorización selectiva \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 162.3 Td ([SÍ] Solo persiste lo que demostró utilidad o es estructura del sistema; las latencias tienen deque) Tj ET
+BT /F1 9.3 Tf 60.0 150.0 Td (maxlen=200 \(memoria reciente\), el ledger es la memoria permanente inmutable. Jerarquía de memoria) Tj ET
+BT /F1 9.3 Tf 60.0 137.7 Td (real: corto plazo \(contexto comprimido\), medio \(episodios SQLite\), largo \(estrategias/fichas\).) Tj ET
+BT /F2 10.5 Tf 52.0 121.9 Td (112. Transferencia entre dominios \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 107.1 Td ([PARCIAL] Las plantillas heurísticas genéricas \(explorar/documentar/verificar\) transfieren a cualquier) Tj ET
+BT /F1 9.3 Tf 60.0 94.8 Td (objetivo; los planes LLM transfieren patrones del corpus del modelo. Sin mecanismo explícito de) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (14 / 31) Tj ET
+endstream
+endobj
+19 0 obj
+<< /Length 5580 >>
+stream
+BT /F1 9.3 Tf 60.0 790.0 Td (transferencia entre misiones A²S distintas \(cada workspace aprende por su cuenta\).) Tj ET
+BT /F2 10.5 Tf 52.0 774.2 Td (113. Autoevaluación calibrada \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 759.4 Td ([SÍ] La 'confianza' del learn es evidencia contable \(ciclos, fichas aplicadas, victorias\), nunca) Tj ET
+BT /F1 9.3 Tf 60.0 747.1 Td (probabilidad subjetiva; el evaluador separa éxito/bloqueo/fallo. Calibración honesta: el sistema no) Tj ET
+BT /F1 9.3 Tf 60.0 734.8 Td (afirma lo que no verificó.) Tj ET
+BT /F2 10.5 Tf 52.0 719.0 Td (114. Presupuesto de exploración \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 704.2 Td ([SÍ] Toda exploración tiene techo: max_cycles del learn, 60 llamadas de API, presupuestos renovables) Tj ET
+BT /F1 9.3 Tf 60.0 691.9 Td (por replanificación, límite duro de tiempo real. Explorar infinito está prohibido por diseño \(parada) Tj ET
+BT /F1 9.3 Tf 60.0 679.6 Td (honesta con informe\).) Tj ET
+BT /F2 10.5 Tf 52.0 663.8 Td (115. Detección de novedad \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 649.0 Td ([SÍ] El imprevisto es un ciudadano de primera clase: transición sin match -> escalado con evidencia;) Tj ET
+BT /F1 9.3 Tf 60.0 636.7 Td (JSON con esquema inesperado -> aptitud a la baja; brecha de conocimiento -> consulta. El sistema SABE) Tj ET
+BT /F1 9.3 Tf 60.0 624.4 Td (cuándo no sabe \(y lo dice\).) Tj ET
+BT /F2 10.5 Tf 52.0 608.7 Td (116. Archivo de fuentes con licencia \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 593.8 Td ([SÍ] Toda ficha guarda repo, URL, licencia SPDX, extracto citado y fecha: el conocimiento es) Tj ET
+BT /F1 9.3 Tf 60.0 581.5 Td (atribuible y auditable. La licencia se registra ANTES de usar la idea \(higiene legal mínima para un) Tj ET
+BT /F1 9.3 Tf 60.0 569.2 Td (agente que aprende de código ajeno público\).) Tj ET
+BT /F2 10.5 Tf 52.0 553.5 Td (117. Citabilidad de decisiones \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 538.6 Td ([SÍ] Un plan LLM cita su endpoint \(pool_provider\); una acción FSM cita su traza; un aprendizaje cita) Tj ET
+BT /F1 9.3 Tf 60.0 526.3 Td (su ficha; un informe cita su firma HMAC. Nada se afirma sin pedigree.) Tj ET
+BT /F2 10.5 Tf 52.0 510.6 Td (118. Reproducibilidad \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 495.7 Td ([PARCIAL] El núcleo heurístico es determinista puro \(misma entrada -> mismo plan\); los tests lo fijan.) Tj ET
+BT /F1 9.3 Tf 60.0 483.4 Td (El pool/fanout/jitter usan aleatoriedad no sembrada: carreras de hilos pueden variar qué endpoint) Tj ET
+BT /F1 9.3 Tf 60.0 471.1 Td (sirve cada subtarea \(los AGREGADOS son estables\). Falta una flag --seed global.) Tj ET
+BT /F2 10.5 Tf 52.0 455.4 Td (119. Apertura y auditabilidad del código \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 440.5 Td ([SÍ] MIT, cero dependencias \(todo el comportamiento está en 6,5 k LOC legibles\), sin binarios, sin) Tj ET
+BT /F1 9.3 Tf 60.0 428.2 Td (telemetría saliente propia. Un auditor puede leer TODO el sistema en una tarde: rara vez cierto en) Tj ET
+BT /F1 9.3 Tf 60.0 416.0 Td (agentes actuales.) Tj ET
+BT /F2 10.5 Tf 52.0 400.2 Td (120. Auditoría del propio aprendizaje \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 385.3 Td ([SÍ] telemetry.jsonl registra cada llamada \(éxito, latencia, 429, coste estimado\); el state.json) Tj ET
+BT /F1 9.3 Tf 60.0 373.0 Td (versiona rpm/pesos/aptitudes aprendidos; watch.jsonl registra cada escalado. El aprendizaje es un) Tj ET
+BT /F1 9.3 Tf 60.0 360.8 Td (proceso auditable, no una caja negra.) Tj ET
+BT /F2 10.5 Tf 52.0 345.0 Td (121. Límites del aprendizaje reconocidos \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 330.1 Td ([SÍ] §10-11 declaran qué NO aprende: calidad semántica profunda \(un plan válido pero estúpido puntúa) Tj ET
+BT /F1 9.3 Tf 60.0 317.9 Td (1,0\), formatos de fuente cambiantes \(la FSM no se auto-corrige\), decaimiento de conocimiento. Saber) Tj ET
+BT /F1 9.3 Tf 60.0 305.6 Td (qué no se sabe es parte del diseño.) Tj ET
+BT /F2 10.5 Tf 52.0 289.8 Td (122. Curiosidad segura \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 274.9 Td ([SÍ] Toda exploración externa pasa el mismo modelo de permisos \(classify_forbidden sobre el contenido) Tj ET
+BT /F1 9.3 Tf 60.0 262.7 Td (asimilado: un README que describa conductas prohibidas se rechaza y se registra\). El agente puede leer) Tj ET
+BT /F1 9.3 Tf 60.0 250.4 Td (mucho, pero no aprender mal.) Tj ET
+BT /F2 10.5 Tf 52.0 234.6 Td (123. Economía del aprendizaje \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 219.8 Td ([SÍ] Aprender cuesta: se mide \(coste estimado por llamada en telemetry, $ por endpoint\) y se minimiza) Tj ET
+BT /F1 9.3 Tf 60.0 207.5 Td (\(free-first, extractivo sin LLM como modo pobre, reuso de fichas entre ejecuciones: pagar una vez,) Tj ET
+BT /F1 9.3 Tf 60.0 195.2 Td (aprovechar para siempre\).) Tj ET
+BT /F2 10.5 Tf 52.0 179.4 Td (124. Escalado del conocimiento al equipo \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 164.6 Td ([NO] Las fichas viven en un workspace: no hay repositorio compartido de conocimiento entre) Tj ET
+BT /F1 9.3 Tf 60.0 152.3 Td (instancias/operadores \(exportable a mano: son JSON\). Roadmap: directorio compartido de fichas) Tj ET
+BT /F1 9.3 Tf 60.0 140.0 Td (firmadas.) Tj ET
+BT /F2 10.5 Tf 52.0 124.2 Td (125. Independencia de proveedor para crecer \(añadido\)) Tj ET
+BT /F1 9.3 Tf 60.0 109.4 Td ([SÍ] El aprendizaje funciona en dos extremos: 100% offline \(extractivo heurístico, coste 0\) o con) Tj ET
+BT /F1 9.3 Tf 60.0 97.1 Td (cualquier LLM OpenAI-compat \(resúmenes de calidad\). El crecimiento no está rehén de un proveedor:) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (15 / 31) Tj ET
+endstream
+endobj
+20 0 obj
+<< /Length 202 >>
+stream
+BT /F1 9.3 Tf 60.0 790.0 Td (cambiar de pool cambia la calidad, no la capacidad.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (16 / 31) Tj ET
+endstream
+endobj
+21 0 obj
+<< /Length 5363 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 6 \(añadida\) ? Seguridad y Modelo de Permisos) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (126. Modelo de permisos de objetivos) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([SÍ] classify_forbidden con 30+ patrones \(exfiltración, malware, evasión, phishing, cracking...\)) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (rechaza objetivos y acciones antes de ejecutar; lo denegado queda registrado en el ledger. Es un) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (filtro de intención, no solo de sintaxis.) Tj ET
+BT /F2 10.5 Tf 52.0 698.4 Td (127. Confinamiento de shell) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td ([SÍ] Mini-shell propio: shlex + lista blanca de binarios \(sin shell=True\), globs y $\( \) re-expanden) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (bajo LA MISMA política, redirecciones acotadas, --unsafe explícito bajo responsabilidad del operador.) Tj ET
+BT /F2 10.5 Tf 52.0 655.5 Td (128. Confinamiento de red) Tj ET
+BT /F1 9.3 Tf 60.0 640.6 Td ([SÍ] --no-network global, allowlist de hosts \(--allow-host repetible\) aplicada a fetch/búsqueda,) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td (sandbox de python_exec que bloquea red por shim, webhook del watcher ligado a 127.0.0.1 por defecto.) Tj ET
+BT /F2 10.5 Tf 52.0 612.5 Td (129. Sandbox de ejecución por capas) Tj ET
+BT /F1 9.3 Tf 60.0 597.7 Td ([SÍ] nsjail > bwrap > rlimits con degradación informada \(doctor reporta el nivel real\):) Tj ET
+BT /F1 9.3 Tf 60.0 585.4 Td (RAM/CPU/procesos/fds limitados, filesystem no aislado en el nivel rlimits \(limitación documentada §5\),) Tj ET
+BT /F1 9.3 Tf 60.0 573.1 Td (paths confinados al workspace en herramientas.) Tj ET
+BT /F2 10.5 Tf 52.0 557.4 Td (130. Integridad criptográfica) Tj ET
+BT /F1 9.3 Tf 60.0 542.5 Td ([SÍ] Ledger append-only con hash chain SHA-256 \(detecta modificación y truncación por cruce con índice) Tj ET
+BT /F1 9.3 Tf 60.0 530.2 Td (SQLite\), HMAC-SHA256 de informe y artefactos con secreto por workspace, a2s verify valida todo el) Tj ET
+BT /F1 9.3 Tf 60.0 517.9 Td (conjunto.) Tj ET
+BT /F2 10.5 Tf 52.0 502.2 Td (131. Autenticación de servicios propios) Tj ET
+BT /F1 9.3 Tf 60.0 487.3 Td ([SÍ] Dashboard: localhost por defecto, --public con advertencia, tokens JWT-HS256 con expiración \(a2s) Tj ET
+BT /F1 9.3 Tf 60.0 475.0 Td (token\) y cookie HttpOnly. Webhook entrante: sin auth \(documentado: detrás de reverse proxy si se) Tj ET
+BT /F1 9.3 Tf 60.0 462.8 Td (expone\).) Tj ET
+BT /F2 10.5 Tf 52.0 447.0 Td (132. Gestión de secretos) Tj ET
+BT /F1 9.3 Tf 60.0 432.1 Td ([PARCIAL] Las claves de APIs viven en variables de entorno o pool.json con expansión ${VAR} \(nunca se) Tj ET
+BT /F1 9.3 Tf 60.0 419.8 Td (imprimen: pool-status muestra modelos, no claves\). El secreto HMAC del workspace es local: compromiso) Tj ET
+BT /F1 9.3 Tf 60.0 407.6 Td (del disco = compromiso de firmas \(declarado\).) Tj ET
+BT /F2 10.5 Tf 52.0 391.8 Td (133. Superficie de supply-chain) Tj ET
+BT /F1 9.3 Tf 60.0 376.9 Td ([SÍ, excepcional] Cero dependencias de terceros: ningún pip install, ningún CVE heredado, lockfile) Tj ET
+BT /F1 9.3 Tf 60.0 364.7 Td (innecesario. El CE además NUNCA ejecuta código de los repos que estudia \(solo lee texto\): riesgo de) Tj ET
+BT /F1 9.3 Tf 60.0 352.4 Td (dependencia maliciosa por aprendizaje = 0.) Tj ET
+BT /F2 10.5 Tf 52.0 336.6 Td (134. Inyección \(SQL/comando/HTML\)) Tj ET
+BT /F1 9.3 Tf 60.0 321.7 Td ([SÍ] SQL siempre parametrizada; comandos vía argv sin shell del sistema; el dashboard escapa lo) Tj ET
+BT /F1 9.3 Tf 60.0 309.5 Td (esencial pero NO tiene auditoría XSS formal \(gap si se expone a terceros\); el motor PDF propio escapa) Tj ET
+BT /F1 9.3 Tf 60.0 297.2 Td (paréntesis/backslash.) Tj ET
+BT /F2 10.5 Tf 52.0 281.4 Td (135. Resistencia a prompt-injection desde fuentes) Tj ET
+BT /F1 9.3 Tf 60.0 266.6 Td ([PARCIAL] El contenido asimilado pasa classify_forbidden; el contexto inyectado marca la frontera) Tj ET
+BT /F1 9.3 Tf 60.0 254.3 Td (\('nunca ejecutes código de las fuentes'\). Pero un README malicioso podría influir prompts LLM) Tj ET
+BT /F1 9.3 Tf 60.0 242.0 Td (downstream \(sin aislamiento semántico de instrucciones\): riesgo real reconocido, mitigado por permisos) Tj ET
+BT /F1 9.3 Tf 60.0 229.7 Td (de ejecución, no eliminado.) Tj ET
+BT /F2 10.5 Tf 52.0 214.0 Td (136. Principio de mínimo privilegio por herramienta) Tj ET
+BT /F1 9.3 Tf 60.0 199.1 Td ([SÍ] Cada herramienta declara network/destructive en su registro; read/write confinados al workspace;) Tj ET
+BT /F1 9.3 Tf 60.0 186.8 Td (plugins limitados \(max_plugins\) y cargados bajo demanda solo si la misión los necesita.) Tj ET
+BT /F2 10.5 Tf 52.0 171.0 Td (137. Protección de denial-of-service propio) Tj ET
+BT /F1 9.3 Tf 60.0 156.2 Td ([SÍ] Límites duros en todas las fronteras: timeouts por petición, presupuesto de llamadas de API,) Tj ET
+BT /F1 9.3 Tf 60.0 143.9 Td (presupuesto de ciclos, buffers de lectura acotados \(60-200 KB\), ventanas de rpm auto-impuestas. El) Tj ET
+BT /F1 9.3 Tf 60.0 131.6 Td (sistema no puede consumirse a sí mismo.) Tj ET
+BT /F2 10.5 Tf 52.0 115.9 Td (138. Trazabilidad de acciones de seguridad) Tj ET
+BT /F1 9.3 Tf 60.0 101.0 Td ([SÍ] Cada denegación y cada verificación criptográfica queda en el ledger; el modelo de permisos es) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (17 / 31) Tj ET
+endstream
+endobj
+22 0 obj
+<< /Length 1453 >>
+stream
+BT /F1 9.3 Tf 60.0 790.0 Td (auditable post-mortem \(qué se intentó, qué se rechazó, por qué patrón\).) Tj ET
+BT /F2 10.5 Tf 52.0 774.2 Td (139. Seguridad del LiveCD) Tj ET
+BT /F1 9.3 Tf 60.0 759.4 Td ([PARCIAL] El zipapp es el mismo código sin instalación \(auditabile\); --ram opera en /dev/shm \(nada en) Tj ET
+BT /F1 9.3 Tf 60.0 747.1 Td (disco, pero también sin persistencia de secretos\). Sin firma del artefacto zipapp: verificar checksum) Tj ET
+BT /F1 9.3 Tf 60.0 734.8 Td (al distribuir \(recomendación\).) Tj ET
+BT /F2 10.5 Tf 52.0 719.0 Td (140. Criptografía usada) Tj ET
+BT /F1 9.3 Tf 60.0 704.2 Td ([PARCIAL] Primitivas correctas y stdlib: SHA-256, HMAC-SHA256, JWT-HS256. Sin TLS propio en) Tj ET
+BT /F1 9.3 Tf 60.0 691.9 Td (dashboard/webhook \(localhost o reverse proxy del operador\), sin crypto-defensa avanzada \(padding,) Tj ET
+BT /F1 9.3 Tf 60.0 679.6 Td (KDF\): proporcional al dominio de herramienta local.) Tj ET
+BT /F2 10.5 Tf 52.0 663.8 Td (141. Respuesta a incidentes del propio sistema) Tj ET
+BT /F1 9.3 Tf 60.0 649.0 Td ([PARCIAL] El ledger + informes firmados son la evidencia forense de lo que el propio sistema hizo) Tj ET
+BT /F1 9.3 Tf 60.0 636.7 Td (\(puede auditarse a sí mismo\). No hay runbook de respuesta ni revocación de tokens emitidos \(gap) Tj ET
+BT /F1 9.3 Tf 60.0 624.4 Td (operativo\).) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (18 / 31) Tj ET
+endstream
+endobj
+23 0 obj
+<< /Length 5323 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 7 \(añadida\) ? Fiabilidad Operativa y Observabilidad) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (142. Degradación gradual ante fallos) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([SÍ, verificada en vivo] Cadena completa: endpoint enfermo -> cuarentena -> failover -> circuito) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (abierto -> fallback heurístico -> misión continúa. Demo real: TLS bloqueado del sandbox -> 3 fallos ->) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (degradación -> OBJETIVO CUMPLIDO igualmente.) Tj ET
+BT /F2 10.5 Tf 52.0 698.4 Td (143. Circuit breaker y backoff) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td ([SÍ] 3 fallos consecutivos abren circuito 30 s \(duplicando hasta 300 s\) con media apertura para) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (sondas; backoff exponencial 5 s->300 s en saturaciones; Retry-After del servidor siempre obedecido) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (\(espera acotada + 1 reintento + parada honesta\).) Tj ET
+BT /F2 10.5 Tf 52.0 643.2 Td (144. Checkpoints y reanudación) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td ([SÍ] Estado persistido por episodio/estrategia/gobernanza; --resume reanuda sobre workspace) Tj ET
+BT /F1 9.3 Tf 60.0 616.0 Td (conservado; informes post-mortem con estado exacto y cadena de custodia para reanudar cualquier misión) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td (interrumpida.) Tj ET
+BT /F2 10.5 Tf 52.0 588.0 Td (145. Watchdog y auto-relanzamiento) Tj ET
+BT /F1 9.3 Tf 60.0 573.1 Td ([SÍ] supervise reintenta la misión hasta verificación \(con sueños configurables\); watcher para por) Tj ET
+BT /F1 9.3 Tf 60.0 560.9 Td (inactividad en vez de colgarse; atexit persiste aprendizaje aunque maten el proceso.) Tj ET
+BT /F2 10.5 Tf 52.0 545.1 Td (146. Idempotencia de re-ejecuciones) Tj ET
+BT /F1 9.3 Tf 60.0 530.2 Td ([PARCIAL] Misiones y máquinas pueden re-correser sin dañar estado \(ledger solo añade; fichas no) Tj ET
+BT /F1 9.3 Tf 60.0 517.9 Td (duplican repos\); write_file sobrescribe. No hay transacciones ATÓMICAS multi-archivo: un fallo a mitad) Tj ET
+BT /F1 9.3 Tf 60.0 505.7 Td (de misión deja artifacts parciales \(auditable, pero no rollback automático\).) Tj ET
+BT /F2 10.5 Tf 52.0 489.9 Td (147. Pruebas de caos aplicadas) Tj ET
+BT /F1 9.3 Tf 60.0 475.0 Td ([SÍ, informales] Los tests inyectan 429/503/TLS-roto/JSON-basura/saturación y verifican migración y) Tj ET
+BT /F1 9.3 Tf 60.0 462.8 Td (degradación; las demos en vivo bloquearon proveedores reales y el sistema respondió según diseño. Sin) Tj ET
+BT /F1 9.3 Tf 60.0 450.5 Td (caos automatizado en CI \(no hay CI: gap\).) Tj ET
+BT /F2 10.5 Tf 52.0 434.7 Td (148. Copias de seguridad) Tj ET
+BT /F1 9.3 Tf 60.0 419.8 Td ([PARCIAL] Todo el estado es el workspace \(copiable de un golpe\); el ledger es la historia completa.) Tj ET
+BT /F1 9.3 Tf 60.0 407.6 Td (Sin backup automático programado ni retención: política del operador.) Tj ET
+BT /F2 10.5 Tf 52.0 391.8 Td (149. Health checks) Tj ET
+BT /F1 9.3 Tf 60.0 376.9 Td ([SÍ] doctor \(entorno completo\), pool-check \(1 petición real por endpoint, mide latencia y valida) Tj ET
+BT /F1 9.3 Tf 60.0 364.7 Td (claves\), verify \(cripto\), validate de especificaciones FSM antes de operar.) Tj ET
+BT /F2 10.5 Tf 52.0 348.9 Td (150. Métricas operativas) Tj ET
+BT /F1 9.3 Tf 60.0 334.0 Td ([SÍ] Telemetría por endpoint \(total/ok/429/errores/p50/p95/tokens/coste\), contadores del servidor) Tj ET
+BT /F1 9.3 Tf 60.0 321.7 Td (mock, resumen por ejecución, watch.jsonl. Formato JSONL: exportable a Grafana externo \(documentado\).) Tj ET
+BT /F2 10.5 Tf 52.0 306.0 Td (151. Alertamiento) Tj ET
+BT /F1 9.3 Tf 60.0 291.1 Td ([NO] Detecta y registra todo, pero no alerta proactivamente \(sin email/push/webhook saliente\). El) Tj ET
+BT /F1 9.3 Tf 60.0 278.8 Td (operador mira dashboard/status. Gap barato de cerrar \(roadmap\).) Tj ET
+BT /F2 10.5 Tf 52.0 263.1 Td (152. SLOs y error budgets) Tj ET
+BT /F1 9.3 Tf 60.0 248.2 Td ([NO] No hay SLO formales \(no es un servicio multiusuario\). Los equivalentes contractuales son los) Tj ET
+BT /F1 9.3 Tf 60.0 235.9 Td (presupuestos: ciclos, tiempo, llamadas API: siempre acotados y reportados.) Tj ET
+BT /F2 10.5 Tf 52.0 220.1 Td (153. Recuperación ante desastre) Tj ET
+BT /F1 9.3 Tf 60.0 205.3 Td ([PARCIAL] Workspace = todo el estado \(fácil de restaurar\); LiveCD regenera el sistema en segundos sin) Tj ET
+BT /F1 9.3 Tf 60.0 193.0 Td (instalación. Un desastre del workspace sin backup = pérdida total del aprendizaje acumulado) Tj ET
+BT /F1 9.3 Tf 60.0 180.7 Td (\(declarado\).) Tj ET
+BT /F2 10.5 Tf 52.0 165.0 Td (154. Estabilidad de arranque y ciclo de vida) Tj ET
+BT /F1 9.3 Tf 60.0 150.1 Td ([SÍ] Arranque <1 s \(sin dependencias que cargar\); shutdown limpio de servidores/handles; procesos) Tj ET
+BT /F1 9.3 Tf 60.0 137.8 Td (hijos cancelados por deadline del padre \(bug corregido v1.1 nº3\).) Tj ET
+BT /F2 10.5 Tf 52.0 122.0 Td (155. Gestión de bloqueos y carreras) Tj ET
+BT /F1 9.3 Tf 60.0 107.2 Td ([SÍ] Locks RLock simples y cortos, single-writer por archivo, escrituras atómicas \(tmp+os.replace\),) Tj ET
+BT /F1 9.3 Tf 60.0 94.9 Td (ThreadPool con tope, colas con timeout. Tests específicos de carrera \(12 subtareas/4-8 hilos\) pasando) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (19 / 31) Tj ET
+endstream
+endobj
+24 0 obj
+<< /Length 186 >>
+stream
+BT /F1 9.3 Tf 60.0 790.0 Td (estable en 6 corridas consecutivas.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (20 / 31) Tj ET
+endstream
+endobj
+25 0 obj
+<< /Length 5276 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 8 \(añadida\) ? Calidad del Código y Pruebas) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (156. Cobertura de pruebas real) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([PARCIAL] 139 tests en 11 suites, ~3,4 s, todos en verde \(6 corridas consecutivas estables\). Cubren) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (contrato y regresión de cada módulo nuevo \(pool: 41, fsm: 17, learner: 16\). Sin medición de cobertura) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (por línea \(sin herramienta\): la cifra real de líneas cubiertas es desconocida \(gap honesto\).) Tj ET
+BT /F2 10.5 Tf 52.0 698.4 Td (157. Pirámide de tests) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td ([SÍ] Unidades puras \(RateWindow, jitter, heurísticas\), integración con fakes inyectados \(transports) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (HTTP falsos, registros reales\), sistema end-to-end \(misiones completas, demos en vivo contra) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (servidores reales\). Sin e2e de navegador.) Tj ET
+BT /F2 10.5 Tf 52.0 643.2 Td (158. Tests de contrato) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td ([SÍ] BaseProvider es un contrato testeado \(heurístico/OpenAI/pool intercambiables\); el agregador del) Tj ET
+BT /F1 9.3 Tf 60.0 616.0 Td (DAG tiene contrato documentado \(y el demo lo rompió: se corrigió el código para cumplir el contrato,) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td (con test\).) Tj ET
+BT /F2 10.5 Tf 52.0 588.0 Td (159. Tests de regresión por bug) Tj ET
+BT /F1 9.3 Tf 60.0 573.1 Td ([SÍ, disciplina] Cada bug corregido dejó test: truncación del ledger, O\(n²\) del append, plazo del) Tj ET
+BT /F1 9.3 Tf 60.0 560.9 Td (padre, observaciones vacías del FSM, brecha que mezclaba texto de error, atribución de aptitud en) Tj ET
+BT /F1 9.3 Tf 60.0 548.6 Td (prosa.) Tj ET
+BT /F2 10.5 Tf 52.0 532.8 Td (160. Determinismo de la suite) Tj ET
+BT /F1 9.3 Tf 60.0 517.9 Td ([SÍ] Las carreras de hilos se controlaron haciendo deterministas los casos sensibles \(max_parallel=1) Tj ET
+BT /F1 9.3 Tf 60.0 505.7 Td (en aprendizaje de rpm\); los esperas se inyectan \(sleep_fn\). Suite completa: 3,4 s constantes.) Tj ET
+BT /F2 10.5 Tf 52.0 489.9 Td (161. Tipado estático) Tj ET
+BT /F1 9.3 Tf 60.0 475.0 Td ([PARCIAL] Type hints en casi todas las firmas modernas \(from __future__ import annotations\),) Tj ET
+BT /F1 9.3 Tf 60.0 462.8 Td (dataclasses fuertes. Sin mypy/pyright en verificación \(habría que añadirlos como dev-deps: decisión) Tj ET
+BT /F1 9.3 Tf 60.0 450.5 Td (pendiente\).) Tj ET
+BT /F2 10.5 Tf 52.0 434.7 Td (162. Estilo y consistencia) Tj ET
+BT /F1 9.3 Tf 60.0 419.8 Td ([SÍ] Convención única \(español consistente, docstrings ricos por módulo/función pública, ~100) Tj ET
+BT /F1 9.3 Tf 60.0 407.6 Td (columnas\); sin linter/formatter formal \(ruff/black: recomendación de adopción como dev-only sin romper) Tj ET
+BT /F1 9.3 Tf 60.0 395.3 Td (stdlib runtime\).) Tj ET
+BT /F2 10.5 Tf 52.0 379.5 Td (163. Gestión de hotspots de complejidad) Tj ET
+BT /F1 9.3 Tf 60.0 364.7 Td ([PARCIAL] Identificados y medidos \(5 funciones CC>19, criterio 2\); 4 de ellas con tests densos que) Tj ET
+BT /F1 9.3 Tf 60.0 352.4 Td (permiten refactor seguro; falta el refactor mismo \(deuda cuantificada\).) Tj ET
+BT /F2 10.5 Tf 52.0 336.6 Td (164. Duplicación) Tj ET
+BT /F1 9.3 Tf 60.0 321.7 Td ([PARCIAL] Baja en lógica \(los motores se reutilizan: pool sirve a learner, FSM usa ToolRegistry\),) Tj ET
+BT /F1 9.3 Tf 60.0 309.5 Td (media en prompts LLM \(providers vs pool\) y en parsers de headers \(retry-after aparece 2 veces con) Tj ET
+BT /F1 9.3 Tf 60.0 297.2 Td (semántica distinta: servidor vs proveedor\).) Tj ET
+BT /F2 10.5 Tf 52.0 281.4 Td (165. Nombrado y lenguaje) Tj ET
+BT /F1 9.3 Tf 60.0 266.6 Td ([SÍ] Español consistente de dominio \(objetivo, plan, escalera, cuarentena, brecha, ficha\) que hace el) Tj ET
+BT /F1 9.3 Tf 60.0 254.3 Td (código autoexplicativo para su público; inglés solo en identificadores técnicos estándar.) Tj ET
+BT /F2 10.5 Tf 52.0 238.5 Td (166. Documentación en el código) Tj ET
+BT /F1 9.3 Tf 60.0 223.6 Td ([SÍ] Cada módulo abre con un docstring-manifiesto \(qué hace, fronteras, referencias a LIMITACIONES\);) Tj ET
+BT /F1 9.3 Tf 60.0 211.4 Td (funciones públicas con docstrings con matices honestos \('pobre pero honesto', 'no evita', 'respeta'\).) Tj ET
+BT /F2 10.5 Tf 52.0 195.6 Td (167. Tests de seguridad) Tj ET
+BT /F1 9.3 Tf 60.0 180.7 Td ([SÍ] Suite test_hardening específica \(tokens, sandbox, allowlist, denegaciones\); tests de rechazo de) Tj ET
+BT /F1 9.3 Tf 60.0 168.5 Td (contenido prohibido en learner y FSM; verificación criptográfica testeada \(truncación detectada\).) Tj ET
+BT /F2 10.5 Tf 52.0 152.7 Td (168. Mutación y fuzzing) Tj ET
+BT /F1 9.3 Tf 60.0 137.8 Td ([NO] Sin tests de mutación ni fuzzing sistemático de entradas \(las validaciones existen pero no se) Tj ET
+BT /F1 9.3 Tf 60.0 125.5 Td (torturean con mutantes aleatorios\). Roadmap barato: fuzz de especificaciones FSM y de JSONs externos.) Tj ET
+BT /F2 10.5 Tf 52.0 109.8 Td (169. CI/CD) Tj ET
+BT /F1 9.3 Tf 60.0 94.9 Td ([NO] No hay pipeline \(la suite corre en local/manual\). Con cero dependencias, un GitHub Actions de 6) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (21 / 31) Tj ET
+endstream
+endobj
+26 0 obj
+<< /Length 218 >>
+stream
+BT /F1 9.3 Tf 60.0 790.0 Td (líneas ejecutaría los 139 tests: mejora recomendada nº1 de proceso.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (22 / 31) Tj ET
+endstream
+endobj
+27 0 obj
+<< /Length 3736 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 9 \(añadida\) ? Documentación y Transparencia) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (170. Documentación de usuario) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([SÍ] README de 427 líneas con tabla capacidad->implementación real, ejemplos copiables de cada) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (comando, sección ética y arquitectura con diagramas ASCII.) Tj ET
+BT /F2 10.5 Tf 52.0 710.6 Td (171. Documentación de límites) Tj ET
+BT /F1 9.3 Tf 60.0 695.8 Td ([SÍ, excepcional] LIMITACIONES.md \(439 líneas, 13 secciones\): lo que NO puede, bugs conocidos con) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td (estado, capacidades a medias, números concretos, seguridad completa, clasificación de 53 herramientas) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (externas y qué jamás se integrará. Es el documento que define la cultura del proyecto.) Tj ET
+BT /F2 10.5 Tf 52.0 655.5 Td (172. Verdad vs marketing) Tj ET
+BT /F1 9.3 Tf 60.0 640.6 Td ([SÍ] La política es contractual: cada afirmación del README tiene su contrapartida crítica; los 'NO' y) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td ('PARCIAL' abundan; la versión honesta precede a la útil \(falsa modestia: cero\).) Tj ET
+BT /F2 10.5 Tf 52.0 612.5 Td (173. Ejemplos ejecutables) Tj ET
+BT /F1 9.3 Tf 60.0 597.7 Td ([SÍ] 6 en examples/: pool.example.json, pool.mock.json \(escenario reproducible\), mock_llm_server.py) Tj ET
+BT /F1 9.3 Tf 60.0 585.4 Td (\(servidor real para probar todo sin claves\), sorl_demo.py, fsm/watch.example.json. Cada uno corre tal) Tj ET
+BT /F1 9.3 Tf 60.0 573.1 Td (cual.) Tj ET
+BT /F2 10.5 Tf 52.0 557.4 Td (174. Mapa de capacidades) Tj ET
+BT /F1 9.3 Tf 60.0 542.5 Td ([SÍ] a2s map imprime el mapa directiva->implementación; la tabla del README es su versión estática;) Tj ET
+BT /F1 9.3 Tf 60.0 530.2 Td (cada versión añade su fila \(v1.2-v1.6 visibles\).) Tj ET
+BT /F2 10.5 Tf 52.0 514.4 Td (175. Documentación de API interna) Tj ET
+BT /F1 9.3 Tf 60.0 499.6 Td ([PARCIAL] Docstrings completos en las clases públicas \(ProviderPool, FSMEngine, Learner, Telemetry\)) Tj ET
+BT /F1 9.3 Tf 60.0 487.3 Td (con semántica de contratos; sin referencia de API generada \(sphinx/pdoc: roadmap dev-only\).) Tj ET
+BT /F2 10.5 Tf 52.0 471.5 Td (176. Changelog formal) Tj ET
+BT /F1 9.3 Tf 60.0 456.7 Td ([PARCIAL] La historia vive en commits semánticos detallados y en los blockquotes de versión del) Tj ET
+BT /F1 9.3 Tf 60.0 444.4 Td (README; sin CHANGELOG.md dedicado con diff de comportamiento por versión \(gap menor\).) Tj ET
+BT /F2 10.5 Tf 52.0 428.6 Td (177. Trazabilidad documento-código) Tj ET
+BT /F1 9.3 Tf 60.0 413.8 Td ([SÍ] Las secciones de LIMITACIONES se citan desde el código \(comentarios 'ver §10.3'\) y los docstrings) Tj ET
+BT /F1 9.3 Tf 60.0 401.5 Td (citan los bugs corregidos: la documentación y el código se refieren mutuamente con anclas estables.) Tj ET
+BT /F2 10.5 Tf 52.0 385.7 Td (178. Reproducibilidad de las afirmaciones) Tj ET
+BT /F1 9.3 Tf 60.0 370.9 Td ([SÍ] Cada afirmación cuantitativa de los docs es reproducible con un comando \(tests, demos con) Tj ET
+BT /F1 9.3 Tf 60.0 358.6 Td (servidor mock, métricas en estado JSON\). Nada de 'hasta 10x más rápido' sin comando adjunto.) Tj ET
+BT /F2 10.5 Tf 52.0 342.8 Td (179. Onboarding de nuevo desarrollador) Tj ET
+BT /F1 9.3 Tf 60.0 327.9 Td ([SÍ] En una tarde: 6,5 kLOC stdlib sin framework, arquitectura plana, doctor/map como tour guiado,) Tj ET
+BT /F1 9.3 Tf 60.0 315.7 Td (LIMITACIONES como mapa de minas. La curva de entrada es de las más bajas que puede tener un sistema de) Tj ET
+BT /F1 9.3 Tf 60.0 303.4 Td (agentes.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (23 / 31) Tj ET
+endstream
+endobj
+28 0 obj
+<< /Length 5273 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 10 \(añadida\) ? Ética, Legalidad y Fronteras de Diseño) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (180. Frontera ética como arquitectura) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([SÍ, rasgo definitorio] El rechazo a ataques a terceros está EN el código \(classify_forbidden\), no en) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (un documento: el sistema no puede 'decidir' atacar. Redefinir palabras no cambia la conducta \(§1.1:) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (decisión permanente\).) Tj ET
+BT /F2 10.5 Tf 52.0 698.4 Td (181. La lección SORD institucionalizada) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td ([SÍ] El anti-patrón \(usar recursos ajenos sin consentimiento rebautizado como 'agregación'\) está) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (documentado como tal en directiva.py y LIMITACIONES, con su equivalente legítimo implementado \(SORL\).) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (El proyecto recuerda su propio punto de inflexión: la línea existe porque se discutió, no por) Tj ET
+BT /F1 9.3 Tf 60.0 646.7 Td (casualidad.) Tj ET
+BT /F2 10.5 Tf 52.0 630.9 Td (182. Respeto de términos de servicio ajenos) Tj ET
+BT /F1 9.3 Tf 60.0 616.0 Td ([SÍ] Rate limits auto-impuestos por debajo de los reales \(20/min vs 30 de GitHub; rpm por free tier en) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td (el pool\), Retry-After obedecido siempre, 1 petición mínima en health checks, presupuesto de llamadas) Tj ET
+BT /F1 9.3 Tf 60.0 591.5 Td (por sesión.) Tj ET
+BT /F2 10.5 Tf 52.0 575.7 Td (183. Licencias de código estudiado) Tj ET
+BT /F1 9.3 Tf 60.0 560.9 Td ([SÍ] Toda ficha registra licencia SPDX de origen antes de asimilar; el conocimiento se cita) Tj ET
+BT /F1 9.3 Tf 60.0 548.6 Td (\(fuente+extracto\); nunca se copia código a binario propio. Higiene legal de aprendizaje automático,) Tj ET
+BT /F1 9.3 Tf 60.0 536.3 Td (rara de ver.) Tj ET
+BT /F2 10.5 Tf 52.0 520.5 Td (184. Consentimiento como requisito de recursos) Tj ET
+BT /F1 9.3 Tf 60.0 505.7 Td ([SÍ] Solo recursos del operador \(sus claves, su Ollama\) o públicos de lectura \(GitHub público\); el) Tj ET
+BT /F1 9.3 Tf 60.0 493.4 Td (diseño futuro de cómputo ajeno exige consentimiento explícito \(BOINC: voluntarios, §12\).) Tj ET
+BT /F2 10.5 Tf 52.0 477.6 Td (185. No disimulo de identidad) Tj ET
+BT /F1 9.3 Tf 60.0 462.8 Td ([SÍ] User-Agent honesto \(A2S-*\), sin rotación de huellas 'para simular usuarios', jitter declarado) Tj ET
+BT /F1 9.3 Tf 60.0 450.5 Td (como educación de red, no camuflaje. El sistema es identificable en cada petición que hace.) Tj ET
+BT /F2 10.5 Tf 52.0 434.7 Td (186. Veracidad de autofiguración) Tj ET
+BT /F1 9.3 Tf 60.0 419.8 Td ([SÍ] Se llama 'Agente Autónomo Supremo' pero documenta que no piensa sin LLM, que su heurística) Tj ET
+BT /F1 9.3 Tf 60.0 407.6 Td (empareja palabras, que puede dar falsos cumplidos: el nombre es marca irónica, el contenido es sobrio.) Tj ET
+BT /F1 9.3 Tf 60.0 395.3 Td (La confianza se construye con §1-13.) Tj ET
+BT /F2 10.5 Tf 52.0 379.5 Td (187. Dual-use forense) Tj ET
+BT /F1 9.3 Tf 60.0 364.7 Td ([SÍ] Las capacidades forenses son defensivas \(inventario, hashes, cadena de custodia sobre lo PROPIO\);) Tj ET
+BT /F1 9.3 Tf 60.0 352.4 Td (las herramientas ofensivas del estado del arte están clasificadas como no integrables \(§9\) y el modelo) Tj ET
+BT /F1 9.3 Tf 60.0 340.1 Td (de permisos bloquea su uso desde objetivos.) Tj ET
+BT /F2 10.5 Tf 52.0 324.3 Td (188. Impacto en recursos compartidos) Tj ET
+BT /F1 9.3 Tf 60.0 309.5 Td ([SÍ] El free-first con cuotas auto-impuestas minimiza la tragedia de los comunes: el sistema deja) Tj ET
+BT /F1 9.3 Tf 60.0 297.2 Td (cuota para otros usuarios de los mismos free tiers \(decisión documentada, no obligación legal\).) Tj ET
+BT /F2 10.5 Tf 52.0 281.4 Td (189. Trazabilidad ética de decisiones) Tj ET
+BT /F1 9.3 Tf 60.0 266.6 Td ([SÍ] Cada denegación, cuarentena y degradación queda en ledger/telemetría: se puede auditar que el) Tj ET
+BT /F1 9.3 Tf 60.0 254.3 Td (sistema se comportó según sus principios en cada instante.) Tj ET
+BT /F2 10.5 Tf 52.0 238.5 Td (190. Antiforense) Tj ET
+BT /F1 9.3 Tf 60.0 223.6 Td ([NO por diseño] Ninguna capacidad de borrar huellas en sistemas ajenos; la única 'higiene' es el) Tj ET
+BT /F1 9.3 Tf 60.0 211.4 Td (borrado seguro del workspace PROPIO \(documentada como excepción legítima\).) Tj ET
+BT /F2 10.5 Tf 52.0 195.6 Td (191. Responsabilidad del operador) Tj ET
+BT /F1 9.3 Tf 60.0 180.7 Td ([SÍ] Los peligros reales se declaran con instrucciones \(--public con advertencia, --unsafe 'bajo tu) Tj ET
+BT /F1 9.3 Tf 60.0 168.5 Td (responsabilidad', webhook 'detrás de reverse proxy'\): autonomy con caveat emptor explícito, no oculto.) Tj ET
+BT /F2 10.5 Tf 52.0 152.7 Td (192. Sesgo algorítmico interno) Tj ET
+BT /F1 9.3 Tf 60.0 137.8 Td ([PARCIAL] Los sesgos del propio aprendizaje se documentan \(popularidad por estrellas, win-rate sin) Tj ET
+BT /F1 9.3 Tf 60.0 125.5 Td (decay\); la puerta de incompetencia evita que un sesgo temporal se perpetúe bloqueando endpoints por) Tj ET
+BT /F1 9.3 Tf 60.0 113.3 Td (429s ajenos a su fiabilidad. Sin auditoría formal de equidad \(no aplica a dominio\).) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (24 / 31) Tj ET
+endstream
+endobj
+29 0 obj
+<< /Length 519 >>
+stream
+BT /F2 10.5 Tf 52.0 790.0 Td (193. Cumplimiento normativo) Tj ET
+BT /F1 9.3 Tf 60.0 775.1 Td ([PARCIAL] Herramienta local de operador: sin datos de terceros, sin RGPD directo, sin cookies de) Tj ET
+BT /F1 9.3 Tf 60.0 762.9 Td (tracking. Si se despliega como servicio multiusuario, faltan RGPD/LOS \(datos, aviso, borrado\): gap de) Tj ET
+BT /F1 9.3 Tf 60.0 750.6 Td (producto, no de diseño actual.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (25 / 31) Tj ET
+endstream
+endobj
+30 0 obj
+<< /Length 5173 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 11 \(añadida\) ? Operación, Despliegue y Coste) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (194. Instalación) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([SÍ, trivial] pip install -e . \(puro\) o NADA: el zipapp de ~500 KB corre con solo python3 en el host.) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (Cero pasos de resolución de dependencias: el despliegue más simple posible.) Tj ET
+BT /F2 10.5 Tf 52.0 710.6 Td (195. Despliegue en vivo \(LiveCD\)) Tj ET
+BT /F1 9.3 Tf 60.0 695.8 Td ([SÍ] a2s build-live empaqueta un solo archivo ejecutable; --ram opera entero en /dev/shm \(nada toca) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td (disco\): modo respuesta a incidentes con huella cero.) Tj ET
+BT /F2 10.5 Tf 52.0 667.7 Td (196. Configuración declarativa) Tj ET
+BT /F1 9.3 Tf 60.0 652.9 Td ([SÍ] JSON para pool/watch/fsm con validación estática y mensajes de error accionables; env-vars para) Tj ET
+BT /F1 9.3 Tf 60.0 640.6 Td (secretos; flags para operación puntual. Sin YAML \(deliberado: stdlib\) ? menos ergonomía, cero) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td (dependencias.) Tj ET
+BT /F2 10.5 Tf 52.0 612.5 Td (197. Provisionamiento de infraestructura) Tj ET
+BT /F1 9.3 Tf 60.0 597.7 Td ([NO] Sin Terraform/Ansible/K8s propios: el diseño §12 declara el provisionador spot como herramienta) Tj ET
+BT /F1 9.3 Tf 60.0 585.4 Td (del OPERADOR. A²S se despliega, no se autodespliega \(elección: el agente no replica infraestructura) Tj ET
+BT /F1 9.3 Tf 60.0 573.1 Td (sin control humano\).) Tj ET
+BT /F2 10.5 Tf 52.0 557.4 Td (198. Upgrades y migraciones) Tj ET
+BT /F1 9.3 Tf 60.0 542.5 Td ([PARCIAL] Versionado semántico correcto; los formatos persistidos \(state.json, fichas, ledger\)) Tj ET
+BT /F1 9.3 Tf 60.0 530.2 Td (evolucionan con tolerancia a claves nuevas; sin framework de migraciones: un cambio de esquema mayor) Tj ET
+BT /F1 9.3 Tf 60.0 517.9 Td (requeriría conversor manual \(aún no ha hecho falta\).) Tj ET
+BT /F2 10.5 Tf 52.0 502.2 Td (199. Rollback de versión) Tj ET
+BT /F1 9.3 Tf 60.0 487.3 Td ([PARCIAL] Volver atrás = workspace viejo + zipapp viejo \(todo es archivo\). Sin compatibilidad) Tj ET
+BT /F1 9.3 Tf 60.0 475.0 Td (garantizada hacia atrás de snapshots futuros no prometida: avisado en README.) Tj ET
+BT /F2 10.5 Tf 52.0 459.3 Td (200. Modelo de coste por tokens) Tj ET
+BT /F1 9.3 Tf 60.0 444.4 Td ([SÍ, optimizado] Nivel 0 = 0 tokens. Nivel 1 con pool = free-first medido \(coste estimado por endpoint) Tj ET
+BT /F1 9.3 Tf 60.0 432.1 Td (en $\), pago solo tras puerta de incompetencia \(demostrado: $0,0023 en las 6 únicas tareas que solo el) Tj ET
+BT /F1 9.3 Tf 60.0 419.8 Td (pago sabía hacer\). Fallback heurístico gratis para siempre.) Tj ET
+BT /F2 10.5 Tf 52.0 404.1 Td (201. Coste de cómputo local) Tj ET
+BT /F1 9.3 Tf 60.0 389.2 Td ([SÍ, mínimo] Proceso Python sin frameworks: RAM de decenas de MB, CPU solo en misiones; SQLite/JSONL:) Tj ET
+BT /F1 9.3 Tf 60.0 376.9 Td (I/O trivial. Puede correr en una Raspberry Pi.) Tj ET
+BT /F2 10.5 Tf 52.0 361.2 Td (202. Coste de desarrollo/mantenimiento) Tj ET
+BT /F1 9.3 Tf 60.0 346.3 Td ([PARCIAL] La deuda medida \(criterio 16\) se estima en 2-3 jornadas de refactor. El coste de) Tj ET
+BT /F1 9.3 Tf 60.0 334.0 Td (reimplementar \(PDF, shell, HTTP\) ya está pagado y auditado; el de SEGUIR sin linter/CI se paga en cada) Tj ET
+BT /F1 9.3 Tf 60.0 321.7 Td (regresión evitada a mano.) Tj ET
+BT /F2 10.5 Tf 52.0 306.0 Td (203. Observabilidad en producción) Tj ET
+BT /F1 9.3 Tf 60.0 291.1 Td ([PARCIAL] JSONL+JSON exportables a cualquier pila \(documentado el camino a Grafana\); sin exporters) Tj ET
+BT /F1 9.3 Tf 60.0 278.8 Td (nativos Prometheus/OTLP \(roadmap declarado §10.3\).) Tj ET
+BT /F2 10.5 Tf 52.0 263.1 Td (204. Runbooks operativos) Tj ET
+BT /F1 9.3 Tf 60.0 248.2 Td ([NO] Sin manual de incidentes del propio sistema \(los mensajes accionables parcialmente lo sustituyen:) Tj ET
+BT /F1 9.3 Tf 60.0 235.9 Td (cada error dice qué revisar\). Gap de proceso.) Tj ET
+BT /F2 10.5 Tf 52.0 220.1 Td (205. Ejecución como servicio \(daemon\)) Tj ET
+BT /F1 9.3 Tf 60.0 205.3 Td ([SÍ] watch es un daemon real \(eventos + webhook + parada por inactividad\); dashboard sirve en puerto;) Tj ET
+BT /F1 9.3 Tf 60.0 193.0 Td (supervise es el daemon de misión. Sin systemd units de ejemplo \(facilísimo añadir\).) Tj ET
+BT /F2 10.5 Tf 52.0 177.2 Td (206. Multi-instancia) Tj ET
+BT /F1 9.3 Tf 60.0 162.4 Td ([PARCIAL] Swarm replica procesos con workspaces aislados \(el patrón soportado\); no hay coordinación) Tj ET
+BT /F1 9.3 Tf 60.0 150.1 Td (entre instancias en la misma máquina \(ni lo necesita el modelo single-writer\).) Tj ET
+BT /F2 10.5 Tf 52.0 134.3 Td (207. Presupuesto de coste como parámetro de primer orden) Tj ET
+BT /F1 9.3 Tf 60.0 119.5 Td ([SÍ] El coste es una dimensión de la función de utilidad \(weight cost, auto-ajustada\), con techo por) Tj ET
+BT /F1 9.3 Tf 60.0 107.2 Td (tier y medición contable: se puede operar con 'gasta solo si es imprescindible' como política) Tj ET
+BT /F1 9.3 Tf 60.0 94.9 Td (explícita.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (26 / 31) Tj ET
+endstream
+endobj
+31 0 obj
+<< /Length 4355 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 12 \(añadida\) ? Escalabilidad y Evolución Futura) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (208. Escalado vertical) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([SÍ] El fanout escala con hilos hasta los límites de cuota \(el cuello es la cuota ajena, no la CPU) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (local\); swarm usa todos los núcleos \(procesos\).) Tj ET
+BT /F2 10.5 Tf 52.0 710.6 Td (209. Escalado horizontal distribuido) Tj ET
+BT /F1 9.3 Tf 60.0 695.8 Td ([NO/por diseño] Sin clúster propio: el roadmap legítimo es BOINC voluntario y spot \(diseño §12\). La) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td (coordinación distribuida se esquiva a propósito \(la complejidad no compra capacidad real para el) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (dominio\).) Tj ET
+BT /F2 10.5 Tf 52.0 655.5 Td (210. Colas de mensajes) Tj ET
+BT /F1 9.3 Tf 60.0 640.6 Td ([NO] Sin RabbitMQ/Kafka: el ledger JSONL ES la cola duradera local \(append-only consumible\). Para un) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td (solo operador, correcto; para flota, insuficiente.) Tj ET
+BT /F2 10.5 Tf 52.0 612.5 Td (211. Escalado de datos) Tj ET
+BT /F1 9.3 Tf 60.0 597.7 Td ([PARCIAL] SQLite aguanta GBs de episodios; latencias con memoria acotada \(deque maxlen\);) Tj ET
+BT /F1 9.3 Tf 60.0 585.4 Td (telemetry.jsonl crece sin rotación \(gap menor\). Sin sharding ni BD externa: por diseño local-first.) Tj ET
+BT /F2 10.5 Tf 52.0 569.6 Td (212. Límites de concurrencia internos) Tj ET
+BT /F1 9.3 Tf 60.0 554.8 Td ([SÍ medidos] GIL irrelevante \(I/O-bound\); 8 hilos por defecto en fanout; ProcessPool con tope por) Tj ET
+BT /F1 9.3 Tf 60.0 542.5 Td (workers; locks cortos sin contención observable \(tests de carrera estables\).) Tj ET
+BT /F2 10.5 Tf 52.0 526.7 Td (213. Escalado del pool de proveedores) Tj ET
+BT /F1 9.3 Tf 60.0 511.9 Td ([SÍ] Añadir endpoints es editar JSON; el scheduler degrada utilidad O\(1\) por candidato: decenas de) Tj ET
+BT /F1 9.3 Tf 60.0 499.6 Td (endpoints sin costo algorítmico. El límite real es cuántas claves legítimas tengas.) Tj ET
+BT /F2 10.5 Tf 52.0 483.8 Td (214. Escalado del conocimiento) Tj ET
+BT /F1 9.3 Tf 60.0 469.0 Td ([PARCIAL] Las fichas top-4 se inyectan por win-rate \(ventana acotada al contexto\); más allá de ~30) Tj ET
+BT /F1 9.3 Tf 60.0 456.7 Td (fichas el ranking importa y no hay búsqueda semántica: el corpus crecido necesita embeddings) Tj ET
+BT /F1 9.3 Tf 60.0 444.4 Td (\(roadmap\).) Tj ET
+BT /F2 10.5 Tf 52.0 428.6 Td (215. Extensión a nuevos motores de razonamiento) Tj ET
+BT /F1 9.3 Tf 60.0 413.8 Td ([SÍ] BaseProvider + factory: cualquier motor futuro \(Temporal, LangGraph, un modelo local\) se conecta) Tj ET
+BT /F1 9.3 Tf 60.0 401.5 Td (implementando 4 métodos; el pool lo orquesta con los demás.) Tj ET
+BT /F2 10.5 Tf 52.0 385.7 Td (216. Granularidad de checkpoint) Tj ET
+BT /F1 9.3 Tf 60.0 370.9 Td ([SÍ] Episodio \(paso\), estrategia \(misión\), snapshot \(sesión\): tres granularidades de persistencia) Tj ET
+BT /F1 9.3 Tf 60.0 358.6 Td (alineadas con los tres horizontes de aprendizaje.) Tj ET
+BT /F2 10.5 Tf 52.0 342.8 Td (217. Evolución de la especificación \(versionado de specs\)) Tj ET
+BT /F1 9.3 Tf 60.0 327.9 Td ([PARCIAL] Las specs FSM/watch/pool se validan estáticamente y toleran claves nuevas; sin campo) Tj ET
+BT /F1 9.3 Tf 60.0 315.7 Td ('version' formal ni migración: si un formato cambia de forma incompatible, fallará la validación con) Tj ET
+BT /F1 9.3 Tf 60.0 303.4 Td (error claro \(fallback aceptable\).) Tj ET
+BT /F2 10.5 Tf 52.0 287.6 Td (218. Camino a multiusuario real) Tj ET
+BT /F1 9.3 Tf 60.0 272.8 Td ([NO] Requiere: RBAC, workspace por usuario, aislamiento de secretos, dashboard auditado. Ninguno) Tj ET
+BT /F1 9.3 Tf 60.0 260.5 Td (bloqueado arquitectónicamente, ninguno empezado: hoy es herramienta de operador.) Tj ET
+BT /F2 10.5 Tf 52.0 244.7 Td (219. Camino a razonamiento profundo local) Tj ET
+BT /F1 9.3 Tf 60.0 229.8 Td ([PARCIAL] El conector Ollama ya permite LLM local gratis; el sistema no empaqueta modelos \(LiveCD de) Tj ET
+BT /F1 9.3 Tf 60.0 217.6 Td (500 KB vs GBs de pesos\): decisión de producto coherente, con el puente listo cuando el operador lo) Tj ET
+BT /F1 9.3 Tf 60.0 205.3 Td (instale.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (27 / 31) Tj ET
+endstream
+endobj
+32 0 obj
+<< /Length 4304 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 13 \(añadida\) ? Comparativa con el Estado del Arte) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (220. vs Auto-GPT/BabyAGI/AgentGPT) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td ([DIFERENCIAL] A²S es determinista-audio­table \(6,5 kLOC leíbles\), sin dependencias, con cadena de) Tj ET
+BT /F1 9.3 Tf 60.0 726.4 Td (custodia y honestidad contractual; aquellos ofrecen más plugins comunitarios pero cero auditabilidad) Tj ET
+BT /F1 9.3 Tf 60.0 714.1 Td (profunda y presupuesto de tokens opaco.) Tj ET
+BT /F2 10.5 Tf 52.0 698.4 Td (221. vs frameworks de agentes \(LangChain/LlamaIndex/CrewAI\)) Tj ET
+BT /F1 9.3 Tf 60.0 683.5 Td ([TRADE-OFF] Aquí no hay lock-in de framework ni abstracciones mudables; faltan sus conectores) Tj ET
+BT /F1 9.3 Tf 60.0 671.2 Td (\(vectores, tools marketplaces, tracing integrado\). A²S eligió stdlib: coste de ecosistema, ganancia de) Tj ET
+BT /F1 9.3 Tf 60.0 659.0 Td (control.) Tj ET
+BT /F2 10.5 Tf 52.0 643.2 Td (222. vs orquestadores duraderos \(Temporal/Airflow\)) Tj ET
+BT /F1 9.3 Tf 60.0 628.3 Td ([TRADE-OFF] El ledger es workflow duradero local \(append-only, reanudable\) sin servidor de) Tj ET
+BT /F1 9.3 Tf 60.0 616.0 Td (orquestación; faltan timers distribuidos, retries centralizados y flota de workers. Para un operador:) Tj ET
+BT /F1 9.3 Tf 60.0 603.8 Td (suficiente; para una org: no.) Tj ET
+BT /F2 10.5 Tf 52.0 588.0 Td (223. vs gateways LLM \(LiteLLM/Portkey\)) Tj ET
+BT /F1 9.3 Tf 60.0 573.1 Td ([DIFERENCIAL] El pool SORL es un gateway CON aprendizaje propio \(rpm observado, aptitud medida, pesos) Tj ET
+BT /F1 9.3 Tf 60.0 560.9 Td (adaptativos, puerta de incompetencia\): los gateways enrutan por regla; SORL aprende del resultado.) Tj ET
+BT /F2 10.5 Tf 52.0 545.1 Td (224. vs sistemas anti-límites \(el 'SORD' del mercado gris\)) Tj ET
+BT /F1 9.3 Tf 60.0 530.2 Td ([OPUESTO POR PRINCIPIO] Existen herramientas de rotación de IPs/proxies para sortear rate limits: A²S) Tj ET
+BT /F1 9.3 Tf 60.0 517.9 Td (documenta ese patrón como anti-patrón y hace lo contrario \(cuotas bajo el límite + Retry-After) Tj ET
+BT /F1 9.3 Tf 60.0 505.7 Td (obedecido\). La comparativa es ética, no técnica.) Tj ET
+BT /F2 10.5 Tf 52.0 489.9 Td (225. vs suites forenses \(Plaso/Sleuth/Volatility\)) Tj ET
+BT /F1 9.3 Tf 60.0 475.0 Td ([COMPLEMENTARIO] A²S no las sustituye: las puentea \(v1.3\) con lista blanca y confina su salida; aporta) Tj ET
+BT /F1 9.3 Tf 60.0 462.8 Td (lo que ellas no tienen: agente que persigue el objetivo y firma la cadena.) Tj ET
+BT /F2 10.5 Tf 52.0 447.0 Td (226. vs cómputo voluntario \(BOINC/Folding\)) Tj ET
+BT /F1 9.3 Tf 60.0 432.1 Td ([DISEÑADO, NO IMPLEMENTADO] §12 especifica el camino consentido \(tareas embolsadas, resultados) Tj ET
+BT /F1 9.3 Tf 60.0 419.8 Td (firmados HMAC, verificación por muestreo\): las piezas criptográficas ya existen en el repo; falta el) Tj ET
+BT /F1 9.3 Tf 60.0 407.6 Td (servidor de colas público.) Tj ET
+BT /F2 10.5 Tf 52.0 391.8 Td (227. vs evaluación de agentes \(AgentBench/SWE-bench\)) Tj ET
+BT /F1 9.3 Tf 60.0 376.9 Td ([NO] Sin benchmark externo formal de capacidades del agente \(las verificaciones son internas y demos) Tj ET
+BT /F1 9.3 Tf 60.0 364.7 Td (reproducibles\). Integrar un benchmark público daría métrica comparativa dura: mejora recomendada.) Tj ET
+BT /F2 10.5 Tf 52.0 348.9 Td (228. vs memo­ria de agentes \(vector DBs: Chroma/Qdrant\)) Tj ET
+BT /F1 9.3 Tf 60.0 334.0 Td ([GAP DECLARADO] Sin embeddings ni búsqueda semántica: la memoria es episódica SQL+estratégica. Para) Tj ET
+BT /F1 9.3 Tf 60.0 321.7 Td (corpus pequeños funciona; para bibliotecas de conocimiento grandes se queda corto \(roadmap nº1 de) Tj ET
+BT /F1 9.3 Tf 60.0 309.5 Td (capacidades\).) Tj ET
+BT /F2 10.5 Tf 52.0 293.7 Td (229. Posición honesta en el mapa) Tj ET
+BT /F1 9.3 Tf 60.0 278.8 Td ([SÍ] A²S ocupa un nicho real y poco poblado: agente autónomo AUDITABLE, barato por arquitectura \(dos) Tj ET
+BT /F1 9.3 Tf 60.0 266.6 Td (niveles\), con aprendizaje medido y fronteras éticas ejecutables. No compite en plugins, ni en escala,) Tj ET
+BT /F1 9.3 Tf 60.0 254.3 Td (ni en profundidad LLM: compite en confianza y coste total.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (28 / 31) Tj ET
+endstream
+endobj
+33 0 obj
+<< /Length 4689 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Categoría 14 \(añadida\) ? Síntesis, Riesgos y Veredicto) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F2 10.5 Tf 52.0 753.6 Td (230. Puntuación C1 Arquitectura) Tj ET
+BT /F1 9.3 Tf 60.0 738.7 Td (4,0/5 ? Sana, medida, explicable; le faltan los refactors de los 5 hotspots y desdoblar cli.py.) Tj ET
+BT /F2 10.5 Tf 52.0 722.9 Td (231. Puntuación C2 Funcionalidad) Tj ET
+BT /F1 9.3 Tf 60.0 708.1 Td (3,5/5 ? El núcleo prometido está completo y verificado en vivo; faltan i18n, notificaciones salientes) Tj ET
+BT /F1 9.3 Tf 60.0 695.8 Td (y multiusuario.) Tj ET
+BT /F2 10.5 Tf 52.0 680.0 Td (232. Puntuación C3 UI/UX) Tj ET
+BT /F1 9.3 Tf 60.0 665.2 Td (2,5/5 ? Excelente CLI para operadores; dashboard básico; sin accesibilidad formal ni personalización.) Tj ET
+BT /F2 10.5 Tf 52.0 649.4 Td (233. Puntuación C4 Capacidad analítica) Tj ET
+BT /F1 9.3 Tf 60.0 634.5 Td (3,5/5 ? Escalera de recuperación y optimización mediana excelentes; el razonamiento profundo depende) Tj ET
+BT /F1 9.3 Tf 60.0 622.2 Td (del LLM externo \(y lo dice\).) Tj ET
+BT /F2 10.5 Tf 52.0 606.5 Td (234. Puntuación C5 Crecimiento autónomo) Tj ET
+BT /F1 9.3 Tf 60.0 591.6 Td (3,0/5 ? Aprende de fallos, cuotas, aptitud y GitHub con auditoría; sin unlearning de fichas ni) Tj ET
+BT /F1 9.3 Tf 60.0 579.3 Td (búsqueda semántica.) Tj ET
+BT /F2 10.5 Tf 52.0 563.6 Td (235. Puntuación C6 Seguridad) Tj ET
+BT /F1 9.3 Tf 60.0 548.7 Td (3,5/5 ? Modelo de permisos ejecutable, sandbox por capas, cripto verificable, cero supply-chain;) Tj ET
+BT /F1 9.3 Tf 60.0 536.4 Td (dashboard sin auditar y webhook sin auth \(documentados\).) Tj ET
+BT /F2 10.5 Tf 52.0 520.6 Td (236. Puntuación C7 Fiabilidad) Tj ET
+BT /F1 9.3 Tf 60.0 505.8 Td (3,5/5 ? Degradación en cascada demostrada, checkpoints, circuitos; sin alertamiento ni backups) Tj ET
+BT /F1 9.3 Tf 60.0 493.5 Td (automáticos.) Tj ET
+BT /F2 10.5 Tf 52.0 477.7 Td (237. Puntuación C8 Código y pruebas) Tj ET
+BT /F1 9.3 Tf 60.0 462.9 Td (3,5/5 ? 139 tests disciplinados con regresión por bug; sin cobertura medida, CI ni fuzzing.) Tj ET
+BT /F2 10.5 Tf 52.0 447.1 Td (238. Puntuación C9 Documentación) Tj ET
+BT /F1 9.3 Tf 60.0 432.2 Td (5,0/5 ? LIMITACIONES.md es la mejor documentación de límites que se puede encontrar en un proyecto de) Tj ET
+BT /F1 9.3 Tf 60.0 420.0 Td (este tipo; ejemplos ejecutables de todo.) Tj ET
+BT /F2 10.5 Tf 52.0 404.2 Td (239. Puntuación C10 Ética) Tj ET
+BT /F1 9.3 Tf 60.0 389.3 Td (5,0/5 ? Fronteras en código, no en papel; licencias respetadas en el aprendizaje; anti-patrón SORD) Tj ET
+BT /F1 9.3 Tf 60.0 377.0 Td (documentado con su alternativa legítima implementada.) Tj ET
+BT /F2 10.5 Tf 52.0 361.3 Td (240. Puntuación C11-C13 Operación/Escalabilidad/Comparativa) Tj ET
+BT /F1 9.3 Tf 60.0 346.4 Td (C11 3,5/5 \(despliegue trivial, coste optimizado, sin provisionamiento\) · C12 3,0/5 \(local por diseño,) Tj ET
+BT /F1 9.3 Tf 60.0 334.1 Td (camino distribuido consentido solo diseñado\) · C13 3,5/5 \(nicho propio: auditabilidad+coste\).) Tj ET
+BT /F2 10.5 Tf 52.0 318.4 Td (241. Fortaleza nº1) Tj ET
+BT /F1 9.3 Tf 60.0 303.5 Td (La confianza verificable: cada afirmación de este informe se reproduce con un comando; cada decisión) Tj ET
+BT /F1 9.3 Tf 60.0 291.2 Td (del sistema deja huella criptográfica; cada límite está escrito donde el marketing habría puesto una) Tj ET
+BT /F1 9.3 Tf 60.0 278.9 Td (feature.) Tj ET
+BT /F2 10.5 Tf 52.0 263.2 Td (242. Fortaleza nº2) Tj ET
+BT /F1 9.3 Tf 60.0 248.3 Td (El coste como dimensión arquitectónica: dos niveles \(determinista gratis / agente solo si hace falta\)) Tj ET
+BT /F1 9.3 Tf 60.0 236.0 Td (+ pool free-first con puerta de incompetencia = capacidad real con presupuesto ~0 \(demostrado con) Tj ET
+BT /F1 9.3 Tf 60.0 223.8 Td ($0,0023\).) Tj ET
+BT /F2 10.5 Tf 52.0 208.0 Td (243. Fortaleza nº3) Tj ET
+BT /F1 9.3 Tf 60.0 193.1 Td (El aprendizaje auditado: rpm aprendido, pesos adaptativos, aptitud medida por kind y fichas de) Tj ET
+BT /F1 9.3 Tf 60.0 180.8 Td (conocimiento con licencia: el sistema mejora Y puede demostrar por qué.) Tj ET
+BT /F2 10.5 Tf 52.0 165.1 Td (244. Fortaleza nº4) Tj ET
+BT /F1 9.3 Tf 60.0 150.2 Td (Cero dependencias: sin CVEs, sin lockfile, LiveCD de 500 KB, auditabilidad total en una tarde de) Tj ET
+BT /F1 9.3 Tf 60.0 137.9 Td (lectura.) Tj ET
+BT /F2 10.5 Tf 52.0 122.2 Td (245. Fortaleza nº5) Tj ET
+BT /F1 9.3 Tf 60.0 107.3 Td (La honestidad como ingeniería: LIMITACIONES §1-13 convierte el 'qué no puede' en contrato; los bugs se) Tj ET
+BT /F1 9.3 Tf 60.0 95.0 Td (celebran con test de regresión.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (29 / 31) Tj ET
+endstream
+endobj
+34 0 obj
+<< /Length 1926 >>
+stream
+BT /F2 10.5 Tf 52.0 790.0 Td (246. Debilidad nº1) Tj ET
+BT /F1 9.3 Tf 60.0 775.1 Td (El razonamiento heurístico da falsos positivos de éxito sin verificador de misión \(§2 nº9\): el usuario) Tj ET
+BT /F1 9.3 Tf 60.0 762.9 Td (novato puede creerse un 'CUMPLIDO' flojo. Mitigación documentada, no resuelta.) Tj ET
+BT /F2 10.5 Tf 52.0 747.1 Td (247. Debilidad nº2) Tj ET
+BT /F1 9.3 Tf 60.0 732.2 Td (Hotspots de complejidad \(CC hasta 33\) y cli.py creciendo: deuda medida que dificulta contribuyentes) Tj ET
+BT /F1 9.3 Tf 60.0 720.0 Td (externos.) Tj ET
+BT /F2 10.5 Tf 52.0 704.2 Td (248. Debilidad nº3) Tj ET
+BT /F1 9.3 Tf 60.0 689.3 Td (Ecosistema ausente: sin memoria vectorial, sin conectores, sin CI, sin multiusuario: para equipos y) Tj ET
+BT /F1 9.3 Tf 60.0 677.0 Td (corpus grandes hoy se queda corto.) Tj ET
+BT /F2 10.5 Tf 52.0 661.3 Td (249. Riesgo principal) Tj ET
+BT /F1 9.3 Tf 60.0 646.4 Td (Confundir la herramienta de operador con un producto: exponer dashboard/webhook sin endurecer \(auth,) Tj ET
+BT /F1 9.3 Tf 60.0 634.1 Td (TLS, auditoría web\) o desplegarlo multiusuario sin RGPD sería usarlo contra sus propias instrucciones.) Tj ET
+BT /F2 10.5 Tf 52.0 618.4 Td (250. VEREDICTO) Tj ET
+BT /F1 9.3 Tf 60.0 603.5 Td (A²S v1.6.0 es lo que promete: un agente autónomo de operador, auditable y barato, con tres bucles de) Tj ET
+BT /F1 9.3 Tf 60.0 591.2 Td (mejora legítimos \(orquestación SORL, optimización medida, enriquecimiento CE\) y un nivel determinista) Tj ET
+BT /F1 9.3 Tf 60.0 578.9 Td (que cubre lo predecible a coste cero. No es, ni finge ser, un cerebro: es una máquina de perseguir) Tj ET
+BT /F1 9.3 Tf 60.0 566.7 Td (objetivos con memoria, frenos y recibos. Global ponderado: 3,7/5 ? con la mejor relación) Tj ET
+BT /F1 9.3 Tf 60.0 554.4 Td (transparencia/capacidad del nicho.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (30 / 31) Tj ET
+endstream
+endobj
+35 0 obj
+<< /Length 1883 >>
+stream
+BT /F2 17.0 Tf 52.0 790.0 Td (Roadmap priorizado \(derivado de este análisis\)) Tj ET
+0.55 G 0.5 w 52.0 761.6 m 543.0 761.6 l S 0 G
+BT /F1 9.3 Tf 52.0 753.6 Td (- 1. CI mínima: GitHub Actions con los 139 tests \(6 líneas, cero deps\).) Tj ET
+BT /F1 9.3 Tf 52.0 739.1 Td (- 2. Refactor de los 5 hotspots CC>19 con tests-first \(shell, execute_dag, evolve_step, _handler,) Tj ET
+BT /F1 9.3 Tf 52.0 726.8 Td (  execute_step\).) Tj ET
+BT /F1 9.3 Tf 52.0 712.3 Td (- 3. Memoria semántica local opcional \(índice invertido BM25 stdlib antes que embeddings externos\).) Tj ET
+BT /F1 9.3 Tf 52.0 697.9 Td (- 4. Alertamiento saliente: webhook/email cuando el pool degrade o el watcher escale.) Tj ET
+BT /F1 9.3 Tf 52.0 683.4 Td (- 5. Unlearning real: caducidad y poda de fichas perdedoras; decay de win-rates.) Tj ET
+BT /F1 9.3 Tf 52.0 668.9 Td (- 6. search/code en el CE \(estudiar fragmentos, no solo READMEs\) con los mismos presupuestos y) Tj ET
+BT /F1 9.3 Tf 52.0 656.6 Td (  permisos.) Tj ET
+BT /F1 9.3 Tf 52.0 642.2 Td (- 7. Auditoría web del dashboard \(CSRF/headers/ARIA\) antes de cualquier exposición.) Tj ET
+BT /F1 9.3 Tf 52.0 627.7 Td (- 8. a2s learn que EDITE la especificación FSM a partir de los escalados \(cerrar el ciclo nivel) Tj ET
+BT /F1 9.3 Tf 52.0 615.4 Td (  1->nivel 0\).) Tj ET
+BT /F1 9.3 Tf 52.0 600.9 Td (- 9. Rotación/compresión de telemetry.jsonl y CHANGELOG.md formal.) Tj ET
+BT /F1 9.3 Tf 52.0 586.4 Td (- 10. Provisionador spot del §12 como herramienta del operador \(no del agente\).) Tj ET
+BT /F3 8.5 Tf 52.0 564.0 Td (Generado con tools/gen_informe.py \(motor PDF en stdlib puro, sin dependencias\). Todas las afirmaciones son) Tj ET
+BT /F3 8.5 Tf 52.0 552.8 Td (reproducibles con los comandos citados en README.md y LIMITACIONES.md.) Tj ET
+BT /F3 7.5 Tf 52.0 34 Td (Informe de Análisis Integral — A²S v1.6.0) Tj ET BT /F1 8 Tf 513.0 34 Td (31 / 31) Tj ET
+endstream
+endobj
+36 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 5 0 R >>
+endobj
+37 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 6 0 R >>
+endobj
+38 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 7 0 R >>
+endobj
+39 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 8 0 R >>
+endobj
+40 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 9 0 R >>
+endobj
+41 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 10 0 R >>
+endobj
+42 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 11 0 R >>
+endobj
+43 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 12 0 R >>
+endobj
+44 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 13 0 R >>
+endobj
+45 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 14 0 R >>
+endobj
+46 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 15 0 R >>
+endobj
+47 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 16 0 R >>
+endobj
+48 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 17 0 R >>
+endobj
+49 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 18 0 R >>
+endobj
+50 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 19 0 R >>
+endobj
+51 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 20 0 R >>
+endobj
+52 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 21 0 R >>
+endobj
+53 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 22 0 R >>
+endobj
+54 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 23 0 R >>
+endobj
+55 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 24 0 R >>
+endobj
+56 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 25 0 R >>
+endobj
+57 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 26 0 R >>
+endobj
+58 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 27 0 R >>
+endobj
+59 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 28 0 R >>
+endobj
+60 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 29 0 R >>
+endobj
+61 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 30 0 R >>
+endobj
+62 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 31 0 R >>
+endobj
+63 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 32 0 R >>
+endobj
+64 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 33 0 R >>
+endobj
+65 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 34 0 R >>
+endobj
+66 0 obj
+<< /Type /Page /Parent 67 0 R /MediaBox [0 0 595.0 842.0] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R /F4 4 0 R >> >> /Contents 35 0 R >>
+endobj
+67 0 obj
+<< /Type /Pages /Kids [36 0 R 37 0 R 38 0 R 39 0 R 40 0 R 41 0 R 42 0 R 43 0 R 44 0 R 45 0 R 46 0 R 47 0 R 48 0 R 49 0 R 50 0 R 51 0 R 52 0 R 53 0 R 54 0 R 55 0 R 56 0 R 57 0 R 58 0 R 59 0 R 60 0 R 61 0 R 62 0 R 63 0 R 64 0 R 65 0 R 66 0 R] /Count 31 >>
+endobj
+68 0 obj
+<< /Type /Catalog /Pages 67 0 R >>
+endobj
+69 0 obj
+<< /Title (Informe de AnÃ¡lisis Integral â€” AÂ²S v1.6.0) /Producer (A2S MiniPDF stdlib) >>
+endobj
+xref
+0 70
+0000000000 65535 f 
+0000000015 00000 n 
+0000000112 00000 n 
+0000000214 00000 n 
+0000000319 00000 n 
+0000000414 00000 n 
+0000001505 00000 n 
+0000007076 00000 n 
+0000012974 00000 n 
+0000018785 00000 n 
+0000021061 00000 n 
+0000026619 00000 n 
+0000032025 00000 n 
+0000034643 00000 n 
+0000040006 00000 n 
+0000042693 00000 n 
+0000048275 00000 n 
+0000053991 00000 n 
+0000054598 00000 n 
+0000060390 00000 n 
+0000066023 00000 n 
+0000066277 00000 n 
+0000071693 00000 n 
+0000073199 00000 n 
+0000078575 00000 n 
+0000078813 00000 n 
+0000084142 00000 n 
+0000084412 00000 n 
+0000088201 00000 n 
+0000093527 00000 n 
+0000094098 00000 n 
+0000099324 00000 n 
+0000103732 00000 n 
+0000108089 00000 n 
+0000112831 00000 n 
+0000114810 00000 n 
+0000116746 00000 n 
+0000116908 00000 n 
+0000117070 00000 n 
+0000117232 00000 n 
+0000117394 00000 n 
+0000117556 00000 n 
+0000117719 00000 n 
+0000117882 00000 n 
+0000118045 00000 n 
+0000118208 00000 n 
+0000118371 00000 n 
+0000118534 00000 n 
+0000118697 00000 n 
+0000118860 00000 n 
+0000119023 00000 n 
+0000119186 00000 n 
+0000119349 00000 n 
+0000119512 00000 n 
+0000119675 00000 n 
+0000119838 00000 n 
+0000120001 00000 n 
+0000120164 00000 n 
+0000120327 00000 n 
+0000120490 00000 n 
+0000120653 00000 n 
+0000120816 00000 n 
+0000120979 00000 n 
+0000121142 00000 n 
+0000121305 00000 n 
+0000121468 00000 n 
+0000121631 00000 n 
+0000121794 00000 n 
+0000122064 00000 n 
+0000122115 00000 n 
+trailer
+<< /Size 70 /Root 68 0 R /Info 69 0 R >>
+startxref
+122223
+%%EOF
