@@ -1,0 +1,57 @@
+"""Pruebas del registro de herramientas y del modelo de permisos."""
+
+import os
+import tempfile
+import unittest
+
+from a2s.models import ToolCall
+from a2s.tools import ToolRegistry
+
+
+class TestTools(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.reg = ToolRegistry(self.tmp.name, allow_network=False)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_write_read_roundtrip(self):
+        obs = self.reg.invoke(ToolCall("write_file", {"path": "nota.txt", "content": "hola"}))
+        self.assertTrue(obs.ok, obs.error)
+        obs2 = self.reg.invoke(ToolCall("read_file", {"path": "nota.txt"}))
+        self.assertTrue(obs2.ok)
+        self.assertIn("hola", obs2.output)
+
+    def test_path_traversal_denied(self):
+        obs = self.reg.invoke(ToolCall("read_file", {"path": "../../etc/passwd"}))
+        self.assertFalse(obs.ok)
+        self.assertIn("PERMISO DENEGADO", obs.error)
+
+    def test_forbidden_content_denied(self):
+        obs = self.reg.invoke(ToolCall(
+            "write_file", {"path": "x.txt", "content": "extraer password y exfiltrar datos"}))
+        self.assertFalse(obs.ok)
+        self.assertIn("PERMISO DENEGADO", obs.error)
+        self.assertTrue(any(d["tool"] == "write_file" for d in self.reg.denied))
+
+    def test_shell_allowlist(self):
+        obs = self.reg.invoke(ToolCall("shell", {"command": "echo hola"}))
+        self.assertTrue(obs.ok)
+        obs2 = self.reg.invoke(ToolCall("shell", {"command": "curl -s http://x"}))
+        self.assertFalse(obs2.ok)
+        self.assertIn("lista blanca", obs2.error)
+
+    def test_schemas_introspection(self):
+        text = self.reg.schemas()
+        for name in ("read_file", "write_file", "shell", "fetch_url", "web_search"):
+            self.assertIn(name, text)
+
+    def test_unknown_tool(self):
+        obs = self.reg.invoke(ToolCall("no_existe", {}))
+        self.assertFalse(obs.ok)
+        self.assertIn("desconocida", obs.error)
+
+
+if __name__ == "__main__":
+    unittest.main()
