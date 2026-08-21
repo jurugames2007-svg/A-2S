@@ -72,13 +72,6 @@
 > (3) **`a2s audit`**: la puntuación del informe como comando reproducible
 > (el '6/5' no existe; la medición viva sí).
 
-> **v1.8.1 — Integración OmniRoute:** el gateway local npm (v3.8.49,
-> OpenAI/Anthropic-compat en `:20128`) se integra como **servicio del
-> operador** (patrón Ollama): autodescubrimiento por sonda de puerto,
-> `A2S_OMNIROUTE_URL`/`A2S_OMNIROUTE_MODEL` (ruteo `auto*` aguas arriba).
-> Cadena de responsabilidad y regla de la tabla 'Caution' (los 17 con
-> cláusulas personal/anti-proxy: OFF) en `LIMITACIONES.md` §16.
-
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización

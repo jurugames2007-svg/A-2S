@@ -211,39 +211,3 @@ class TestAuditorVivo(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-class TestOmniRouteIntegracion(unittest.TestCase):
-    """OmniRoute como servicio local del operador (LIMITACIONES §16)."""
-
-    def test_endpoint_omniroute_cuando_hay_gateway(self):
-        from unittest import mock
-        import a2s.provider_pool as pp
-        with mock.patch.object(pp, "_local_service_alive", return_value=True), \
-             mock.patch.dict(os.environ, {"A2S_OMNIROUTE_MODEL": "auto/cheap"}):
-            eps = pp.discover_endpoints_from_env()
-        omni = [e for e in eps if e.name == "omniroute-local"]
-        self.assertEqual(len(omni), 1)
-        e = omni[0]
-        self.assertEqual(e.base_url, "http://127.0.0.1:20128/v1")
-        self.assertEqual(e.model, "auto/cheap")
-        self.assertEqual(e.cost_tier, "free")           # el gateway es local
-        self.assertEqual(e.rpm, 0)                      # sus cuotas las gestiona él
-
-    def test_sin_gateway_no_hay_endpoint(self):
-        from unittest import mock
-        import a2s.provider_pool as pp
-        with mock.patch.object(pp, "_local_ollama_alive", return_value=False), \
-             mock.patch.object(pp, "_local_service_alive", return_value=False):
-            eps = pp.discover_endpoints_from_env()
-        self.assertFalse([e for e in eps if e.name == "omniroute-local"])
-
-    def test_url_personalizada_por_entorno(self):
-        from unittest import mock
-        import a2s.provider_pool as pp
-        with mock.patch.dict(os.environ,
-                             {"A2S_OMNIROUTE_URL": "http://127.0.0.1:20199/v1"}), \
-             mock.patch.object(pp, "_local_service_alive", return_value=True):
-            eps = pp.discover_endpoints_from_env()
-        e = [x for x in eps if x.name == "omniroute-local"][0]
-        self.assertIn(":20199", e.base_url)

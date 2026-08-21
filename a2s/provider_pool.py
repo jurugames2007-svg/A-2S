@@ -1032,10 +1032,6 @@ def _parse_retry_after(headers: Any) -> Optional[float]:
 
 def _local_ollama_alive(host: str = "127.0.0.1", port: int = 11434,
                         timeout: float = 0.4) -> bool:
-    return _local_service_alive(host, port, timeout)
-
-
-def _local_service_alive(host: str, port: int, timeout: float = 0.4) -> bool:
     try:
         sock = socket.create_connection((host, port), timeout=timeout)
         sock.close()
@@ -1094,19 +1090,6 @@ def discover_endpoints_from_env(include_local: bool = True) -> list[PoolEndpoint
         add("ollama-local", "http://127.0.0.1:11434/v1", "ollama",
             os.environ.get("A2S_OLLAMA_MODEL", "llama3.2"),
             "free", rpm=0, quality=0.75, caps=("general", "summarize"),
-            timeout=180)
-    # OmniRoute local (npm, gateway OpenAI/Anthropic-compat en :20128): se
-    # integra como SERVICIO DEL OPERADOR (igual que Ollama). La cadena de
-    # responsabilidad es suya: solo proveedores cuyos términos lo permitan
-    # (la tabla 'Caution' del propio OmniRoute lista 17 con cláusulas
-    # personal/anti-proxy — nuestra regla: esos OFF). Ver LIMITACIONES §16.
-    omni_url = os.environ.get("A2S_OMNIROUTE_URL",
-                              "http://127.0.0.1:20128/v1")
-    omni_port = int(omni_url.split(":")[2].split("/")[0]) if ":" in omni_url else 20128
-    if include_local and _local_service_alive("127.0.0.1", omni_port):
-        add("omniroute-local", omni_url, "omniroute-local",
-            os.environ.get("A2S_OMNIROUTE_MODEL", "auto"),
-            "free", rpm=0, quality=0.7, caps=("general", "fast"),
             timeout=180)
     return eps
 
