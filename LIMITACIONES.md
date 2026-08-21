@@ -489,3 +489,38 @@ conocido, documentado, corregible en v2.0).
 El núcleo sigue siendo síncrono con hilos (decisión razonada); await no
 convierte esto en un servidor de 10k conexiones (el handler HTTP sigue
 siendo `http.server`): es ergonomía de integración, no escala.
+
+---
+
+## 16. Integración OmniRoute (v1.8.1): gateway local como servicio del operador
+
+OmniRoute (npm `omniroute`, v3.8.49 verificada en el registro; repo
+comunitario MIT) es un gateway local OpenAI/Anthropic-compat que agrega
+~290 proveedores con ruteo, failover y compresión de contexto. A²S lo
+integra con el MISMO patrón que Ollama: servicio local del operador,
+autodescubierto por sonda en `:20128` (o `A2S_OMNIROUTE_URL`).
+
+**Cadena de responsabilidad (explícita)**: A²S ve UN endpoint local. Qué
+proveedores aguas arriba enciendes en OmniRoute es decisión y
+responsabilidad del operador. Nuestra regla heredada de la propia tabla
+'Caution' del proyecto (docs/reference/FREE_TIERS.md): los 17 proveedores
+con cláusulas de uso personal o anti-proxy (agy, ai21, amazon-q, blackbox,
+coze, duckduckgo-web, featherless-ai, fireworks, friendliai, iflytek/
+sparkdesk, kiro, modal, muse-spark-web, nlpcloud, opencode, qwen-web,
+t3-web) y cualquier endpoint '-web' revertido de una interfaz web van
+OFF. Los free tiers oficiales (Kilo Code, Requesty, Z.AI GLM, Cerebras,
+OpenRouter :free...) encajan en SORL sin fricción.
+
+**No verificado desde aquí** (y no se afirma): las cifras agregadas de la
+guía (45.877 estrellas, ~1.530 M tokens/mes, 290 proveedores) — solo se
+verificó la existencia y versión del paquete npm. La propia guía admite
+que la cifra de 10.000 M es falsa y baja dos veces sus números: buena
+señal, pero sigue siendo marketing de terceros.
+
+**Matices honestos**: (a) el ruteo/estrategias/compresión aguas arriba los
+hace OmniRoute — SORL no duplica ese trabajo, lo trata como un proveedor
+más (rpm 0: el gateway gestiona sus cuotas); (b) la compresión de contexto
+(~89% declarado) puede degradar la calidad de planes estructurados: si se
+usan modelos `auto` con compresión agresiva, la aptitud medida por kind
+del SORL (§10) lo detectará y routeará esos kinds a otro endpoint;
+(c) los modelos abiertos no son Claude: la guía lo dice y lo firmamos.
