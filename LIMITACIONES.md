@@ -448,7 +448,7 @@ la tranche 1 (v1.7.0), sin maquillar:
 
 | Entregado | Matices honestos |
 |---|---|
-| CI GitHub Actions (tests + guardianes) | No verificable desde este entorno: el workflow se ejecutará en GitHub al pushear; los guardianes SÍ corren como tests locales |
+| CI GitHub Actions (tests + guardianes) | Workflow completo listo en `tools/ci/ci.yml`; debe copiarse a `.github/workflows/ci.yml` cuando la GitHub App tenga permiso `workflows`. Localmente pasan guardianes/suite/wheel/npm E2E |
 | Guardián de pureza stdlib | Solo vigila `import` de runtime; un dev-dep de CI (coverage, mypy) seguiría siendo legítimo (no se ha añadido ninguno aún) |
 | Guardián de complejidad (CC<35, media<6) | El ratchet es conservador: quedan 4 hotspots CC>19 (shell=33, evolve_step=26, _handler=23, execute_step=19) para tranches 2 |
 | BM25 (`a2s search`) | BM25 léxico NO es semántica profunda: sin embeddings no sinonimia («hash» no encuentra «digest»); verificado en vivo con episodios reales |
@@ -490,21 +490,76 @@ El núcleo sigue siendo síncrono con hilos (decisión razonada); await no
 convierte esto en un servidor de 10k conexiones (el handler HTTP sigue
 siendo `http.server`): es ergonomía de integración, no escala.
 
-### 16.2. Tests de misión completa gated (v1.8.2) — registro sin maquillaje
+## 16. Agent Control Plane (v1.9): industrial no significa mágicamente enterprise
 
-Tras la reconstrucción del entorno de desarrollo (05:06), los dos tests de
-misión completa (`test_loop.test_split_recovery_achieves_goal` y
-`test_goals.test_demo_mission_achieves_goal`) fallan de forma determinista
-**con código idéntico al que pasaba antes de la reconstrucción** (verificado
-por bisección sobre v1.8.1 exacta: `git checkout bcc7fb8 -- a2s/ tests/`).
-El diagnóstico parcial muestra que la escalera de recuperación SÍ divide el
-paso (3 splits en la traza) pero los hijos no convergen; la causa raíz
-(¿timing? ¿coreutils distinto?) sigue 🔴 pendiente de diagnóstico.
+La GUI nueva es un **control plane local de un solo proceso**. Usa HTML/CSS/JS
+empaquetado, API `http.server` y SSE; no usa CDN ni un backend de pago.
 
-Decisión: quedan excluidos por defecto con decorador y motivo explícito
-(nada se borra ni se silencia):
+| Sí implementado | Límite honesto |
+|---|---|
+| Mission control con parámetros acotados | Una misión simultánea por instancia |
+| Parada cooperativa | No interrumpe una syscall; espera el timeout del paso activo |
+| Topología y preview SORL sin llamada real | Los factores son heurísticos, no una garantía de calidad futura |
+| CSP, deny framing, nosniff, SameSite y control de Origin | HTTP plano; al exponer usa `--auth` y reverse proxy TLS |
+| Assets relativos y responsive | No se certificó todavía WCAG con lector de pantalla real |
+| Radar, fichas y `a2s audit` | El radar depende de disponibilidad/cuota pública de GitHub |
 
-    A2S_RUN_SLOW_MISSIONS=1 python -m unittest tests.test_loop tests.test_goals
+`--public` sin `--auth` sigue siendo deliberadamente peligroso: cualquier
+cliente con acceso podría lanzar una misión. El CLI lo advierte, pero no lo
+prohíbe para conservar escenarios de laboratorio aislado. La opción segura es
+localhost (default) o `--public --auth` detrás de un proxy.
 
-`a2s demo` sigue funcionando para verificación humana. Cuando se diagnose la
-causa raíz, se elimina el gate y vuelven al suite por defecto.
+### 16.1. Cierre de la regresión de misiones completas
+
+Los tres tests antes gated en v1.8.2 volvieron a pasar repetidamente tras
+corregir el ciclo de vida del mini-shell: ahora espera **todos** los procesos de
+un pipeline, cierra sus pipes y mata/recolecta el pipeline ante timeout. Se
+eliminó `A2S_RUN_SLOW_MISSIONS`; las misiones completas forman parte de la suite
+por defecto y no quedan skips ocultos.
+
+Esto es evidencia de correlación fuerte, no una afirmación causal absoluta: el
+problema previo dependía del entorno reconstruido y no se obtuvo un core dump.
+El test de regresión y la ausencia de `ResourceWarning` son el control futuro.
+
+## 17. Radar OSS y OmniRoute opcional (v1.9)
+
+`a2s scout` no instala soluciones. Lee metadatos públicos, exige una licencia
+SPDX de la allowlist, filtra por el modelo de permisos y persiste la procedencia.
+El campo `code_executed: false` es un contrato comprobado por tests.
+
+Límites:
+
+- una licencia declarada por GitHub puede estar mal; revisión humana antes de
+  copiar código;
+- estrellas y frescura no prueban seguridad;
+- el resumen por descripción no sustituye una auditoría del repositorio;
+- proyectos `NOASSERTION`/`UNKNOWN` se rechazan aunque parezcan abiertos;
+- el catálogo semilla envejece y debe refrescarse con `a2s scout`;
+- buscar más proyectos aumenta el conjunto de ideas, no la capacidad por sí
+  sola: solo un experimento verificado autoriza una mejora.
+
+OmniRoute se registra como endpoint SORL únicamente si el operador pasa
+`A2S_OMNIROUTE_URL` o usa `examples/pool.omniroute.json`. No se auto-instala,
+no se convierte en base, no activa upstreams y no entrega credenciales a A²S.
+Su superficie y términos de proveedores son responsabilidad del operador.
+
+## 18. Distribución npm (v1.10): launcher, no runtime JavaScript reescrito
+
+El paquete `a2s-agent-control-plane` hace que A²S sea instalable mediante npm,
+pero el núcleo sigue ejecutándose en Python. Esta separación es intencional:
+evita duplicar seguridad, memoria y planificación en dos implementaciones.
+
+| Hay | No hay |
+|---|---|
+| Comandos npm globales `a2s` y `a2s-control-plane` | Python embebido dentro de Node |
+| Detección de Python ≥3.9 y `A2S_PYTHON` | Descarga automática de intérpretes |
+| Tarball sin dependencias npm de runtime | Binario nativo único sin prerrequisitos |
+| Zipapp ejecutable con Python del host | Compilación nativa por CPU/SO |
+| E2E de instalación aislada en Linux | Certificación manual firmada en cada SO |
+| Matriz CI configurada para Linux/macOS/Windows | Resultado remoto hasta que GitHub ejecute el workflow |
+
+`npm run build` no publica nada. `npm run release:local` deja artefactos locales
+en `artifacts/`; `npm publish` requiere autenticación npm y es una acción
+separada del operador. No se añaden hooks `install`/`postinstall`/`prepare`, de
+modo que instalar el tarball no ejecuta código oculto. El comando sí ejecuta
+Python cuando el operador invoca `a2s`, que es precisamente su función visible.

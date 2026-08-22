@@ -251,15 +251,16 @@ class Planner:
 
 _COLLECT_DATA_CODE = '''\
 import subprocess
+from pathlib import Path
 def run(cmd):
     p = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     return (p.stdout or "") + (p.stderr or "")
 hashes = run("find . -type f -not -path './.git/*' -not -path './.a2s/*' -exec sha256sum {} \\\\;")
-open("datos_hashes.txt", "w").write(hashes)
+Path("datos_hashes.txt").write_text(hashes)
 git = run("git log --oneline -20 2>/dev/null").strip() or "sin repositorio git"
-open("datos_git.txt", "w").write(git)
+Path("datos_git.txt").write_text(git)
 inv = run("find . -type f -not -path './.git/*' -not -path './.a2s/*' | sort")
-open("datos_inventario.txt", "w").write(inv)
+Path("datos_inventario.txt").write_text(inv)
 n = len([l for l in hashes.splitlines() if l.strip()])
 print(hashes.strip())
 print(f"hashes recopilados: {n}")
@@ -267,12 +268,15 @@ print(f"hashes recopilados: {n}")
 
 _COMPOSE_REPORT_CODE = '''\
 import os, re
-def read(p):
-    return open(p).read().strip() if os.path.exists(p) else "(sin datos)"
+def read(p, default="(sin datos)"):
+    if not os.path.exists(p):
+        return default
+    with open(p) as fh:
+        return fh.read().strip()
 hash_lines = [l for l in read("datos_hashes.txt").splitlines() if l.strip()]
 inv = read("datos_inventario.txt")
 git = read("datos_git.txt")
-base = open("__TARGET__").read() if os.path.exists("__TARGET__") else ""
+base = read("__TARGET__", "")
 n = len([l for l in hash_lines if re.match(r"^[0-9a-f]{64}\\s", l)])
 markers = ["MARCADOR", "(hashes de la fase 3)", "(inventario de la fase 1)",
            "(metadatos de la fase 2)", "(evidencia de la fase 4)", "(sin datos)"]

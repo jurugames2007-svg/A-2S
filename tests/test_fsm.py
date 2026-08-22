@@ -158,9 +158,10 @@ class TestAccionesConRegistroReal(unittest.TestCase):
             fh.write("informe con verificador interno\n")
         with open(os.path.join(self.ws, "examples_dummy.json"), "w") as fh:
             json.dump({}, fh)
-        spec = json.load(open(os.path.join(os.path.dirname(__file__), "..",
-                                           "examples", "fsm.example.json"),
-                              encoding="utf-8"))
+        with open(os.path.join(os.path.dirname(__file__), "..",
+                               "examples", "fsm.example.json"),
+                  encoding="utf-8") as fh:
+            spec = json.load(fh)
         eng = FSMEngine(spec, action_fn=registry_action_fn(self.reg),
                         sleep_fn=lambda t: None)
         self.assertEqual(eng.validate(), [])

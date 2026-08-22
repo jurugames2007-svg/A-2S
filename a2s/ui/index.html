@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#07111d">
+  <title>A²S Control Plane</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Navegación principal">
+      <a class="brand" href="#overview" aria-label="A²S inicio">
+        <span class="brand-mark">A²</span>
+        <span><b>A²S</b><small>CONTROL PLANE</small></span>
+      </a>
+      <nav>
+        <a class="nav-link active" href="#overview"><span>01</span> Operaciones</a>
+        <a class="nav-link" href="#routing"><span>02</span> Inteligencia de ruta</a>
+        <a class="nav-link" href="#ecosystem"><span>03</span> Radar abierto</a>
+        <a class="nav-link" href="#assurance"><span>04</span> Assurance</a>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="mini-status"><i id="side-dot"></i><span id="side-state">Inicializando</span></div>
+        <small>stdlib · local-first · auditable</small>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">CENTRO DE OPERACIONES AUTÓNOMAS</p>
+          <h1 id="page-title">Estado del sistema</h1>
+        </div>
+        <div class="top-actions">
+          <time id="clock">--:--:-- UTC</time>
+          <button class="icon-btn" id="refresh-all" title="Actualizar datos" aria-label="Actualizar datos">↻</button>
+          <span class="system-pill" id="system-pill"><i></i><span>CONNECTING</span></span>
+        </div>
+      </header>
+
+      <main>
+        <section id="overview" class="section view-section">
+          <div class="metric-grid" aria-label="Indicadores operativos">
+            <article class="metric primary">
+              <div class="metric-head"><span>ESTADO DE MISIÓN</span><i class="pulse"></i></div>
+              <strong id="metric-state">IDLE</strong>
+              <small id="metric-state-note">Listo para recibir objetivo</small>
+            </article>
+            <article class="metric">
+              <div class="metric-head"><span>ITERACIONES</span><em>LIVE</em></div>
+              <strong id="metric-iterations">0</strong>
+              <small>acciones evaluadas</small>
+            </article>
+            <article class="metric">
+              <div class="metric-head"><span>POOL ACTIVO</span><em>SORL</em></div>
+              <strong id="metric-endpoints">0</strong>
+              <small id="metric-pool-note">recursos legítimos</small>
+            </article>
+            <article class="metric">
+              <div class="metric-head"><span>CONOCIMIENTO</span><em>OSS</em></div>
+              <strong id="metric-knowledge">0</strong>
+              <small id="metric-knowledge-note">fichas verificables</small>
+            </article>
+          </div>
+
+          <div class="ops-grid">
+            <article class="panel mission-panel">
+              <header class="panel-head">
+                <div><p class="kicker">MISSION CONTROL</p><h2>Nueva directiva</h2></div>
+                <span class="tag safe">POLICY ENFORCED</span>
+              </header>
+              <form id="mission-form">
+                <label for="goal">Objetivo verificable</label>
+                <textarea id="goal" maxlength="8000" required placeholder="Describe el resultado, su evidencia y el criterio de aceptación…">Analiza el workspace y produce un informe verificable de mejoras, riesgos y próximos pasos.</textarea>
+                <div class="form-row">
+                  <label>Proveedor
+                    <select id="provider">
+                      <option value="auto">Auto seguro</option>
+                      <option value="pool">Pool SORL</option>
+                      <option value="heuristic">Heurístico local</option>
+                      <option value="openai">OpenAI compatible</option>
+                    </select>
+                  </label>
+                  <label>Estrategia pool
+                    <select id="pool-strategy">
+                      <option value="multi_objective">Multiobjetivo</option>
+                      <option value="cost_first">Coste primero</option>
+                      <option value="speed_first">Velocidad primero</option>
+                      <option value="round_robin">Round robin</option>
+                    </select>
+                  </label>
+                </div>
+                <details class="advanced">
+                  <summary>Parámetros operativos</summary>
+                  <div class="form-row triple">
+                    <label>Tiempo máx. (s)<input id="max-time" type="number" min="10" max="3600" value="600"></label>
+                    <label>Rondas<input id="max-rounds" type="number" min="1" max="20" value="6"></label>
+                    <label>Planes candidatos<input id="speculative" type="number" min="0" max="8" value="0"></label>
+                  </div>
+                  <div class="toggle-row">
+                    <label><input id="allow-network" type="checkbox" checked><span>Red permitida</span></label>
+                    <label><input id="allow-shell" type="checkbox" checked><span>Shell permitida</span></label>
+                  </div>
+                </details>
+                <div class="button-row">
+                  <button class="btn btn-primary" id="start" type="submit"><span>▶</span> Ejecutar misión</button>
+                  <button class="btn btn-secondary" id="demo" type="button">Ejecutar diagnóstico demo</button>
+                  <button class="btn btn-danger" id="stop" type="button" disabled>Detener</button>
+                </div>
+                <p class="form-status" id="form-status" role="status"></p>
+              </form>
+            </article>
+
+            <article class="panel stream-panel">
+              <header class="panel-head">
+                <div><p class="kicker">LIVE TELEMETRY</p><h2>Flujo de ejecución</h2></div>
+                <div class="stream-tools"><button id="clear-events" class="text-btn">Limpiar vista</button><span class="live"><i></i> SSE</span></div>
+              </header>
+              <ol id="event-feed" class="event-feed" aria-live="polite">
+                <li class="event empty"><span class="event-icon">·</span><div><b>Esperando telemetría</b><small>Los eventos del agente aparecerán aquí.</small></div></li>
+              </ol>
+            </article>
+          </div>
+        </section>
+
+        <section id="routing" class="section view-section">
+          <header class="section-head">
+            <div><p class="eyebrow">SORL / ROUTING INTELLIGENCE</p><h2>Topología y decisión explicable</h2></div>
+            <div class="inline-control">
+              <label for="route-kind">Tipo de tarea</label>
+              <select id="route-kind">
+                <option value="general">General</option><option value="plan">Planificación</option>
+                <option value="code">Código</option><option value="evaluate">Evaluación</option>
+                <option value="goal_check">Verificación</option><option value="summarize">Resumen</option>
+              </select>
+              <button class="btn btn-secondary" id="preview-route">Simular ruta</button>
+            </div>
+          </header>
+          <div class="routing-grid">
+            <article class="panel topology-panel">
+              <header class="panel-head"><div><p class="kicker">PROVIDER FABRIC</p><h2>Recursos autorizados</h2></div><span id="routing-strategy" class="tag">—</span></header>
+              <div id="provider-list" class="provider-list"><p class="loading">Cargando topología…</p></div>
+            </article>
+            <article class="panel decision-panel">
+              <header class="panel-head"><div><p class="kicker">ZERO-CALL PREVIEW</p><h2>Factores de selección</h2></div><span class="tag safe">NO UPSTREAM</span></header>
+              <div class="selected-route">
+                <small>RUTA PROPUESTA</small><strong id="selected-provider">—</strong>
+                <p id="selected-model">Sin simulación</p>
+              </div>
+              <div id="factor-bars" class="factor-bars"></div>
+              <div class="truth-note"><b>Estados veraces.</b> “Unknown” significa que no existe una fuente de cuota conocida; nunca se traduce a “agotado”.</div>
+            </article>
+          </div>
+          <article class="panel route-table-panel">
+            <header class="panel-head"><div><p class="kicker">CANDIDATE MATRIX</p><h2>Ranking completo</h2></div><span id="preview-stamp" class="muted">—</span></header>
+            <div class="table-wrap"><table><thead><tr><th>Endpoint</th><th>Modelo</th><th>Elegibilidad</th><th>Cuota</th><th>Score</th><th>Motivo</th></tr></thead><tbody id="route-table"></tbody></table></div>
+          </article>
+        </section>
+
+        <section id="ecosystem" class="section view-section">
+          <header class="section-head">
+            <div><p class="eyebrow">CONTINUOUS ENRICHMENT</p><h2>Radar de ecosistema abierto</h2><p class="section-copy">A²S estudia señales de diseño de proyectos públicos; no clona, instala ni ejecuta su código.</p></div>
+            <div class="scout-box"><input id="scout-query" aria-label="Consulta de radar" placeholder="Consulta opcional: agent gateway eval…"><button id="run-scout" class="btn btn-primary">Explorar GitHub</button></div>
+          </header>
+          <div class="guardrail-strip"><span>✓ SOLO SPDX ABIERTA</span><span>✓ METADATOS PÚBLICOS</span><span>✓ CÓDIGO NO EJECUTADO</span><span>✓ FUENTE PERSISTIDA</span></div>
+          <div class="ecosystem-grid">
+            <article class="panel catalog-panel">
+              <header class="panel-head"><div><p class="kicker">OPEN SOURCE SIGNALS</p><h2>Proyectos observados</h2></div><span id="project-count" class="tag">0</span></header>
+              <div id="project-list" class="project-list"><p class="loading">Cargando radar…</p></div>
+            </article>
+            <article class="panel knowledge-panel">
+              <header class="panel-head"><div><p class="kicker">KNOWLEDGE BASE</p><h2>Fichas destiladas</h2></div><span id="card-count" class="tag">0</span></header>
+              <div id="card-list" class="card-list"><p class="empty-copy">Aún no hay fichas. Usa <code>a2s learn</code> para estudiar READMEs con trazabilidad.</p></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="assurance" class="section view-section">
+          <header class="section-head">
+            <div><p class="eyebrow">QUALITY / GOVERNANCE</p><h2>Assurance verificable</h2><p class="section-copy">La calidad no es una promesa: cada criterio muestra su medición reproducible.</p></div>
+            <button id="run-audit" class="btn btn-primary">Ejecutar auditoría</button>
+          </header>
+          <div class="assurance-grid">
+            <article class="panel score-panel">
+              <div class="score-ring" id="score-ring"><span><strong id="audit-score">—</strong><small>/ 5</small></span></div>
+              <div><p class="kicker">LIVE QUALITY SCORE</p><h2 id="audit-title">Auditoría pendiente</h2><p id="audit-note" class="muted">Ejecuta los guardianes para obtener una medición actual.</p></div>
+            </article>
+            <article class="panel checks-panel">
+              <header class="panel-head"><div><p class="kicker">QUALITY GATES</p><h2>Controles</h2></div></header>
+              <div id="audit-checks" class="check-list"><p class="empty-copy">Sin resultados todavía.</p></div>
+            </article>
+          </div>
+          <article class="panel methodology-panel">
+            <header class="panel-head"><div><p class="kicker">IMPROVEMENT LOOP</p><h2>Camino al óptimo teórico</h2></div><span class="tag">PDCA + OODA + DMAIC</span></header>
+            <div class="phase-line">
+              <div><b>01</b><span>Definir</span><small>objetivo y restricciones</small></div><i></i>
+              <div><b>02</b><span>Medir</span><small>baseline reproducible</small></div><i></i>
+              <div><b>03</b><span>Analizar</span><small>causa y cuello de botella</small></div><i></i>
+              <div><b>04</b><span>Mejorar</span><small>experimento mínimo</small></div><i></i>
+              <div><b>05</b><span>Controlar</span><small>gates y regresión</small></div><i></i>
+              <div><b>∞</b><span>Repetir</span><small>frontera de Pareto</small></div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div id="toast-region" class="toast-region" aria-live="assertive"></div>
+</body>
+</html>

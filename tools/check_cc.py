@@ -33,7 +33,9 @@ def main() -> int:
         if not name.endswith(".py"):
             continue
         path = os.path.join(ROOT, PAQUETE, name)
-        for node in ast.walk(ast.parse(open(path, encoding="utf-8").read())):
+        with open(path, encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
+        for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 v = cc_de(node)
                 total_fn += 1

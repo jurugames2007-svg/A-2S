@@ -12,7 +12,7 @@
 
 | # | Acción | Criterios | Estado |
 |---|--------|-----------|--------|
-| 1 | CI: GitHub Actions (tests + guardianes) | 169 | 🔧 (workflow en tools/ci/ci.yml: copiar a mano, el token del sandbox no tiene permiso workflows) |
+| 1 | CI: GitHub Actions (tests + guardianes) | 169 | ✅ plantilla completa en `tools/ci/ci.yml`, matriz Python 3.9/3.11/3.13 + npm E2E multi-OS; pendiente copiarla a workflows por permiso de GitHub App |
 | 2 | Guardián de pureza stdlib (test que falla si entra una dependencia) | 12, 133 | 🔧 |
 | 3 | Guardián de complejidad (CC máx 35 hoy, ratchet hacia 15; media < 6) | 2, 16 | 🔧 |
 | 4 | Memoria semántica: índice BM25 stdlib + `a2s search` | 9, 48, 214 | 🔧 |
@@ -50,6 +50,30 @@
 | 26 | Exporter Prometheus (/metrics) + `--profile` (cProfile) + `a2s trace` | 24, 203 |
 | 27 | Import/export CSV/JSON + `schema_version` + migrate.py | 45, 46, 217 |
 | 28 | systemd/ units de ejemplo + INCIDENT_RESPONSE.md + `a2s incident` | 141, 204, 205 |
+
+## Tranche 4 (v1.9.0) — Agent Mode industrial + radar OSS
+
+| # | Acción | Estado | Evidencia |
+|---|---|---|---|
+| 29 | Control Plane industrial sin dependencias/CDN | ✅ | mission control, SSE, topología, radar y assurance en `a2s/ui/` |
+| 30 | Ruta SORL explicable sin ejecutar upstream | ✅ | `a2s route-preview`, factores, estados de cuota con fuente |
+| 31 | Radar incremental de proyectos públicos | ✅ | `a2s scout`, filtro SPDX, procedencia y `code_executed: false` |
+| 32 | OmniRoute como gateway opcional, no como base | ✅ | env/config explícita, contrato OpenAI-compatible |
+| 33 | Quitar gates de misiones completas | ✅ | pasan por defecto; pipeline shell sin procesos/pipes huérfanos |
+| 34 | Metodología abierta hacia óptimo teórico | ✅ | `docs/METODOLOGIA_OPTIMO_TEORICO.md` |
+| 35 | E2E de navegador con accesibilidad automatizada | 📋 | Playwright + axe-core, solo como dev tools OSS |
+| 36 | Perfil/carga sostenida del Control Plane | 📋 | pyperf/Locust o k6 autoalojado; baseline antes de optimizar |
+
+## Tranche 5 (v1.10.0) — distribución npm ejecutable
+
+| # | Acción | Estado | Evidencia |
+|---|---|---|---|
+| 37 | Launcher npm multiplataforma sin dependencias | ✅ | binarios `a2s`/`a2s-control-plane`, Python ≥3.9 validado |
+| 38 | Build reproducible local | ✅ | `npm run build` produce zipapp + tarball versionados |
+| 39 | E2E del tarball instalado | ✅ | prefijo aislado, CLI, doctor, healthz y GUI real |
+| 40 | Release de un comando | ✅ | `npm run release:local` ejecuta gates + empaquetado |
+| 41 | Matriz npm Linux/macOS/Windows | ✅ configurada | job `npm-package-e2e` en GitHub Actions |
+| 42 | Publicación al registry npm | ⏸ operador | requiere cuenta npm y decisión explícita; el tarball local ya es utilizable |
 
 ## Adaptados (cambio justificado)
 

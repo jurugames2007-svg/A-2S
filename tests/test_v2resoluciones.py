@@ -138,8 +138,9 @@ class TestRBACSobreHTTP(unittest.TestCase):
     def test_toda_denegacion_queda_auditada(self):
         _req(self.url("/api/mission"), method="POST", token=self.tok_view,
              body={"goal": "x"})
-        audit = open(os.path.join(self.tmp.name, ".a2s", "serve_audit.jsonl"),
-                     encoding="utf-8").read()
+        with open(os.path.join(self.tmp.name, ".a2s", "serve_audit.jsonl"),
+                  encoding="utf-8") as fh:
+            audit = fh.read()
         self.assertIn('"allowed": false', audit)
         self.assertIn('"user": "leo"', audit)
 

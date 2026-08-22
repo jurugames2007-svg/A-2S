@@ -195,19 +195,20 @@ class TestNetworkAllowlist(unittest.TestCase):
 
 class TestLiveBuild(unittest.TestCase):
     def test_zipapp_runs(self):
-        import shutil
-        import zipapp
+        import zipfile
         tmp = tempfile.mkdtemp()
         target = os.path.join(tmp, "a2s.pyz")
-        import a2s as pkg
-        source = os.path.dirname(pkg.__file__)
-        with tempfile.TemporaryDirectory() as stage:
-            shutil.copytree(source, os.path.join(stage, "a2s"))
-            with open(os.path.join(stage, "__main__.py"), "w", encoding="utf-8") as fh:
-                fh.write("import sys\nfrom a2s.cli import main\nsys.exit(main())\n")
-            zipapp.create_archive(stage, target=target,
-                                  interpreter="/usr/bin/env python3")
+        build = subprocess.run(
+            [sys.executable, "-m", "a2s", "build-live", "--output", target],
+            capture_output=True, text=True, timeout=60,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
         self.assertTrue(os.path.exists(target))
+        with zipfile.ZipFile(target) as archive:
+            names = archive.namelist()
+        self.assertFalse(any("__pycache__" in name or name.endswith(".pyc")
+                             for name in names))
+        self.assertIn("a2s/ui/app.js", names)
         proc = subprocess.run([sys.executable, target, "doctor", "--workspace", tmp],
                               capture_output=True, text=True, timeout=60, cwd=tmp)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

@@ -31,7 +31,8 @@ except AttributeError:                             # 3.9
 
 
 def imports_de(path: str) -> list[str]:
-    tree = ast.parse(open(path, encoding="utf-8").read())
+    with open(path, encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
     out = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

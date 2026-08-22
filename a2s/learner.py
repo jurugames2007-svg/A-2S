@@ -34,8 +34,6 @@ import math
 import os
 import re
 import time
-import threading
-import time
 import urllib.error
 import urllib.parse
 import urllib.request

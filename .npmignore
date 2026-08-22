@@ -1,0 +1,12 @@
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+artifacts/
+workspace/
+tests/
+electron/
+tools/
+.github/
+docs/*.pdf
+.venv/
+venv/
