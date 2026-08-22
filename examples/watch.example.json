@@ -1,0 +1,38 @@
+{
+  "_doc": "Vigía (nivel 0 dirigido por eventos): el agente DUERME hasta que un disparador corre la máquina determinista. Disparadores: interval (con jitter ±40% para no sincronizarse), file (cambio en un directorio/archivo, por listado+mtimes) y webhook (servidor HTTP local: cualquier POST dispara). Lo imprevisto (observación sin transición) escala al nivel 1 (loop completo del agente). Todo queda en workspace/.a2s/watch.jsonl. NOTA: el vigía se identifica con User-Agent honesto; no hay rotación de huellas (sería evasión de controles de terceros).",
+  "name": "vigia_inbox",
+  "machine": {
+    "name": "clasificador_inbox",
+    "initial": "leer",
+    "states": {
+      "leer": {
+        "action": {"tool": "shell", "params": {"command": "ls -1 inbox/ 2>/dev/null | head -20"}},
+        "cooldown": [0.1, 0.3]
+      },
+      "clasificar": {
+        "action": {"tool": "shell", "params": {"command": "head -c 400 inbox/$(ls -1 inbox/ | head -1) 2>/dev/null"}},
+        "cooldown": 0
+      },
+      "registrar": {
+        "action": {"tool": "shell", "params": {"command": "sha256sum inbox/* 2>/dev/null | head -5"}},
+        "cooldown": 0
+      },
+      "hecho":  {"terminal": "done"},
+      "vacio":  {"terminal": "done"}
+    },
+    "transitions": [
+      {"from": "leer",       "to": "clasificar", "when": {"regex": "\\S"}},
+      {"from": "leer",       "to": "vacio",      "when": {"always": true}},
+      {"from": "clasificar", "to": "registrar",  "when": {"regex": "(?i)hash|sha|verificador|informe"}},
+      {"from": "clasificar", "to": "hecho",      "when": {"regex": "(?i)nota interna"}},
+      {"from": "registrar",  "to": "hecho",      "when": {"always": true}}
+    ],
+    "max_cycles": 12,
+    "escalate_to": "agent"
+  },
+  "triggers": [
+    {"type": "file", "path": "inbox"},
+    {"type": "interval", "seconds": 120},
+    {"type": "webhook", "port": 8790}
+  ]
+}

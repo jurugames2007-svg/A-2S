@@ -76,6 +76,14 @@ class MemoryHub:
                         fails=int(s.get("fails", 0)))
         except (OSError, ValueError, json.JSONDecodeError):
             pass
+        # Decay anti-popularidad: si hay mucha historia acumulada, se
+        # reduce a la mitad (techo 1) para que la historia RECIENTE pese
+        # más que la antigua (criterio 98: sesgo de popularidad).
+        if any((s.used + s.wins + s.fails) > 50 for s in self.strategies.values()):
+            for s in self.strategies.values():
+                s.used = max(1, (s.used + 1) // 2)
+                s.wins = s.wins // 2
+                s.fails = s.fails // 2
 
     def _save_strategies(self) -> None:
         try:

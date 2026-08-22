@@ -70,7 +70,7 @@ class AgentLoop:
                                 shell_unsafe=config.shell_unsafe,
                                 network_allowlist=config.network_allowlist,
                                 sandbox=config.sandbox)
-        provider = provider or get_provider(config.provider)
+        provider = provider or get_provider(config.provider, config=config)
         memory = MemoryHub(config.workspace, goal)
         loop = cls(config=config, provider=provider, registry=registry, memory=memory,
                    goal_verifier=goal_verifier, step_verifiers=step_verifiers,

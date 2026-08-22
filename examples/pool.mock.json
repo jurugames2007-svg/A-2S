@@ -1,0 +1,16 @@
+{
+  "_doc": "Pool SORL para probar contra examples/mock_llm_server.py (sin claves). Copia a TU-WORKSPACE/.a2s/pool.json. Nótese el rpm de 'fast' declarado a 60 (optimista): el servidor real corta a 5 — el pool lo aprenderá solo.",
+  "strategy": "multi_objective",
+  "max_parallel": 8,
+  "endpoints": [
+    {"name": "fast", "base_url": "http://127.0.0.1:8765/fast/v1", "api_key": "mock",
+     "model": "mock-fast-8b", "cost_tier": "free", "quality": 0.85, "rpm": 60,
+     "capabilities": ["fast", "general"]},
+    {"name": "mid", "base_url": "http://127.0.0.1:8765/mid/v1", "api_key": "mock",
+     "model": "mock-mid-70b", "cost_tier": "free", "quality": 0.8, "rpm": 30,
+     "capabilities": ["general", "summarize"]},
+    {"name": "pro", "base_url": "http://127.0.0.1:8765/pro/v1", "api_key": "mock",
+     "model": "mock-pro-max", "cost_tier": "paid", "quality": 1.0, "rpm": 0,
+     "capabilities": ["plan", "general"]}
+  ]
+}

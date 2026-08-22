@@ -1,0 +1,16 @@
+{
+  "name": "a2s-omniroute-studio",
+  "version": "1.0.0",
+  "description": "Consola de escritorio (Electron) para el gateway OmniRoute: lo arranca, lo vigila, chat de prueba y la regla Caution siempre visible. 100% local.",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check main.js && node --check gateway.js && node gateway.js"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  },
+  "__nota": "npm install descarga Electron (~100 MB, una vez). El gateway se toma del omniroute global (npm i -g omniroute) o arranca si falta. 'npm run check' verifica TODO sin Electron (node puro), para CI."
+}

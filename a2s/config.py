@@ -26,10 +26,15 @@ class Config:
     # Detección de estancamiento.
     stagnation_window: int = 4        # intentos fallidos seguidos
     # Proveedor de razonamiento.
-    provider: str = "auto"            # auto | heuristic | openai
+    provider: str = "auto"            # auto | heuristic | openai | pool (SORL)
     llm_model: str = field(default_factory=lambda: os.environ.get("A2S_LLM_MODEL", "gpt-4o-mini"))
     llm_base_url: Optional[str] = field(default_factory=lambda: os.environ.get("A2S_LLM_BASE_URL"))
     temperature: float = 0.2
+    # Pool SORL (solo si provider == "pool").
+    pool_strategy: str = field(default_factory=lambda: os.environ.get(
+        "A2S_POOL_STRATEGY", "multi_objective"))  # round_robin|cost_first|speed_first|multi_objective
+    pool_config: Optional[str] = field(default_factory=lambda: os.environ.get("A2S_POOL_CONFIG"))
+    pool_max_parallel: int = 8        # subtareas concurrentes en fanout/DAG
     # Rutas (raíz del espacio de trabajo del agente).
     workspace: str = field(default_factory=lambda: os.environ.get("A2S_WORKSPACE", "workspace"))
     # Permisos.

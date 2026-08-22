@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 
 from . import __version__
 from .config import Config
@@ -14,6 +15,7 @@ from .directiva import print_capability_map, scope_note
 from .goals import (DEMO_GOAL, build_demo_step_verifiers,
                     forensic_report_goal_verifier, prepare_demo_workspace)
 from .loop import AgentLoop, run_goal
+from .notify import notify
 from .report import render_text, save_report
 
 
@@ -57,6 +59,10 @@ def _config_from_args(args: argparse.Namespace) -> Config:
         cfg.sandbox = False
     if getattr(args, "evolve", None):
         cfg.evolve_generations = args.evolve
+    if getattr(args, "pool_config", None):
+        cfg.pool_config = args.pool_config
+    if getattr(args, "pool_strategy", None):
+        cfg.pool_strategy = args.pool_strategy
     if getattr(args, "ram", False):
         cfg.workspace = ram_workspace()
     return cfg
@@ -105,6 +111,14 @@ def cmd_run(args: argparse.Namespace) -> int:
             if args.report:
                 path = save_report(report, os.path.join(config.workspace, args.report))
                 print(f"\nInforme guardado en: {path}")
+    if getattr(args, "notify", None):
+        exitos = sum(r.success for r in reports)
+        notify(args.notify,
+               f"A²S: {exitos}/{len(reports)} objetivo(s) verificado(s)",
+               "; ".join(f"{'ok' if r.success else 'fallo'}: {r.goal[:60]}"
+                         for r in reports),
+               nivel="info" if exitos == len(reports) else "warn",
+               extra={"exit_code": 0 if exitos == len(reports) else 2})
     return 0 if all(r.success for r in reports) else 2
 
 
@@ -323,12 +337,341 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         print(f"                base_url: {base}")
     else:
         print("  LLM externo:   sin OPENAI_API_KEY → núcleo heurístico determinista")
+    from .provider_pool import discover_endpoints_from_env
+    pool_eps = discover_endpoints_from_env()
+    if pool_eps:
+        print(f"  Pool SORL:     {len(pool_eps)} endpoint(s) legítimo(s) detectado(s): "
+              f"{', '.join(e.name for e in pool_eps)} (a2s pool-status / --provider pool)")
+    else:
+        print("  Pool SORL:     sin claves propias detectadas (GROQ/GEMINI/GITHUB/… "
+              "o workspace/.a2s/pool.json) → solo fallback heurístico")
     try:
         socket.create_connection(("duckduckgo.com", 443), timeout=5).close()
         print("  Red externa:   disponible (búsqueda web y fetch habilitados)")
     except OSError:
         print("  Red externa:   NO disponible (las herramientas de red fallarán y el loop las reparametrizará)")
     return 0
+
+
+def cmd_learn(args: argparse.Namespace) -> int:
+    """Ciclo de Enriquecimiento: estudiar repos públicos hasta ser capaz
+    (verificación objetiva) de resolver el objetivo."""
+    from .learner import GitHubClient, Learner
+    from .provider_pool import ProviderPool
+    from .providers import get_provider
+
+    config = _config_from_args(args)
+    print(scope_note())
+    provider = get_provider(config.provider, config=config)
+    pool = provider if isinstance(provider, ProviderPool) else None
+    learner = Learner(workspace=config.workspace, pool=pool,
+                      github=GitHubClient(),
+                      repos_per_cycle=args.repos)
+
+    def attempt(knowledge: str):
+        goal = args.goal if not knowledge else \
+            f"{args.goal}\n\n{knowledge}"
+        return run_goal(goal, config=config)
+
+    print(f"\n[A²S] ⚛ Ciclo de Enriquecimiento: hasta {args.cycles} ciclo(s), "
+          f"{args.repos} repo(s)/ciclo, resumen "
+          f"{'pool SORL' if pool else 'extractivo (sin LLM)'}")
+
+    def on_cycle(n: int, info: dict) -> None:
+        mark = "✔" if info["won"] else "◐"
+        print(f"[A²S] ciclo {n}: {mark} "
+              f"{'objetivo verificado' if info['won'] else 'no verificado'} · "
+              f"{info.get('knowledge_cards', 0)} ficha(s) aplicadas")
+        if info.get("new_cards"):
+            print(f"        aprendido de: {', '.join(info['new_cards'])}")
+        if info.get("gap_query"):
+            print(f"        brecha detectada → «{info['gap_query']}»")
+
+    report = learner.enrich_until_capable(
+        args.goal, attempt, verifier=lambda r: bool(getattr(r, "success", False)),
+        max_cycles=args.cycles, on_cycle=on_cycle,
+        failures_of=lambda r: getattr(r, "final_note", ""))
+
+    print()
+    if report["capable"]:
+        print(f"[A²S] ✔ CAPAZ — {report['confidence']}")
+        print(f"     fichas de conocimiento acumuladas: {report['cards_total']} "
+              f"(persistidas en {config.workspace}/.a2s/knowledge/)")
+        if hasattr(report.get("last_result"), "final_note"):
+            print()
+            print(render_text(report["last_result"]))
+        if getattr(args, "notify", None):
+            notify(args.notify, "A²S learn: CAPAZ (verificado)",
+                   report["confidence"], nivel="info")
+        return 0
+    print(f"[A²S] ◐ {report['confidence']}")
+    print("     (las fichas persisten: la siguiente ejecución arranca ya "
+          "enriquecida; amplía con --cycles)")
+    if getattr(args, "notify", None):
+        notify(args.notify, "A²S learn: objetivo NO verificado",
+               report["confidence"], nivel="warn")
+    return 2
+
+
+def cmd_search(args: argparse.Namespace) -> int:
+    """Memoria semántica: búsqueda BM25 sobre episodios, fichas y pool."""
+    from .search import workspace_search
+    hits = workspace_search(args.workspace, args.query, top=args.top,
+                            origenes=set(args.origen) if args.origen else None)
+    if not hits:
+        print(f"[A²S] sin resultados para «{args.query}» en {args.workspace} "
+              "(ejecuta misiones/learn primero para acumular memoria)")
+        return 1
+    print(f"[A²S] BM25 · {args.query!r} · {len(hits)} resultado(s):")
+    for doc, score in hits:
+        print(f"  {score:>6.3f}  [{doc.origen:<8}] {doc.meta[:90]}")
+    return 0
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Modo SERVICIO experimental: API REST con RBAC y aislamiento por usuario
+    (ver LIMITACIONES §15: sin TLS, reverse proxy obligatorio si se expone)."""
+    from .serve import make_server
+    srv, api = make_server(args.workspace, port=args.port,
+                           host="0.0.0.0" if args.public else "127.0.0.1",
+                           max_time=args.max_time)
+    host_real = "0.0.0.0 (publico)" if args.public else "127.0.0.1"
+    print(f"[A²S-serve] API experimental en http://{host_real}:{args.port}")
+    print("[A²S-serve]   usuarios: 'a2s users add NOMBRE --role admin|operator|viewer'")
+    print("[A²S-serve]   endpoints: /health, /api/status, /api/mission, /api/report,")
+    print("[A²S-serve]              /api/search, /api/pool, /api/users (solo admin)")
+    print("[A²S-serve]   auditoría: workspace/.a2s/serve_audit.jsonl (todo, denegado incluido)")
+    if args.public:
+        print("[A²S-serve]   ¡ATENCIÓN: sin TLS ni rate-limit: usa reverse proxy!")
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[A²S-serve] detenido")
+    return 0
+
+
+def cmd_users(args: argparse.Namespace) -> int:
+    """Gestión local de usuarios del servicio (bootstrap físico: solo aquí)."""
+    from .serve import ROLE_PERMS, UserStore
+    store = UserStore(args.workspace)
+    if args.accion == "add":
+        try:
+            info = store.add(args.nombre, args.role, hours=args.hours)
+        except ValueError as exc:
+            print(f"✗ {exc}")
+            return 1
+        print(f"✔ usuario '{info['user']}' creado con rol '{info['role']}'")
+        print(f"  permisos: {', '.join(info['perms'])}")
+        print(f"  token (guárdalo ahora, no se vuelve a mostrar):\n  {info['token']}")
+        return 0
+    data = store.list()
+    if not data:
+        print("(sin usuarios: crea el primero con 'a2s users add NOMBRE --role admin')")
+        return 0
+    print(f"{'usuario':<16}{'rol':<10}{'creado':<22}token…")
+    for name, u in sorted(data.items()):
+        print(f"{name:<16}{u['role']:<10}{u['created_at']:<22}…{u.get('token_hint', '')}")
+    print("\nroles disponibles: " + ", ".join(
+        f"{r} ({', '.join(sorted(p))})" for r, p in ROLE_PERMS.items()))
+    return 0
+
+
+def cmd_audit(args: argparse.Namespace) -> int:
+    """Puntuación viva: re-mide los criterios objetivamente medibles."""
+    from .audit import render, run_audit
+    reporte = run_audit()
+    if args.json:
+        print(json.dumps(reporte, ensure_ascii=False, indent=2))
+    else:
+        print(render(reporte))
+    return 0 if reporte["todos_ok"] else 1
+
+
+def cmd_fsm(args: argparse.Namespace) -> int:
+    """Nivel 0: ejecuta una máquina de estados determinista (sin LLM);
+    lo imprevisto escala al nivel 1 (agente)."""
+    from .fsm import FSMEngine, escalation_goal, registry_action_fn
+    from .tools import ToolRegistry
+    config = _config_from_args(args)
+    with open(args.spec, encoding="utf-8") as fh:
+        spec = json.load(fh)
+    registry = ToolRegistry(config.workspace, allow_network=config.allow_network,
+                            allow_shell=not args.no_shell if hasattr(args, "no_shell") else True,
+                            shell_unsafe=config.shell_unsafe,
+                            network_allowlist=config.network_allowlist,
+                            sandbox=config.sandbox)
+    engine = FSMEngine(spec, action_fn=registry_action_fn(registry))
+    errors = engine.validate()
+    if errors:
+        print(f"✗ especificación inválida ({args.spec}):")
+        for e in errors:
+            print(f"  - {e}")
+        return 1
+    print(f"[A²S-fsm] ⚙ máquina «{engine.name}»: {len(engine.states)} estado(s), "
+          f"{len(engine.transitions)} transición(es), presupuesto {engine.max_cycles} ciclo(s)")
+    result = engine.run(max_cycles=args.max_cycles)
+    print(f"[A²S-fsm] traza: {' → '.join(result.states)}")
+    if result.escalated:
+        print(f"[A²S-fsm] ◐ IMPREVISTO en «{result.escalated['state']}» → escalando al nivel 1")
+        report = run_goal(escalation_goal(engine.name, result.escalated), config=config)
+        print(f"[A²S-fsm] nivel 1: {'✔ resuelto' if report.success else '◐ no verificado'}")
+        return 0 if report.success else 2
+    print(f"[A²S-fsm] {result.resolved_by} · ciclos: {result.cycles}")
+    ok = result.stopped == "terminal" and result.terminal == "done"
+    return 0 if ok else 2
+
+
+def cmd_watch(args: argparse.Namespace) -> int:
+    """Nivel 0 dirigido por eventos: duerme hasta que un disparador
+    (interval/file/webhook) corre la máquina; lo imprevisto escala al nivel 1."""
+    from .fsm import FSMEngine, Watcher, escalation_goal, registry_action_fn
+    from .models import now_iso
+    from .tools import ToolRegistry
+    config = _config_from_args(args)
+    with open(args.spec, encoding="utf-8") as fh:
+        wspec = json.load(fh)
+    machine = wspec.get("machine", wspec)
+    # rutas relativas de los disparadores file → contra el workspace
+    for trig in wspec.get("triggers", []):
+        if trig.get("type") == "file" and trig.get("path") and \
+                not os.path.isabs(trig["path"]):
+            trig["path"] = os.path.join(os.path.abspath(config.workspace), trig["path"])
+    log_path = os.path.join(os.path.abspath(config.workspace), ".a2s", "watch.jsonl")
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+    def on_event(event: dict) -> dict:
+        registry = ToolRegistry(config.workspace, allow_network=config.allow_network,
+                                allow_shell=not args.no_shell if hasattr(args, "no_shell") else True,
+                                shell_unsafe=config.shell_unsafe,
+                                network_allowlist=config.network_allowlist,
+                                sandbox=config.sandbox)
+        engine = FSMEngine(machine, action_fn=registry_action_fn(registry))
+        result = engine.run()
+        entry = {"at": now_iso(), "event": event.get("type"),
+                 "machine": engine.name, "stopped": result.stopped,
+                 "terminal": result.terminal, "states": result.states,
+                 "resolved_by": result.resolved_by}
+        mark = {"terminal": "✔", "escalate": "⇗", "budget": "◐"}.get(result.stopped, "?")
+        print(f"[A²S-watch] {mark} evento {event.get('type')} → "
+              f"{' → '.join(result.states[:6])} ({result.resolved_by})")
+        if result.escalated:
+            print(f"[A²S-watch] ⇗ imprevisto en «{result.escalated['state']}» → nivel 1 (agente)")
+            report = run_goal(escalation_goal(engine.name, result.escalated), config=config)
+            entry["escalation_success"] = bool(report.success)
+            print(f"[A²S-watch] {'✔' if report.success else '◐'} nivel 1: "
+                  f"{'resuelto' if report.success else 'no verificado'}")
+        with open(log_path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        return entry
+
+    trig = ", ".join(t.get("type", "?") for t in wspec.get("triggers", [])) or "ninguno"
+    print(f"[A²S-watch] ⚙ vigía «{wspec.get('name', machine.get('name', 'fsm'))}» "
+          f"armado · disparadores: {trig}")
+    print(f"[A²S-watch] máquina determinista: {len(machine.get('states', {}))} estado(s) "
+          f"· nivel 1 (agente) para lo imprevisto · log: {log_path}")
+    watcher = Watcher(wspec, on_event)
+    try:
+        results = watcher.run(max_events=args.max_events, idle_timeout=args.idle)
+    except KeyboardInterrupt:
+        print("\n[A²S-watch] detenido por el operador")
+        return 0
+    print(f"[A²S-watch] {len(results)} evento(s) procesados")
+    return 0
+
+
+def cmd_pool_status(args: argparse.Namespace) -> int:
+    """SORL: estado del pool de recursos legítimos (cuotas, salud, coste)."""
+    from .provider_pool import build_pool_provider
+    cfg = Config(workspace=args.workspace, quiet=True,
+                 pool_config=args.pool_config, pool_strategy=args.pool_strategy)
+    pool = build_pool_provider(config=cfg)
+    try:
+        st = pool.status()
+        if args.json:
+            print(json.dumps(st, ensure_ascii=False, indent=2))
+            return 0
+        t = st["totals"]
+        print("A²S — pool SORL (recursos legítimos del operador)")
+        print(f"  Estrategia:     {st['strategy']}  ·  pesos: "
+              f"{ {k: round(v, 2) for k, v in st['weights'].items()} }")
+        print(f"  Endpoints:      {t['endpoints_active']} activo(s), "
+              f"{t['endpoints_saturated']} saturado(s)/en cuarentena")
+        print(f"  Histórico:      {t['total_calls']} llamadas, {t['total_ok']} ok, "
+              f"coste estimado ${t['est_cost']}")
+        print()
+        hdr = f"  {'endpoint':<16}{'tier':<7}{'rpm':>4}{'uso':>5}{'cuarentena':>11}{'p50':>7}{'éxito':>7}  modelo/estado"
+        print(hdr)
+        print("  " + "-" * (len(hdr) - 2))
+        for e in st["endpoints"]:
+            quar = f"{e['cooldown_remaining_s']:.0f}s" if e["cooldown_remaining_s"] > 0 else "-"
+            p50 = f"{e['p50_ms']}ms" if e.get("p50_ms") is not None else "-"
+            rate = f"{e['success_rate']*100:.0f}%" if e.get("success_rate") is not None else "-"
+            note = e["model"] if e["role"] == "member" else f"({e['role']})"
+            if e.get("rpm_learned"):
+                note += f" [rpm aprendido: {e['rpm_effective']} (declarado {e['rpm']})]"
+            caps = e.get("capability_measured") or {}
+            if caps:
+                frag = ", ".join(f"{k} {v['score']:.2f} ({v['ok']}/{v['total']})"
+                                 for k, v in sorted(caps.items()))
+                note += f" [caps medida: {frag}]"
+            if e.get("disabled_reason"):
+                note = f"DESACTIVADO: {e['disabled_reason']}"
+            elif e.get("circuit_open"):
+                note += " [circuito abierto]"
+            rpm_show = e.get("rpm_effective", e["rpm"])
+            print(f"  {e['name']:<16}{e['cost_tier']:<7}{rpm_show or '-':>4}"
+                  f"{e['window_used']:>5}{quar:>11}{p50:>7}{rate:>7}  {note}")
+        if t["endpoints_active"] == 0:
+            print("\n  ⚠ sin endpoints activos: exporta GROQ_API_KEY / GEMINI_API_KEY / "
+                  "GITHUB_TOKEN… o crea workspace/.a2s/pool.json (ver examples/pool.example.json)")
+        return 0
+    finally:
+        pool.close()
+
+
+def cmd_pool_check(args: argparse.Namespace) -> int:
+    """SORL: comprobación de salud — 1 petición mínima por endpoint (respeta cuotas)."""
+    from .provider_pool import build_pool_provider
+    cfg = Config(workspace=args.workspace, quiet=True,
+                 pool_config=args.pool_config, pool_strategy=args.pool_strategy)
+    pool = build_pool_provider(config=cfg)
+    try:
+        members = [e for e in pool.endpoints if e.active and e.role == "member"]
+        print(f"A²S — comprobación del pool: {len(members)} endpoint(s) "
+              "(1 petición pequeña por endpoint)")
+        failures = 0
+        for ep in members:
+            st = pool._states[ep.name]
+            if not pool._windows[ep.name].try_acquire():
+                print(f"  ◐ {ep.name:<16} sin cuota disponible ahora (rpm={ep.rpm}) — omitido")
+                continue
+            t0 = time.monotonic()
+            try:
+                data = pool._send(ep, {"model": ep.model, "max_tokens": 4,
+                                       "messages": [{"role": "user", "content": "ping"}]})
+                ms = (time.monotonic() - t0) * 1000
+                st.record_success()
+                pool.telemetry.record(ep.name, ok=True, latency=ms / 1000, kind="health",
+                                      tokens=4)
+                print(f"  ✔ {ep.name:<16} {ms:6.0f} ms  {ep.model}")
+            except Exception as exc:  # noqa: BLE001 — diagnóstico por endpoint
+                failures += 1
+                reason = f"HTTP {exc.code}" if isinstance(exc, urllib.error.HTTPError) \
+                    else f"{type(exc).__name__}"
+                st.record_failure(reason, time.monotonic())
+                pool.telemetry.record(ep.name, ok=False,
+                                      latency=time.monotonic() - t0, kind="health",
+                                      status=getattr(exc, "code", None))
+                print(f"  ✗ {ep.name:<16} {reason} — revisa la clave/base_url ({ep.base_url})")
+        pool.close()
+        if failures:
+            print(f"\n{failures} endpoint(s) con fallos — el scheduler los degradará "
+                  "hasta que se recuperen (failover automático).")
+            return 1
+        print("\n✔ pool operativo")
+        return 0
+    finally:
+        pool.telemetry.save_snapshot()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -365,6 +708,71 @@ def main(argv: list[str] | None = None) -> int:
     p_demo = sub.add_parser("demo", help="misión demo: informe forense autónomo")
     _add_common(p_demo)
     p_demo.set_defaults(func=cmd_demo)
+
+    p_learn = sub.add_parser(
+        "learn", help="Ciclo de Enriquecimiento: estudia repos públicos de GitHub "
+                      "hasta verificar que sabe resolver el objetivo")
+    p_learn.add_argument("goal", help="problema a resolver (la brecha se detecta sola)")
+    p_learn.add_argument("--cycles", type=int, default=3,
+                         help="máximo de ciclos intentar→aprender→reintentar")
+    p_learn.add_argument("--repos", type=int, default=4,
+                         help="repositorios estudiados por ciclo")
+    _add_common(p_learn)
+    p_learn.set_defaults(func=cmd_learn)
+
+    p_bus = sub.add_parser("search", help="memoria semántica: búsqueda BM25 sobre "
+                                          "episodios, fichas de conocimiento y pool")
+    p_bus.add_argument("query", help="consulta en lenguaje natural")
+    p_bus.add_argument("--workspace", default="workspace")
+    p_bus.add_argument("--top", type=int, default=5)
+    p_bus.add_argument("--origen", action="append", default=None,
+                       help="filtrar por origen (episodio|ficha|pool, repetible)")
+    p_bus.set_defaults(func=cmd_search)
+
+    p_srv = sub.add_parser("serve", help="modo SERVICIO experimental: API REST con "
+                                          "RBAC y aislamiento por usuario (§15)")
+    p_srv.add_argument("--workspace", default="workspace")
+    p_srv.add_argument("--port", type=int, default=8700)
+    p_srv.add_argument("--max-time", type=int, default=300,
+                       help="timebox por misión en el servicio (segundos)")
+    p_srv.add_argument("--public", action="store_true",
+                       help="escuchar en 0.0.0.0 (sin TLS: reverse proxy obligatorio)")
+    p_srv.set_defaults(func=cmd_serve)
+
+    p_usr = sub.add_parser("users", help="usuarios del servicio (RBAC local)")
+    p_usr.add_argument("accion", choices=["add", "list"])
+    p_usr.add_argument("nombre", nargs="?", default=None)
+    p_usr.add_argument("--role", default="operator",
+                       choices=["admin", "operator", "viewer"])
+    p_usr.add_argument("--workspace", default="workspace")
+    p_usr.add_argument("--hours", type=float, default=24.0,
+                       help="validez del token emitido")
+    p_usr.set_defaults(func=cmd_users)
+
+    p_aud = sub.add_parser("audit", help="puntuación viva: re-mide los criterios "
+                                        "medibles (el 6/5 no existe)")
+    p_aud.add_argument("--json", action="store_true")
+    p_aud.set_defaults(func=cmd_audit)
+
+    p_fsm = sub.add_parser(
+        "fsm", help="nivel 0 determinista: máquina de estados sin LLM "
+                    "(lo imprevisto escala al agente)")
+    p_fsm.add_argument("spec", help="ruta del JSON de la máquina (ver examples/fsm.example.json)")
+    p_fsm.add_argument("--max-cycles", type=int, default=None,
+                       help="override del presupuesto de ciclos")
+    _add_common(p_fsm)
+    p_fsm.set_defaults(func=cmd_fsm)
+
+    p_watch = sub.add_parser(
+        "watch", help="nivel 0 dirigido por eventos: interval/file/webhook disparan "
+                      "la máquina determinista; lo imprevisto escala al agente")
+    p_watch.add_argument("spec", help="ruta del JSON del vigía (ver examples/watch.example.json)")
+    p_watch.add_argument("--max-events", type=int, default=None,
+                         help="parar tras N eventos (default: hasta timeout de inactividad)")
+    p_watch.add_argument("--idle", type=float, default=300.0,
+                         help="segundos sin eventos antes de parar (default 300)")
+    _add_common(p_watch)
+    p_watch.set_defaults(func=cmd_watch)
 
     p_dash = sub.add_parser("dashboard", help="panel de control web en vivo")
     p_dash.add_argument("--port", type=int, default=8000)
@@ -403,17 +811,38 @@ def main(argv: list[str] | None = None) -> int:
     p_doc.add_argument("--workspace", default="workspace")
     p_doc.set_defaults(func=cmd_doctor)
 
+    p_ps = sub.add_parser("pool-status",
+                          help="SORL: estado del pool de proveedores (cuotas, salud, coste)")
+    p_ps.add_argument("--workspace", default="workspace")
+    p_ps.add_argument("--pool-config", default=None,
+                      help="ruta del JSON del pool (default: workspace/.a2s/pool.json o autodescubrimiento)")
+    p_ps.add_argument("--pool-strategy", default=None,
+                      help="round_robin | cost_first | speed_first | multi_objective")
+    p_ps.add_argument("--json", action="store_true", help="salida JSON")
+    p_ps.set_defaults(func=cmd_pool_status)
+
+    p_pc = sub.add_parser("pool-check",
+                          help="SORL: comprobación de salud del pool (1 petición por endpoint)")
+    p_pc.add_argument("--workspace", default="workspace")
+    p_pc.add_argument("--pool-config", default=None)
+    p_pc.add_argument("--pool-strategy", default=None)
+    p_pc.set_defaults(func=cmd_pool_check)
+
     p_map = sub.add_parser("map", help="mapa de reinterpretación operativa de la directiva")
     p_map.set_defaults(func=lambda _a: (print_capability_map(), 0)[1])
 
     args = parser.parse_args(argv)
+    if getattr(args, "seed", None) is not None:
+        import random
+        random.seed(args.seed)
     return args.func(args)
 
 
 def _add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--workspace", default="workspace", help="espacio de trabajo (default: workspace)")
-    p.add_argument("--provider", choices=["auto", "heuristic", "openai"], default="auto",
-                   help="motor de razonamiento (auto: OpenAI si hay clave, si no heurístico)")
+    p.add_argument("--provider", choices=["auto", "heuristic", "openai", "pool"], default="auto",
+                   help="motor de razonamiento (auto: OpenAI si hay clave, si no heurístico; "
+                        "pool: SORL, orquesta todos los recursos legítimos del operador)")
     p.add_argument("--max-iterations", type=int, default=60,
                    help="iteraciones por rebanada de presupuesto (se renueva al replanificar)")
     p.add_argument("--max-rounds", type=int, default=6, help="rondas máximas de replanificación")
@@ -439,6 +868,15 @@ def _add_common(p: argparse.ArgumentParser) -> None:
                    help="permitir solo este host en la red (repetible; vacío = todos)")
     p.add_argument("--evolve", type=int, default=0,
                    help="generaciones de neuroevolución al finalizar la misión")
+    p.add_argument("--notify", action="append", default=None, metavar="DESTINO",
+                   help="notificar al terminar (repetible): webhook:URL, file:ruta, print:")
+    p.add_argument("--seed", type=int, default=None,
+                   help="semilla global de aleatoriedad (jitter/fanout reproducibles)")
+    p.add_argument("--pool-config", default=None,
+                   help="ruta del JSON del pool SORL (con --provider pool)")
+    p.add_argument("--pool-strategy", default=None,
+                   help="estrategia del pool SORL: round_robin, cost_first, "
+                        "speed_first o multi_objective")
 
 
 if __name__ == "__main__":

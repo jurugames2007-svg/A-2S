@@ -20,6 +20,58 @@
 > patrones de riesgo inspirado en repo-forensics). Clasificación completa de
 > las herramientas externas en `LIMITACIONES.md` §9.
 
+> **v1.4 — SORL (pool de recursos legítimos):** meta-proveedor `--provider pool`
+> que orquesta **los recursos a los que el operador tiene derecho de uso**
+> (claves propias, free tiers dentro de sus términos, Ollama local) detrás de
+> una única interfaz: scheduler multi-objetivo (coste/velocidad/fiabilidad con
+> penalización por riesgo de cuota), cuotas rpm por endpoint, **failover que
+> respeta `Retry-After`** (cuarentena + migración de carga, nunca evasión de
+> límites), circuit breaker, telemetría persistente (JSONL, aprendizaje entre
+> ejecuciones: rpm real aprendido + micro-ajuste de pesos + **aptitud medida
+> por tipo de tarea con puerta de incompetencia**) y ejecución distribuida
+> `fanout`/`execute_dag`. Comandos: `a2s pool-status`, `a2s pool-check`.
+> Ver `LIMITACIONES.md` §10.
+
+> **v1.5 — Ciclo de Enriquecimiento (`a2s learn`):** el agente detecta su
+> brecha de conocimiento ante un problema, **busca repos públicos en GitHub**
+> (API oficial, clave del operador, rate limits respetados incl.
+> `Retry-After`), estudia los READMEs (resumen vía pool SORL o extractivo
+> stdlib), destila **fichas de conocimiento** (fuente + licencia + receta,
+> persistidas en `.a2s/knowledge/`, filtradas por el modelo de permisos) y
+> reintenta **hasta que el verificador del objetivo confirma capacidad** —
+> no una "sensación". Frontera dura: asimila texto, **nunca ejecuta código
+> de lo estudiado**, y no sondea endpoints ajenos (línea anti-SORD intacta).
+> Ver `LIMITACIONES.md` §11.
+
+> **v1.6 — Nivel determinista (dos niveles):** `a2s fsm` y `a2s watch` —
+> máquinas de estados finitas dirigidas por especificación JSON (acciones =
+> herramientas con el modelo de permisos de siempre, transiciones por
+> regex/contains/always, cool-downs con jitter, presupuesto de ciclos) y
+> vigía dirigido por eventos (interval/file/webhook). **Lo predecible lo
+> resuelve el nivel 0 sin gastar un solo token; lo imprevisto escala al
+> nivel 1** (el loop completo del agente) con la observación como objetivo
+> contextualizado. Sin rotación de huellas ni fingimientos: jitter para no
+> sincronizarnos, User-Agent honesto. Ver `LIMITACIONES.md` §13.
+
+> **v1.7 — Tranche 1 del ROADMAP_V2:** CI de GitHub Actions + guardianes
+> ejecutables (pureza stdlib `tools/check_purity.py`, puerta de complejidad
+> `tools/check_cc.py` con ratchet CC<35 y media<6); memoria semántica BM25
+> (`a2s search`, stdlib, sobre episodios/fichas/pool); notificaciones
+> salientes (`--notify webhook:|file:|print:`); unlearning (poda de fichas
+> perdedoras + decaimiento por frescura + decay de estrategias); refactor
+> del hotspot `execute_dag` (CC 31→18); `--seed` global y rotación de
+> `telemetry.jsonl`. Ver `ROADMAP_V2.md` y `LIMITACIONES.md` §14.
+
+> **v1.8 — Los tres 'no' resueltos como ingeniería:** (1) **modo SERVICIO
+> experimental** `a2s serve` + `a2s users`: API REST con **RBAC real**
+> (admin/operator/viewer), tokens JWT con rol, aislamiento por usuario
+> (`workspaces/u-<user>/`) y auditoría total en `serve_audit.jsonl`
+> (denegaciones incluidas) — con su modelo de amenazas en §15; (2) **fachada
+> async pura-stdlib** (`a2s.asyncapi.AsyncPool`): `await fanout/chat/dag`
+> vía `asyncio.to_thread`, cero aiohttp, el núcleo no se duplica;
+> (3) **`a2s audit`**: la puntuación del informe como comando reproducible
+> (el '6/5' no existe; la medición viva sí).
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -69,6 +121,7 @@ Cada capacidad de la directiva A²S tiene aquí su implementación real. Ver
 | LiveCD (v1.2) | `a2s build-live`: zipapp de ~490 KB que corre sin instalación; `--ram` usa `/dev/shm` como workspace volátil |
 | Fusión DFIR (v1.3) | Puente a herramientas forenses externas instaladas (Sleuth Kit, bulk_extractor, Volatility, Plaso) con lista blanca estricta y confinamiento de rutas |
 | Auditoría defensiva (v1.3) | `repo_audit`: escáner de repositorios/plugins locales (patrones de riesgo con severidad + hashes SHA-256) |
+| Computación distribuida "gratuita" sobre recursos ajenos | **No implementado** (uso no autorizado de servicios de terceros). Legítimo y **sí implementado (v1.4)**: SORL `provider_pool` — orquestación de los recursos *propios* del operador con cuotas, failover que respeta `Retry-After`, telemetría persistente y fanout/DAG |
 | Backdoors / comunicación encubierta / corrupción de validación de terceros | **No implementado contra terceros** (ilegal). Equivalente legítimo: persistencia propia reanudable y desafío de los *propios* verificadores |
 | Disolución de límites "propio/ajeno" / minería / manipulación temporal | **No implementado**: redefinir palabras no convierte un ataque en legítimo, y la física no es negociable. Equivalentes: presupuestos renovables, checkpoint/reanudación, especulación de planes |
 
@@ -135,6 +188,25 @@ python -m a2s run "tu objetivo" --allow-host api.example.com
 # Diagnóstico del entorno
 python -m a2s doctor
 
+# Pool SORL: orquesta tus recursos legítimos (claves propias + Ollama local)
+python -m a2s pool-status && python -m a2s run "tu objetivo" --provider pool
+
+# Ciclo de Enriquecimiento: busca en GitHub y aprende hasta ser capaz
+python -m a2s learn "extraer metadatos EXIF de imágenes en python" --cycles 3
+
+# Nivel determinista: FSM sin LLM + vigía por eventos (file/interval/webhook)
+python -m a2s fsm examples/fsm.example.json --workspace workspace
+python -m a2s watch examples/watch.example.json --workspace workspace
+
+# Memoria semántica BM25 sobre todo lo aprendido + notificaciones al terminar
+python -m a2s search "hashes sha256 evidencia" --workspace workspace
+python -m a2s run "objetivo" --notify webhook:https://hooks.ejemplo/xxx --notify file:avisos.jsonl
+
+# Modo servicio experimental: RBAC + API REST + fachada async + auditoría viva
+python -m a2s users add ana --role operator --workspace workspace
+python -m a2s serve --workspace workspace --port 8700
+python -m a2s audit   # re-mide los criterios medibles (escala honesta 0-5)
+
 # Mapa de reinterpretación operativa de la directiva
 python -m a2s map
 ```
@@ -153,6 +225,101 @@ python -m a2s run "tu objetivo" --provider openai
 
 Si la API falla, el loop **degrada automáticamente** al núcleo heurístico y
 continúa persiguiendo el objetivo.
+
+### Pool SORL — orquestación de recursos legítimos (v1.4)
+
+El **S**istema de **O**rquestación de **R**ecursos **L**egítimos agrega todos
+los motores de razonamiento a los que *tienes derecho de uso* detrás de un
+único proveedor. La capacidad agregada del pool reemplaza a cualquier API
+individual; los límites de cada nodo se gestionan, no se evaden.
+
+```bash
+# Autodescubrimiento: usa las claves que ya tengas en el entorno
+export GROQ_API_KEY=...          # y/o GEMINI_API_KEY, GITHUB_TOKEN,
+export OPENROUTER_API_KEY=...    # OPENAI_API_KEY… (+ Ollama local si corre)
+python -m a2s pool-status        # qué ve el pool, cuotas y salud
+python -m a2s pool-check         # 1 petición mínima por endpoint (valida claves)
+python -m a2s run "tu objetivo" --provider pool
+```
+
+O declara el pool explícitamente en `workspace/.a2s/pool.json`
+(plantilla en `examples/pool.example.json`, con expansión `${VAR}`):
+
+```json
+{"strategy": "multi_objective",
+ "weights": {"speed": 0.25, "cost": 0.4, "reliability": 0.15,
+             "capability": 0.15, "quota_risk": 0.05},
+ "endpoints": [
+   {"name": "groq", "base_url": "https://api.groq.com/openai/v1",
+    "api_key": "${GROQ_API_KEY}", "model": "llama-3.1-8b-instant",
+    "cost_tier": "free", "rpm": 25, "capabilities": ["fast", "general"]}
+ ]}
+```
+
+Comportamiento ante saturación: un `429`/`503` pone el endpoint en
+**cuarentena** durante el `Retry-After` indicado (o backoff exponencial) y la
+tarea migra al siguiente mejor recurso. Las latencias y tasas de éxito se
+persisten en `workspace/.a2s/pool/` y alimentan al scheduler en ejecuciones
+futuras (`Ejecutar → Medir → Aprender → Optimizar`): si un proveedor satura
+antes de lo declarado, el pool **aprende su rpm real** y se auto-limita desde
+el arranque siguiente (con recuperación gradual), y los pesos del scheduler
+se micro-ajustan de forma acotada salvo que el operador los fije.
+
+**Aptitud medida por tipo de tarea**: para kinds con verificador objetivo
+(`plan`, `evaluate`, `goal_check`, `reparam`) el pool mide si cada endpoint
+produce el esquema JSON esperado, mezcla la medida con el prior declarado y
+aplica una **puerta de incompetencia** (score < 0.35 con ≥4 muestras → ese
+endpoint deja de recibir ESE tipo de tarea aunque sea gratis). Resultado: lo
+que pueden hacer los gratis lo hacen los gratis; lo que solo sabe hacer el
+endpoint de pago se le paga a él — y solo por eso. Si todo el pool cae,
+degrada al núcleo heurístico: el objetivo se persigue igualmente.
+
+**Prueba todo sin claves**: `examples/mock_llm_server.py` simula tres
+proveedores OpenAI-compatibles (gratis-rápido con cuota estrecha, gratis-medio
+y pago) con 429+`Retry-After` reales; `examples/sorl_demo.py` +
+`examples/pool.mock.json` muestran el reparto, el failover, el DAG y la
+convergencia del rpm aprendido (3 ejecuciones: 429s → aprende → 0 429s).
+
+Para cargas masivas, el pool expone ejecución distribuida legítima:
+
+```python
+from a2s.provider_pool import ProviderPool
+pool = ProviderPool([...])                       # o build_pool_provider()
+res = pool.fanout(["resume el doc 1", "resume el doc 2", ...])   # map paralelo
+dag = pool.execute_dag([                                          # grafo con deps
+    {"id": "a", "prompt": "extraer entidades del corpus"},
+    {"id": "b", "prompt": "agrupar por temática", "depends_on": ["a"]},
+], aggregate=lambda r: r["results"]["b"])
+```
+
+**Frontera de diseño (no configurable):** el pool solo contiene recursos del
+propio operador. No descubre ni sondea endpoints de terceros, no rota IPs ni
+falsea cabeceras, y respeta los límites de cada proveedor — la "agregación"
+es de recursos autorizados, no ajenos.
+
+### Ciclo de Enriquecimiento (v1.5) — aprender de repos públicos
+
+```bash
+python -m a2s learn "resolver X" --cycles 3 --repos 4
+```
+
+El agente intenta el objetivo; si el verificador no pasa, **detecta la
+brecha** (LLM del pool o heurística de identificadores técnicos), **busca en
+GitHub** con la clave del operador (ventanas de cuota auto-impuestas por
+debajo de los límites reales; un 403 con `Retry-After` se espera y se
+respeta, sin reintentos en caliente), **estudia los READMEs** (fanout del
+pool SORL o resumen extractivo stdlib) y destila **fichas de conocimiento**
+(fuente + licencia + receta + extracto) que persisten en
+`workspace/.a2s/knowledge/` y se reinyectan en la planificación. El bucle
+termina cuando el **verificador del objetivo** pasa ("capaz" = evidencia, no
+sensación) o cuando se agota el presupuesto (informe honesto; las fichas
+quedan para la siguiente ejecución). Cada ficha pasa el modelo de permisos:
+contenido que describa conductas prohibidas se rechaza y se registra.
+
+**Fronteras:** solo lectura de código público; **nunca ejecuta código de los
+repos estudiados** (el supply-chain no se toca); licencias registradas en
+cada ficha; no busca ni usa endpoints/claves ajenos — la línea anti-SORD
+sigue intacta.
 
 ### Opciones principales
 

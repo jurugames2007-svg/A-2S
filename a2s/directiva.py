@@ -129,6 +129,30 @@ CAPABILITY_MAP = [
      "a2s build-live: zipapp de ~490 KB (un solo archivo, python3 en el "
      "host destino); --ram usa /dev/shm como workspace volátil. Core en "
      "RAM, plugins activados solo si la misión los pide."),
+    ("Cómputo ilimitado orquestando recursos ajenos (SORD)",
+     "NO implementado: el uso no autorizado de servicios de terceros no se "
+     "vuelve legítimo cambiándole el nombre a la técnica. Equivalente "
+     "legítimo (v1.4): SORL, pool provider_pool — orquesta los recursos "
+     "PROPIOS del operador (claves propias, free tiers dentro de sus "
+     "términos, modelos locales) con cuotas por endpoint, failover que "
+     "respeta Retry-After, telemetría persistente y fanout/DAG paralelo. "
+     "Los límites se orquestan, no se evaden."),
+    ("Enriquecimiento autónomo buscando en recursos públicos",
+     "Ciclo de Enriquecimiento (v1.5, learner.py): detecta la brecha de "
+     "conocimiento, busca repos públicos vía la API oficial de GitHub "
+     "(clave del operador, cuotas respetadas incl. Retry-After), estudia "
+     "los READMEs y destila fichas de conocimiento (fuente + licencia + "
+     "receta) que se reinyectan en la planificación — hasta que el "
+     "verificador del objetivo confirma capacidad. 'Sentirse capaz' = "
+     "verificación, no sensación; nunca se ejecuta código de lo estudiado."),
+    ("Cubrir cada eslabón, predecible e impredecible",
+     "Dos niveles (v1.6, fsm.py): nivel 0 determinista — FSM por especificación "
+     "JSON (regex/condiciones objetivas, acciones con el modelo de permisos, "
+     "cool-downs con jitter) y vigía por eventos (interval/file/webhook) que "
+     "resuelve lo previsto sin gastar un token; nivel 1 — cuando NINGUNA "
+     "transición encaja, la observación imprevista escala al loop completo "
+     "del agente. Sin rotación de huellas ni fingir usuarios: jitter para no "
+     "sincronizarse, User-Agent honesto."),
 ]
 
 

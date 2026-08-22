@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>A²S · OmniRoute Studio</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 system-ui, sans-serif;
+         background: #101418; color: #e8eaed; }
+  header { display: flex; align-items: baseline; gap: 12px; padding: 14px 20px;
+           background: #171d24; border-bottom: 1px solid #2a313a; }
+  header h1 { font-size: 17px; margin: 0; }
+  header small { color: #9aa4b2; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+         padding: 16px 20px; max-width: 1200px; margin: 0 auto; }
+  .card { background: #171d24; border: 1px solid #2a313a; border-radius: 10px;
+          padding: 14px 16px; }
+  .card h2 { font-size: 13px; margin: 0 0 10px; color: #8ab4f8;
+             text-transform: uppercase; letter-spacing: .06em; }
+  .ok { color: #34d399; } .bad { color: #f87171; } .warn { color: #fbbf24; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 99px;
+          border: 1px solid #2a313a; font-size: 12px; }
+  button { background: #8ab4f8; color: #0d1117; border: 0; border-radius: 8px;
+           padding: 8px 14px; font-weight: 600; cursor: pointer; }
+  button.sec { background: #232b35; color: #e8eaed; }
+  input[type=text] { width: 100%; padding: 9px 12px; border-radius: 8px;
+                     border: 1px solid #2a313a; background: #0d1117;
+                     color: #e8eaed; }
+  pre { background: #0d1117; border: 1px solid #2a313a; border-radius: 8px;
+        padding: 10px; overflow: auto; font-size: 12px; max-height: 240px;
+        white-space: pre-wrap; word-break: break-word; }
+  ul { margin: 6px 0; padding-left: 18px; } li { margin: 3px 0; }
+  .caution li { color: #f87171; }
+  footer { text-align: center; color: #9aa4b2; font-size: 12px; padding: 10px; }
+  a { color: #8ab4f8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>A²S · OmniRoute Studio</h1>
+  <small>consola local · gateway :20128 · nada sale de tu máquina salvo lo que enciendas</small>
+</header>
+
+<main>
+  <section class="card" id="estado">
+    <h2>Estado del gateway</h2>
+    <p><span id="gw" class="pill">comprobando…</span>
+       <button class="sec" onclick="ping()">Recomprobar</button>
+       <button class="sec" onclick="abrirPanel()">Abrir panel completo</button></p>
+    <ul>
+      <li>Modelos visibles: <b id="nmodelos">—</b></li>
+      <li>Última comprobación: <span id="ts">—</span></li>
+    </ul>
+    <p class="warn" id="nota" style="display:none"></p>
+  </section>
+
+  <section class="card">
+    <h2>Chat de prueba (modelo auto)</h2>
+    <p><input type="text" id="prompt" placeholder="Escribe y pulsa Probar…"
+              value="Responde solo: puente OK"></p>
+    <p><button onclick="chat()">Probar</button>
+       <span class="sec" id="chatStat"></span></p>
+    <pre id="salida">—</pre>
+  </section>
+
+  <section class="card caution">
+    <h2>Regla Caution — NO encender sin leer términos</h2>
+    <p style="color:#9aa4b2">Los 17 proveedores con cláusulas de uso personal o
+       anti-proxy (tabla oficial del repo) y cualquier endpoint <code>-web</code>
+       (interfaz web revertida) quedan <b>OFF</b> por defecto:</p>
+    <ul id="lista17"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Qué encender con tranquilidad</h2>
+    <ul>
+      <li><b>Kilo Code</b> y <b>Requesty</b> — gratuitos declarados sin tope</li>
+      <li><b>Z.AI GLM</b> (GLM-4.7 / 4.5-Flash) y <b>Qoder AI</b> (Qwen3-Max, Kimi-K2)</li>
+      <li><b>Cerebras</b> — 1M tokens/día, rapidísimo</li>
+      <li><b>OpenRouter :free</b> — para huecos puntuales</li>
+      <li>Y <b>Ollama local</b> — tuyo, sin límite ni ToS ajeno</li>
+    </ul>
+    <p style="color:#9aa4b2">Se encienden en el <a href="#" onclick="abrirPanel();return false">panel del gateway</a>.
+       La lista Caution se reaudita cada 2 semanas: revisa <code>docs/reference/FREE_TIERS.md</code>.</p>
+  </section>
+</main>
+
+<footer>A²S · OmniRoute Studio · Electron + Node 20 · el gateway se apaga solo si esta app lo arrancó</footer>
+
+<script>
+const BASE = "http://127.0.0.1:20128";
+const CAUTION = ["agy (Google Antigravity)", "ai21", "amazon-q", "blackbox", "coze",
+  "duckduckgo-web", "featherless-ai", "fireworks", "friendliai", "iflytek/sparkdesk",
+  "kiro", "modal", "muse-spark-web (Meta)", "nlpcloud", "opencode", "qwen-web",
+  "t3-web"];
+document.getElementById("lista17").innerHTML =
+  CAUTION.map(x => `<li>${x}</li>`).join("");
+
+async function ping() {
+  const el = document.getElementById("gw");
+  el.textContent = "comprobando…"; el.className = "pill";
+  try {
+    const r = await fetch(BASE + "/v1/models", { signal: AbortSignal.timeout(4000) });
+    let n = "—";
+    try { const j = await r.json(); n = (j.data || j.models || []).length ?? "?"; } catch {}
+    document.getElementById("nmodelos").textContent = n;
+    el.textContent = `ARRIBA (${r.status})`; el.className = "pill ok";
+  } catch (e) {
+    el.textContent = "CAÍDO"; el.className = "pill bad";
+    document.getElementById("nota").style.display = "block";
+    document.getElementById("nota").textContent =
+      "Sin gateway en :20128. Instálalo con `npm i -g omniroute` y arranca esta app de nuevo.";
+  }
+  document.getElementById("ts").textContent = new Date().toLocaleTimeString();
+}
+
+async function chat() {
+  const out = document.getElementById("salida");
+  const stat = document.getElementById("chatStat");
+  const prompt = document.getElementById("prompt").value || "ping";
+  out.textContent = "…"; stat.textContent = "";
+  try {
+    const r = await fetch(BASE + "/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+                 "Authorization": "Bearer omniroute-local" },
+      body: JSON.stringify({ model: "auto",
+        messages: [{ role: "user", content: prompt }] }),
+      signal: AbortSignal.timeout(30000),
+    });
+    const j = await r.json();
+    stat.textContent = `HTTP ${r.status}`;
+    if (j.choices) out.textContent = j.choices[0].message.content;
+    else out.textContent = JSON.stringify(j, null, 2).slice(0, 2200);
+  } catch (e) {
+    stat.textContent = "sin conexión";
+    out.textContent = "No se pudo hablar con el gateway:\n" + e.message;
+  }
+}
+
+function abrirPanel() {
+  window.open(BASE + "/dashboard", "_blank");
+}
+ping();
+setInterval(ping, 8000);
+</script>
+</body>
+</html>
