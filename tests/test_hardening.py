@@ -24,8 +24,8 @@ class TestSandbox(unittest.TestCase):
         self.sb = Sandbox(self.tmp, allow_network=False, timeout=10, mem_mb=128)
 
     def test_level_detected(self):
-        self.assertIn(self.sb.level, (1, 2, 3))
-        self.assertEqual(self.sb.level_name, {1: "rlimits", 2: "bwrap", 3: "nsjail"}[self.sb.level])
+        self.assertIn(self.sb.level, (0, 1, 2, 3))
+        self.assertEqual(self.sb.level_name, {0: "directo", 1: "rlimits", 2: "bwrap", 3: "nsjail"}[self.sb.level])
 
     def test_runs_python(self):
         res = self.sb.run_python("print(6*7)")
@@ -46,6 +46,8 @@ class TestSandbox(unittest.TestCase):
             self.assertIn("BLOQUEADO", res.output)
 
     def test_memory_limit(self):
+        if self.sb.level == 0:
+            self.skipTest("rlimits no disponibles en esta plataforma")
         res = self.sb.run_python(
             "try:\n"
             "    x = bytearray(512*1024*1024)\n"
@@ -61,7 +63,8 @@ class TestSandbox(unittest.TestCase):
 
     def test_cwd_is_workspace(self):
         res = self.sb.run_python("import os; print(os.getcwd())")
-        self.assertIn(os.path.realpath(self.tmp), res.output)
+        self.assertIn(os.path.normcase(os.path.realpath(self.tmp)),
+                      os.path.normcase(res.output))
 
 
 class TestSigning(unittest.TestCase):

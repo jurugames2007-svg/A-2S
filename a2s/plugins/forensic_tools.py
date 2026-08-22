@@ -63,7 +63,9 @@ FORENSIC_BINARIES = {
 def _check_args(args: str) -> list[str]:
     argv = shlex.split(args or "")
     for a in argv:
-        if a == ".." or "/.." in a or a.startswith(("/", "~")):
+        if (a == ".." or "/.." in a or "\\.." in a
+                or a.startswith(("/", "\\", "~"))
+                or (len(a) >= 2 and a[1] == ":")):
             raise PermissionError(
                 f"ruta fuera del workspace no permitida: '{a}' (usa rutas relativas)")
     return argv

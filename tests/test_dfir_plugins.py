@@ -3,6 +3,7 @@ auditoría defensiva de repositorios/plugins."""
 
 import os
 import stat
+import sys
 import tempfile
 import unittest
 
@@ -19,10 +20,15 @@ class TestForensicBridge(unittest.TestCase):
         # Sleuth Kit en el entorno de pruebas.
         self.bindir = os.path.join(self.tmp, "bin")
         os.makedirs(self.bindir, exist_ok=True)
-        self.fls_stub = os.path.join(self.bindir, "fls")
-        with open(self.fls_stub, "w") as fh:
-            fh.write("#!/bin/sh\necho 'stub fls:' \"$@\"\n")
-        os.chmod(self.fls_stub, 0o755)
+        if sys.platform == "win32":
+            self.fls_stub = os.path.join(self.bindir, "fls.cmd")
+            with open(self.fls_stub, "w", encoding="utf-8") as fh:
+                fh.write("@echo stub fls: %*\n")
+        else:
+            self.fls_stub = os.path.join(self.bindir, "fls")
+            with open(self.fls_stub, "w") as fh:
+                fh.write("#!/bin/sh\necho 'stub fls:' \"$@\"\n")
+            os.chmod(self.fls_stub, 0o755)
         self.old_path = os.environ.get("PATH", "")
         os.environ["PATH"] = self.bindir + os.pathsep + self.old_path
         self.reg = ToolRegistry(self.tmp)
