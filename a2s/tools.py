@@ -25,6 +25,35 @@ from .models import Observation, ToolCall
 from .sandbox import Sandbox, SandboxResult
 
 
+def _close_process_pipes(processes: list[subprocess.Popen]) -> None:
+    for proc in processes:
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            if stream is not None and not stream.closed:
+                stream.close()
+
+
+def _finish_pipeline(processes: list[subprocess.Popen], timeout: int = 60
+                     ) -> tuple[str, str, int]:
+    """Recolecta un pipeline completo y no deja procesos/pipes huérfanos."""
+    last = processes[-1]
+    try:
+        out, err = last.communicate(timeout=timeout)
+        for proc in processes[:-1]:
+            proc.wait(timeout=timeout)
+        return out or "", err or "", int(last.returncode or 0)
+    except subprocess.TimeoutExpired:
+        for proc in processes:
+            proc.kill()
+        for proc in processes:
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+        raise
+    finally:
+        _close_process_pipes(processes)
+
+
 @dataclass
 class Tool:
     name: str
@@ -180,7 +209,7 @@ class ToolRegistry:
                       command)
 
     def shell(self, command: str, depth: int = 0) -> str:
-        """Mini-shell seguro: ';', '|', '>', '2>&1', \$VAR, globs y \$().
+        """Mini-shell seguro: ';', '|', '>', '2>&1', $VAR, globs y $().
 
         Cada comando de cada pipeline se valida contra la lista blanca (o el
         flag --unsafe) y las acciones con propósito de ataque se rechazan.
@@ -208,7 +237,7 @@ class ToolRegistry:
                 segment, redirect_out = left, right.strip()
             pipes = [p.strip() for p in self._split_top(segment, "|") if p.strip()]
             procs: list[subprocess.Popen] = []
-            for p in pipes:
+            for pipe_index, p in enumerate(pipes):
                 argv = shlex.split(p)
                 if len(argv) > 1:  # expansión de globs solo en argumentos
                     expanded: list[str] = [argv[0]]
@@ -232,19 +261,21 @@ class ToolRegistry:
                     raise PermissionError(
                         f"comando '{argv[0]}' fuera de la lista blanca (usa --unsafe para ampliar)")
                 stdin = procs[-1].stdout if procs else None
+                # El stderr de etapas intermedias entra al pipeline: evita un
+                # PIPE sin lector que podría bloquear o quedar abierto.
+                default_err = (subprocess.PIPE if pipe_index == len(pipes) - 1
+                               else subprocess.STDOUT)
                 proc = subprocess.Popen(
                     argv, stdin=stdin, stdout=subprocess.PIPE,
-                    stderr=redirect_err if redirect_err is not None else subprocess.PIPE,
+                    stderr=redirect_err if redirect_err is not None else default_err,
                     text=True, cwd=self.workspace)
                 procs.append(proc)
                 if stdin is not None:
                     stdin.close()
             if not procs:
                 continue
-            last = procs[-1]
-            out, err = last.communicate(timeout=60)
-            final_rc = last.returncode
-            text = (out or "") + (err or "")
+            out, err, final_rc = _finish_pipeline(procs, timeout=60)
+            text = out + err
             if redirect_out:
                 full = self._resolve(redirect_out)
                 if not self._inside_workspace(full):

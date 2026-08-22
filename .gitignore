@@ -1,5 +1,6 @@
 # Artefactos generados por el agente (espacio de trabajo)
 workspace/
+artifacts/
 
 # Python
 __pycache__/

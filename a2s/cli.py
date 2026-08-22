@@ -190,7 +190,7 @@ def cmd_swarm(args: argparse.Namespace) -> int:
 def cmd_dashboard(args: argparse.Namespace) -> int:
     from .dashboard import DashboardServer
     server = DashboardServer(port=args.port, workspace=args.workspace,
-                             auto_demo=not args.no_autodemo, public=args.public,
+                             auto_demo=args.autodemo, public=args.public,
                              require_auth=args.auth)
     server.serve_forever()
     return 0
@@ -286,7 +286,9 @@ def cmd_build_live(args: argparse.Namespace) -> int:
     # Staging: __main__.py + paquete a2s, para que el zip mantenga el contexto
     # de paquete (los imports relativos internos siguen funcionando).
     with tempfile.TemporaryDirectory() as stage:
-        shutil.copytree(source, os.path.join(stage, "a2s"))
+        shutil.copytree(
+            source, os.path.join(stage, "a2s"),
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
         with open(os.path.join(stage, "__main__.py"), "w", encoding="utf-8") as fh:
             fh.write("import sys\nfrom a2s.cli import main\nsys.exit(main())\n")
         zipapp.create_archive(stage, target=out, interpreter="/usr/bin/env python3")
@@ -411,6 +413,47 @@ def cmd_learn(args: argparse.Namespace) -> int:
         notify(args.notify, "A²S learn: objetivo NO verificado",
                report["confidence"], nivel="warn")
     return 2
+
+
+def cmd_scout(args: argparse.Namespace) -> int:
+    """Amplía el radar de proyectos OSS leyendo solo metadatos públicos."""
+    from .ecosystem import EcosystemRadar
+    radar = EcosystemRadar(args.workspace)
+    report = radar.scan(query=args.query or "", limit_per_query=args.limit)
+    if args.json:
+        print(json.dumps({"scan": report, **radar.snapshot()}, ensure_ascii=False, indent=2))
+    else:
+        print("A²S — radar de ecosistema abierto (solo metadatos; código ejecutado: no)")
+        print(f"  encontrados={report['found']} · nuevos={len(report['added'])} · "
+              f"actualizados={len(report['updated'])} · total={report['total']}")
+        for p in radar.list_projects(limit=12):
+            print(f"  {p.fit_score:>3}  {p.repo:<38} {p.license:<12} ★{p.stars}")
+        for err in report["errors"]:
+            print(f"  aviso: {err}")
+    return 0 if not report["errors"] else 2
+
+
+def cmd_pool_preview(args: argparse.Namespace) -> int:
+    """Vista explicable y sin llamadas del scheduler SORL."""
+    from .provider_pool import build_pool_provider
+    cfg = Config(workspace=args.workspace, quiet=True,
+                 pool_config=args.pool_config, pool_strategy=args.pool_strategy or "multi_objective")
+    pool = build_pool_provider(cfg)
+    try:
+        preview = pool.route_preview(args.kind)
+        if args.json:
+            print(json.dumps(preview, ensure_ascii=False, indent=2))
+        else:
+            print(f"A²S route preview · kind={args.kind} · estrategia={preview['strategy']}")
+            print(f"Ruta seleccionada: {preview['selected']} · llamada real ejecutada: no")
+            for row in preview["candidates"]:
+                mark = "→" if row["selected"] else " "
+                why = ",".join(row["reasons"]) or "elegible"
+                print(f" {mark} {row['name']:<24} score={row['utility']:.3f} "
+                      f"cuota={row['quota_state']:<17} {why}")
+        return 0
+    finally:
+        pool.close()
 
 
 def cmd_search(args: argparse.Namespace) -> int:
@@ -720,6 +763,17 @@ def main(argv: list[str] | None = None) -> int:
     _add_common(p_learn)
     p_learn.set_defaults(func=cmd_learn)
 
+    p_scout = sub.add_parser(
+        "scout", help="radar OSS: busca nuevos proyectos públicos para aprender "
+                      "patrones sin clonar ni ejecutar su código")
+    p_scout.add_argument("--workspace", default="workspace")
+    p_scout.add_argument("--query", default="",
+                         help="consulta GitHub opcional (vacío = radar multidominio)")
+    p_scout.add_argument("--limit", type=int, default=6,
+                         help="resultados máximos por consulta (default: 6)")
+    p_scout.add_argument("--json", action="store_true")
+    p_scout.set_defaults(func=cmd_scout)
+
     p_bus = sub.add_parser("search", help="memoria semántica: búsqueda BM25 sobre "
                                           "episodios, fichas de conocimiento y pool")
     p_bus.add_argument("query", help="consulta en lenguaje natural")
@@ -781,9 +835,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="escuchar en 0.0.0.0 (⚠ cualquiera en la red puede lanzar misiones)")
     p_dash.add_argument("--auth", action="store_true",
                         help="exigir token de acceso (genéralo con: a2s token)")
-    p_dash.add_argument("--no-autodemo", action="store_true",
-                        help="no lanzar la misión demo automáticamente")
-    p_dash.set_defaults(func=cmd_dashboard)
+    p_dash.add_argument("--autodemo", action="store_true",
+                        help="lanzar la misión demo al iniciar (por defecto espera al operador)")
+    p_dash.add_argument("--no-autodemo", action="store_false", dest="autodemo",
+                        help=argparse.SUPPRESS)
+    p_dash.set_defaults(func=cmd_dashboard, autodemo=False)
 
     p_tok = sub.add_parser("token", help="genera un token de acceso para el dashboard")
     p_tok.add_argument("--workspace", default="workspace")
@@ -827,6 +883,17 @@ def main(argv: list[str] | None = None) -> int:
     p_pc.add_argument("--pool-config", default=None)
     p_pc.add_argument("--pool-strategy", default=None)
     p_pc.set_defaults(func=cmd_pool_check)
+
+    p_prev = sub.add_parser(
+        "route-preview", help="explica qué proveedor elegiría SORL sin ejecutar una llamada")
+    p_prev.add_argument("--workspace", default="workspace")
+    p_prev.add_argument("--kind", default="general",
+                        choices=["general", "plan", "evaluate", "goal_check", "code", "summarize"])
+    p_prev.add_argument("--pool-config", default=None)
+    p_prev.add_argument("--pool-strategy", default=None,
+                        choices=["round_robin", "cost_first", "speed_first", "multi_objective"])
+    p_prev.add_argument("--json", action="store_true")
+    p_prev.set_defaults(func=cmd_pool_preview)
 
     p_map = sub.add_parser("map", help="mapa de reinterpretación operativa de la directiva")
     p_map.set_defaults(func=lambda _a: (print_capability_map(), 0)[1])

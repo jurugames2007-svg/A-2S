@@ -1,9 +1,7 @@
 """Prueba de misión completa: la demo debe superar el obstáculo inicial
 y entregar el informe forense verificable (el "loop hasta el objetivo")."""
 
-import os
 import tempfile
-import os
 import unittest
 
 from a2s.config import Config
@@ -12,13 +10,6 @@ from a2s.goals import (DEMO_GOAL, build_demo_step_verifiers,
 from a2s.loop import AgentLoop
 
 
-_MISIONES_COMPLETAS = os.environ.get("A2S_RUN_SLOW_MISSIONS")
-# Ver LIMITACIONES §16.2: estos dos tests de misión completa son
-# inestables en el sandbox reconstruido (pasaban con código idéntico
-# antes del rebuild; bisectado en v1.8.1 exacta). Ejecución local:
-#   A2S_RUN_SLOW_MISSIONS=1 python -m unittest tests.test_loop tests.test_goals
-@unittest.skipUnless(_MISIONES_COMPLETAS,
-                     "misión completa lenta: inestable en este entorno (§16.2)")
 class TestDemoMission(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

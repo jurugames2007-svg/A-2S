@@ -73,7 +73,8 @@ def _cc_stats() -> tuple[float, int]:
     for name in os.listdir(os.path.join(ROOT, "a2s")):
         if not name.endswith(".py"):
             continue
-        tree = ast.parse(open(os.path.join(ROOT, "a2s", name), encoding="utf-8").read())
+        with open(os.path.join(ROOT, "a2s", name), encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 v = cc_de(node)
@@ -108,8 +109,8 @@ def run_audit() -> dict:
     for name in os.listdir(os.path.join(ROOT, "tests")):
         if name.startswith("test_") and name.endswith(".py"):
             n_suites += 1
-            n_tests += len(re.findall(r"\bdef test_", open(
-                os.path.join(ROOT, "tests", name), encoding="utf-8").read()))
+            with open(os.path.join(ROOT, "tests", name), encoding="utf-8") as fh:
+                n_tests += len(re.findall(r"\bdef test_", fh.read()))
     nota_tests = _nota_por_tramos(n_tests, [(120, 5.0), (80, 4.0), (40, 3.0), (0, 2.0)])
     checks.append(Check("pruebas", f"{n_tests} tests en {n_suites} suites",
                         nota_tests, n_tests >= 80))
@@ -122,7 +123,8 @@ def run_audit() -> dict:
                         5.0 * len(hay) / len(piezas), len(hay) == len(piezas)))
 
     # 5. documentación
-    lim = open(os.path.join(ROOT, "LIMITACIONES.md"), encoding="utf-8").read()
+    with open(os.path.join(ROOT, "LIMITACIONES.md"), encoding="utf-8") as fh:
+        lim = fh.read()
     secciones = len(re.findall(r"^## \d+", lim, re.M))
     ejemplos = len([f for f in os.listdir(os.path.join(ROOT, "examples"))
                     if not f.startswith("_")]) if os.path.isdir(os.path.join(ROOT, "examples")) else 0
@@ -131,8 +133,10 @@ def run_audit() -> dict:
                         f"examples: {ejemplos}", nota_docs, secciones >= 10))
 
     # 6. consistencia de versión
-    init = open(os.path.join(ROOT, "a2s", "__init__.py"), encoding="utf-8").read()
-    pyproj = open(os.path.join(ROOT, "pyproject.toml"), encoding="utf-8").read()
+    with open(os.path.join(ROOT, "a2s", "__init__.py"), encoding="utf-8") as fh:
+        init = fh.read()
+    with open(os.path.join(ROOT, "pyproject.toml"), encoding="utf-8") as fh:
+        pyproj = fh.read()
     v1 = re.search(r'__version__ = "([^"]+)"', init)
     v2 = re.search(r'version = "([^"]+)"', pyproj)
     okv = bool(v1 and v2 and v1.group(1) == v2.group(1))

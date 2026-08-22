@@ -40,16 +40,24 @@ class TestGuardianesMeta(unittest.TestCase):
         import sys
         sys.path.insert(0, os.path.join(ROOT, "tools"))
         from check_cc import cc_de
-        tree = ast.parse(open(os.path.join(ROOT, "a2s", "provider_pool.py"),
-                              encoding="utf-8").read())
+        with open(os.path.join(ROOT, "a2s", "provider_pool.py"),
+                  encoding="utf-8") as fh:
+            tree = ast.parse(fh.read())
         ccs = {n.name: cc_de(n) for n in ast.walk(tree)
                if isinstance(n, ast.FunctionDef) and n.name == "execute_dag"}
         self.assertLessEqual(ccs["execute_dag"], 20)   # era 31
 
     def test_ci_y_roadmap_comprometidos(self):
-        self.assertTrue(os.path.isfile(os.path.join(ROOT, "tools", "ci", "ci.yml")))
-        with open(os.path.join(ROOT, "tools", "ci", "ci.yml"), encoding="utf-8") as fh:
-            self.assertIn("COPIAR A .github/workflows", fh.read(200))
+        workflow = os.path.join(ROOT, "tools", "ci", "ci.yml")
+        self.assertTrue(os.path.isfile(workflow))
+        with open(workflow, encoding="utf-8") as fh:
+            ci = fh.read()
+        self.assertIn("python -m unittest discover -s tests -v", ci)
+        self.assertIn("python tools/check_purity.py", ci)
+        self.assertIn("python -m pip wheel", ci)
+        self.assertIn("npm-package-e2e", ci)
+        self.assertIn("windows-latest", ci)
+        self.assertIn("npm run test:npm", ci)
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "ROADMAP_V2.md")))
         with open(os.path.join(ROOT, "ROADMAP_V2.md"), encoding="utf-8") as fh:
             self.assertIn("Tranche 1", fh.read())
@@ -105,7 +113,8 @@ class TestNotify(unittest.TestCase):
         path = os.path.join(tmp.name, "eventos.jsonl")
         res = notify([f"file:{path}"], "prueba", "cuerpo", nivel="warn")
         self.assertIn("→ ok", res[0])
-        data = json.loads(open(path, encoding="utf-8").read())
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
         self.assertEqual(data["asunto"], "prueba")
         self.assertEqual(data["nivel"], "warn")
 

@@ -12,7 +12,7 @@ import urllib.error
 
 from a2s.provider_pool import (PoolEndpoint, ProviderPool, RateWindow,
                                TaskScheduler, Telemetry, _parse_retry_after,
-                               endpoints_from_config)
+                               discover_endpoints_from_env, endpoints_from_config)
 
 
 def _ok(content, tokens=10):
@@ -45,6 +45,14 @@ class TestRateWindow(unittest.TestCase):
         for _ in range(100):
             self.assertTrue(win.try_acquire(now=0.0))
         self.assertEqual(win.seconds_until_slot(now=0.0), 0.0)
+
+    def test_consulta_no_consume_cuota(self):
+        win = RateWindow(1)
+        self.assertTrue(win.has_capacity(now=0.0))
+        self.assertTrue(win.has_capacity(now=0.0))
+        self.assertEqual(win.used(), 0)
+        self.assertTrue(win.try_acquire(now=0.0))
+        self.assertFalse(win.has_capacity(now=0.1))
 
 
 class TestRetryAfter(unittest.TestCase):
@@ -125,6 +133,44 @@ class TestSchedulerStrategies(unittest.TestCase):
             picked = pool.scheduler.pick(pool._triples)
         self.assertIsNotNone(picked)
         self.assertEqual(picked[0].role, "fallback_only")
+
+    def test_pick_reserva_solo_el_elegido(self):
+        pool = ProviderPool([_ep("a", rpm=10), _ep("b", rpm=10)],
+                            strategy="cost_first")
+        with pool._lock:
+            picked = pool.scheduler.pick(pool._triples)
+        self.assertEqual(picked[0].name, "a")
+        self.assertEqual(pool._windows["a"].used(), 1)
+        self.assertEqual(pool._windows["b"].used(), 0)
+
+
+class TestRoutePreview(unittest.TestCase):
+    def test_preview_es_explicable_y_no_ejecuta(self):
+        calls = []
+        pool = ProviderPool([_ep("gratis", tier="free", rpm=5),
+                             _ep("pago", tier="paid", rpm=5)],
+                            strategy="cost_first",
+                            transport=lambda e, p: calls.append(e.name) or _ok("x"))
+        before = {name: win.used() for name, win in pool._windows.items()}
+        preview = pool.route_preview("code")
+        after = {name: win.used() for name, win in pool._windows.items()}
+        self.assertEqual(preview["selected"], "gratis")
+        self.assertFalse(preview["live_request_executed"])
+        self.assertEqual(calls, [])
+        self.assertEqual(before, after)
+        row = next(r for r in preview["candidates"] if r["name"] == "gratis")
+        self.assertTrue(row["selected"])
+        self.assertIn("capability", row["factors"])
+        self.assertEqual(row["quota_source"], "local_estimate")
+
+    def test_preview_distingue_unknown_y_exhausted(self):
+        pool = ProviderPool([_ep("limitado", rpm=1), _ep("sin-dato", rpm=0)])
+        pool._windows["limitado"].try_acquire()
+        preview = pool.route_preview()
+        by = {r["name"]: r for r in preview["candidates"]}
+        self.assertEqual(by["limitado"]["quota_state"], "exhausted")
+        self.assertIn("quota_exhausted", by["limitado"]["reasons"])
+        self.assertEqual(by["sin-dato"]["quota_state"], "unknown")
 
 
 class TestFailover429(unittest.TestCase):
@@ -364,6 +410,24 @@ class TestTelemetriaPersistente(unittest.TestCase):
 
 
 class TestConfiguracion(unittest.TestCase):
+    def test_omniroute_se_descubre_solo_si_operador_lo_declara(self):
+        previous = {k: os.environ.get(k) for k in
+                    ("A2S_OMNIROUTE_URL", "A2S_OMNIROUTE_MODEL")}
+        os.environ["A2S_OMNIROUTE_URL"] = "http://127.0.0.1:20128/v1/"
+        os.environ["A2S_OMNIROUTE_MODEL"] = "auto/coding"
+        try:
+            endpoints = discover_endpoints_from_env(include_local=False)
+            omni = next(e for e in endpoints if e.name == "omniroute")
+            self.assertEqual(omni.base_url, "http://127.0.0.1:20128/v1")
+            self.assertEqual(omni.model, "auto/coding")
+            self.assertEqual(omni.rpm, 0)
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def test_json_con_expansion_de_entorno(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)

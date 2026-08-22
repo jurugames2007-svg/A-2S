@@ -72,6 +72,22 @@
 > (3) **`a2s audit`**: la puntuación del informe como comando reproducible
 > (el '6/5' no existe; la medición viva sí).
 
+> **v1.9 — Agent Control Plane + crecimiento OSS:** el dashboard se convierte
+> en una consola industrial local-first con mission control, parada cooperativa,
+> telemetría SSE, topología SORL, ruta explicable de cero llamadas, radar de
+> proyectos abiertos, fichas y assurance reproducible. `a2s scout` busca
+> proyectos públicos y acepta solo licencias SPDX abiertas sin clonar ni
+> ejecutar su código; `a2s route-preview` explica factores y distingue cuota
+> `unknown` de `exhausted`. OmniRoute se integra como gateway opcional, **no
+> como base**. Ver `docs/ECOSISTEMA_ABIERTO.md` y
+> `docs/METODOLOGIA_OPTIMO_TEORICO.md`.
+
+> **v1.10 — Distribución npm reproducible:** `a2s-agent-control-plane` expone
+> los ejecutables `a2s` y `a2s-control-plane` sin dependencias npm de runtime.
+> `npm run build` genera zipapp + tarball; `npm run test:npm` instala el tarball
+> en un prefijo aislado y verifica CLI, doctor, healthz y GUI reales. Node es el
+> launcher multiplataforma y Python stdlib conserva el núcleo auditable.
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -144,7 +160,35 @@ Eso es exactamente lo que hace el diseño:
 
 ## Instalación y uso rápido
 
-Requiere **Python ≥ 3.9**. Sin dependencias externas.
+Requiere **Python ≥ 3.9**. El launcher npm requiere además **Node.js ≥18**.
+El runtime sigue sin dependencias Python ni npm de terceros.
+
+### Ejecutable npm
+
+Desde este repositorio se puede construir, probar e instalar un paquete npm
+completo sin publicarlo:
+
+```bash
+# Ejecuta suite, fuzz, auditoría y E2E del paquete; crea artifacts/
+npm run release:local
+
+# Instala el tarball verificado como comando global
+npm install -g ./artifacts/a2s-agent-control-plane-1.10.0.tgz
+
+a2s --version
+a2s doctor
+a2s run "objetivo verificable"
+a2s dashboard
+```
+
+También están disponibles `a2s-control-plane` (alias), `npm start`,
+`npm run dashboard`, `npm test`, `npm run test:npm` y `npm run build`.
+Cuando el paquete se publique en el registry podrá utilizarse con
+`npx a2s-agent-control-plane` o `npm install -g a2s-agent-control-plane`.
+El launcher no descarga Python: detecta Python 3.9+ o usa la ruta indicada en
+`A2S_PYTHON`. Guía completa: [`docs/NPM_DISTRIBUTION.md`](docs/NPM_DISTRIBUTION.md).
+
+### Ejecución directa con Python
 
 ```bash
 # Misión demo completa (diseñada para mostrar la superación de un obstáculo)
@@ -156,8 +200,16 @@ python -m a2s run "Investiga el proyecto y escribe un resumen con datos reales"
 # Varios objetivos con sub-agentes fractales en paralelo
 python -m a2s run "Objetivo A;Objetivo B" --parallel
 
-# Panel de control web en vivo (SSE)
+# Agent Control Plane industrial (SSE, topología, radar, assurance)
 python -m a2s dashboard --port 8000
+# Al exponerlo en red, autenticación obligatoria recomendada
+python -m a2s dashboard --public --auth --port 8000
+
+# Ruta SORL explicable: simula la decisión sin llamar un modelo
+python -m a2s route-preview --kind plan --json
+
+# Radar incremental: busca más proyectos OSS, sin clonar/ejecutar código
+python -m a2s scout --workspace workspace
 
 # Auto-existencia: el agente se relanza hasta cumplir el objetivo
 python -m a2s supervise "tu objetivo" --attempts 5
@@ -366,7 +418,9 @@ a2s/
 ├── goals.py        biblioteca de objetivos con verificadores (misión demo)
 ├── models.py       tipos de datos (Step, Observation, Evaluation, RunReport…)
 ├── report.py       informes de ejecución (texto/Markdown/JSON)
-├── dashboard.py    panel web en vivo (SSE, sin dependencias)
+├── dashboard.py    API del Agent Control Plane (SSE, auth, seguridad web)
+├── ui/             GUI industrial empaquetada (HTML/CSS/JS, sin CDN)
+├── ecosystem.py    radar creciente de proyectos con licencia OSS verificada
 └── directiva.py    mapa de reinterpretación operativa
 ```
 
@@ -427,12 +481,13 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-63 pruebas: hash chain y detección de manipulación/truncación, permisos,
-proveedores, escalera de recuperación, división fractal, misión demo completa,
-red de gobernanza, consenso, memoria persistente, shell evolucionado, sandbox
-(red/memoria/timeout), firmas HMAC, tokens con expiración, plugins (activación
-y herramientas), zipapp LiveCD, puente forense (lista blanca, confinamiento)
-y auditoría defensiva de repositorios.
+198 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
+permisos, proveedores, cuotas y ruta explicable, escalera de recuperación,
+división fractal, misión demo completa, red de gobernanza, consenso, memoria,
+shell sin procesos huérfanos, sandbox, firmas HMAC, auth, plugins, zipapp,
+puente DFIR, RBAC, FSM, radar OSS y Control Plane HTTP. La suite completa,
+incluidas las misiones de punta a punta antes marcadas como lentas, corre con
+el mismo comando y no requiere servicios pagos.
 
 ---
 

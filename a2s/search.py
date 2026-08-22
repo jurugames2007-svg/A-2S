@@ -119,7 +119,8 @@ def _docs_pool(workspace: str) -> list[Doc]:
     out = []
     if os.path.isfile(st):
         try:
-            data = json.load(open(st, encoding="utf-8"))
+            with open(st, encoding="utf-8") as fh:
+                data = json.load(fh)
             for name, agg in data.get("endpoints", {}).items():
                 out.append(Doc(
                     doc_id=f"pool:{name}",

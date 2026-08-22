@@ -132,12 +132,24 @@ class RateWindow:
         self.rpm = rpm
         self._hits: deque[float] = deque()
 
-    def try_acquire(self, now: Optional[float] = None) -> bool:
+    def has_capacity(self, now: Optional[float] = None) -> bool:
+        """Consulta la cuota sin consumirla.
+
+        Separar *preview* de *reserva* evita que puntuar N candidatos gaste N
+        huecos cuando solo uno será ejecutado. Es importante tanto para el
+        scheduler como para la vista explicable del control plane.
+        """
         if self.rpm <= 0:
             return True
         now = time.monotonic() if now is None else now
         self._prune(now)
-        if len(self._hits) >= self.rpm:
+        return len(self._hits) < self.rpm
+
+    def try_acquire(self, now: Optional[float] = None) -> bool:
+        if self.rpm <= 0:
+            return True
+        now = time.monotonic() if now is None else now
+        if not self.has_capacity(now):
             return False
         self._hits.append(now)
         return True
@@ -505,10 +517,10 @@ class TaskScheduler:
             if st.in_cooldown(now) or st.circuit_open(now):
                 continue
             members.append((ep, st, win))
-        # El fallback heurístico solo entra si no hay ningún miembro utilizable
-        # (con hueco de cuota) — garantiza que el pool nunca se rinde.
+        # Consultar candidatos NO reserva cuota. La reserva atómica ocurre
+        # únicamente sobre el elegido en ``pick``.
         with_quota = [t for t in members if t[0].role != "fallback_only"
-                      and t[2].try_acquire(now)]
+                      and t[2].has_capacity(now)]
         if with_quota:
             out = with_quota
         elif include_fallback:
@@ -518,16 +530,26 @@ class TaskScheduler:
     def pick(self, endpoints: list[tuple[PoolEndpoint, EndpointState, RateWindow]],
              kind: str = "general", exclude: Optional[set[str]] = None,
              now: Optional[float] = None) -> Optional[tuple[PoolEndpoint, EndpointState, RateWindow]]:
-        """Elige (y reserva cuota para) el mejor endpoint; None si no hay."""
+        """Elige y reserva cuota solo para el endpoint seleccionado."""
         now = time.monotonic() if now is None else now
         exclude = exclude or set()
         cands = [t for t in self.eligible(endpoints, kind, now) if t[0].name not in exclude]
         if not cands:
-            # último recurso: fallback heurístico (sin cuota HTTP que reservar)
-            fb = [t for t in endpoints if t[0].role == "fallback_only" and t[0].active
-                  and t[0].name not in exclude and not t[1].circuit_open(now)]
-            return fb[0] if fb else None
+            return self._fallback(endpoints, exclude, now)
         cands = self._gate_incompetent(cands, kind)
+        chosen = self._choose(cands, kind)
+        if chosen[2].try_acquire(now):
+            return chosen
+        # Otro hilo pudo consumir el último hueco entre consulta y reserva.
+        # Reintentar excluyendo ese candidato mantiene la cuota sin excederla.
+        return self.pick(endpoints, kind, exclude | {chosen[0].name}, now)
+
+    def _fallback(self, endpoints, exclude: set[str], now: float):
+        fb = [t for t in endpoints if t[0].role == "fallback_only" and t[0].active
+              and t[0].name not in exclude and not t[1].circuit_open(now)]
+        return fb[0] if fb else None
+
+    def _choose(self, cands, kind: str):
         s = self.strategy
         if s == "round_robin":
             cands.sort(key=lambda t: t[0].name)
@@ -539,7 +561,7 @@ class TaskScheduler:
                                              self._latency(t[0].name) or 9e9))
         if s == "speed_first":
             return min(cands, key=lambda t: self._latency(t[0].name) or 9e9)
-        return min(cands, key=lambda t: -self._utility(t, kind))
+        return max(cands, key=lambda t: self._utility(t, kind))
 
     # -- función de utilidad multi-objetivo ----------------------------------
 
@@ -570,25 +592,34 @@ class TaskScheduler:
 
     telemetry: Optional[Telemetry] = None
 
-    def _utility(self, triple: tuple[PoolEndpoint, EndpointState, RateWindow],
-                 kind: str) -> float:
+    def factors(self, triple: tuple[PoolEndpoint, EndpointState, RateWindow],
+                kind: str) -> dict[str, float]:
+        """Factores normalizados que explican una decisión, sin ejecutar nada."""
         ep, _st, win = triple
-        w = self.weights
         p50 = self._latency(ep.name)
         speed = 1.0 - min((p50 or 2.5) / 5.0, 1.0)       # 0s→1.0, ≥5s→0
         rel = self.telemetry.success_rate(ep.name) if self.telemetry else None
         reliability = 0.8 if rel is None else rel
-        # aptitud: prior declarado, sustituido por la MEDIDA si existe
         prior = ep.matches(kind)
         capability = prior
         if self.telemetry is not None:
             measured = self.telemetry.capability_score(ep.name, kind, prior)
             if measured is not None:
                 capability = measured
-        quota_risk = (win.used() / ep.rpm) if ep.rpm > 0 else 0.0
-        return (w["speed"] * speed + w["cost"] * ep.cost_score
-                + w["reliability"] * reliability + w["capability"] * capability
-                - w["quota_risk"] * quota_risk)
+        quota_risk = (win.used() / win.rpm) if win.rpm > 0 else 0.0
+        return {"speed": round(speed, 4), "cost": round(ep.cost_score, 4),
+                "reliability": round(reliability, 4),
+                "capability": round(capability, 4),
+                "quota_risk": round(min(quota_risk, 1.0), 4)}
+
+    def _utility(self, triple: tuple[PoolEndpoint, EndpointState, RateWindow],
+                 kind: str) -> float:
+        f = self.factors(triple, kind)
+        w = self.weights
+        return (w["speed"] * f["speed"] + w["cost"] * f["cost"]
+                + w["reliability"] * f["reliability"]
+                + w["capability"] * f["capability"]
+                - w["quota_risk"] * f["quota_risk"])
 
 
 # --------------------------------------------------------------------------
@@ -957,7 +988,99 @@ class ProviderPool(BaseProvider):
             out["aggregate"] = aggregate(out)
         return out
 
-    # -- estado ----------------------------------------------------------------
+    # -- estado y decisiones explicables ---------------------------------------
+
+    def route_preview(self, kind: str = "general") -> dict[str, Any]:
+        """Explica la ruta que se elegiría sin reservar cuota ni llamar modelos.
+
+        Inspirado por los previews de gateways abiertos, pero implementado
+        sobre el scheduler SORL propio. Los estados distinguen ``unknown`` de
+        ``exhausted``: la ausencia de datos nunca se presenta como certeza.
+        """
+        now = time.monotonic()
+        rows = []
+        candidates = []
+        with self._lock:
+            gated = self.scheduler._gate_incompetent(
+                [t for t in self._triples if self._preview_eligible(t, now)], kind)
+            gated_names = {t[0].name for t in gated}
+            for triple in self._triples:
+                ep, st, win = triple
+                reasons = self._preview_reasons(triple, now)
+                eligible = not reasons and ep.role != "fallback_only"
+                if eligible and ep.name not in gated_names:
+                    eligible = False
+                    reasons.append("capability_gate")
+                factors = self.scheduler.factors(triple, kind)
+                row = {
+                    "name": ep.name, "model": ep.model, "role": ep.role,
+                    "eligible": eligible, "reasons": reasons,
+                    "quota_state": self._quota_state(win),
+                    "quota_source": "local_estimate" if win.rpm > 0 else "unknown",
+                    "window_used": win.used(), "rpm_effective": win.rpm,
+                    "factors": factors,
+                    "utility": round(self.scheduler._utility(triple, kind), 4),
+                }
+                rows.append(row)
+                if eligible:
+                    candidates.append(triple)
+            selected = self._preview_choose(candidates, kind)
+        if selected is None:
+            fallback = next((r for r in rows if r["role"] == "fallback_only"), None)
+            selected_name = fallback["name"] if fallback else None
+        else:
+            selected_name = selected[0].name
+        for row in rows:
+            row["selected"] = row["name"] == selected_name
+        rows.sort(key=lambda r: (not r["selected"], -r["utility"], r["name"]))
+        return {"kind": kind, "strategy": self.scheduler.strategy,
+                "selected": selected_name, "candidates": rows,
+                "live_request_executed": False, "at": now_iso()}
+
+    @staticmethod
+    def _quota_state(win: RateWindow) -> str:
+        if win.rpm <= 0:
+            return "unknown"
+        used = win.used()
+        if used >= win.rpm:
+            return "exhausted"
+        if used / win.rpm >= 0.8:
+            return "approaching_limit"
+        return "healthy"
+
+    @staticmethod
+    def _preview_reasons(triple, now: float) -> list[str]:
+        ep, st, win = triple
+        reasons = []
+        if not ep.active:
+            reasons.append("disabled")
+        if st.in_cooldown(now):
+            reasons.append("cooldown")
+        if st.circuit_open(now):
+            reasons.append("circuit_open")
+        if not win.has_capacity(now):
+            reasons.append("quota_exhausted")
+        return reasons
+
+    @staticmethod
+    def _preview_eligible(triple, now: float) -> bool:
+        ep, _st, _win = triple
+        return ep.role != "fallback_only" and not ProviderPool._preview_reasons(triple, now)
+
+    def _preview_choose(self, candidates, kind: str):
+        if not candidates:
+            return None
+        strategy = self.scheduler.strategy
+        if strategy == "round_robin":
+            ordered = sorted(candidates, key=lambda t: t[0].name)
+            return ordered[self.scheduler._rr % len(ordered)]
+        if strategy == "cost_first":
+            return min(candidates, key=lambda t: (t[0].tier_index,
+                                                   self.scheduler._latency(t[0].name) or 9e9))
+        if strategy == "speed_first":
+            return min(candidates,
+                       key=lambda t: self.scheduler._latency(t[0].name) or 9e9)
+        return max(candidates, key=lambda t: self.scheduler._utility(t, kind))
 
     def status(self) -> dict[str, Any]:
         now = time.monotonic()
@@ -1079,6 +1202,15 @@ def discover_endpoints_from_env(include_local: bool = True) -> list[PoolEndpoint
                            "meta-llama/llama-3.1-8b-instruct:free"),
             "cheap", rpm=15, quality=0.75, caps=("general",),
             extra={"X-Title": "A2S-agent"})
+    # OmniRoute es un gateway OPCIONAL del operador, nunca la base de A²S.
+    # Solo se registra por configuración explícita; descubrir no hace requests.
+    omniroute_url = os.environ.get("A2S_OMNIROUTE_URL", "").strip()
+    if omniroute_url:
+        add("omniroute", omniroute_url.rstrip("/"),
+            os.environ.get("A2S_OMNIROUTE_KEY", "omniroute-local"),
+            os.environ.get("A2S_OMNIROUTE_MODEL", "auto"),
+            "free", rpm=0, quality=0.8,
+            caps=("plan", "code", "summarize", "general"), timeout=180)
     openai_key = os.environ.get("OPENAI_API_KEY")
     if openai_key:
         add("openai", os.environ.get("A2S_LLM_BASE_URL",
