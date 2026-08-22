@@ -23,12 +23,16 @@ deliberado. Para eso: ejecutar en VM/contenedor desechable.
 from __future__ import annotations
 
 import os
-import resource
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from typing import Any, Optional
+
+try:
+    import resource
+except ImportError:
+    resource = None
 
 # Bootstrap que bloquea la red saliente por monkey-patch de socket (nivel 1).
 _NET_BLOCK_BOOTSTRAP = """
@@ -74,7 +78,7 @@ class Sandbox:
         self._nsjail = shutil.which("nsjail")
         self._bwrap = shutil.which("bwrap")
         self._chroot = os.environ.get("A2S_NSJAIL_CHROOT", "")
-        self._python = shutil.which("python3") or sys.executable
+        self._python = sys.executable or shutil.which("python3") or shutil.which("python") or "python3"
         self.level = self._detect_level()
 
     def _detect_level(self) -> int:
@@ -82,7 +86,9 @@ class Sandbox:
             return 3
         if self._bwrap:
             return 2
-        return 1
+        if resource is not None:
+            return 1
+        return 0
 
     @property
     def level_name(self) -> str:
@@ -90,6 +96,8 @@ class Sandbox:
 
     # -- límites de recursos (nivel 1; usados también por 2/3) ---------------
     def _set_rlimits(self) -> None:
+        if resource is None:
+            return
         mem = self.mem_mb * 1024 * 1024
         resource.setrlimit(resource.RLIMIT_AS, (mem, mem))
         resource.setrlimit(resource.RLIMIT_NPROC, (self.max_procs, self.max_procs))
@@ -101,14 +109,14 @@ class Sandbox:
     def run_python(self, code: str, timeout: Optional[int] = None) -> SandboxResult:
         timeout = timeout or self.timeout
         if self.level == 3:
-            return self._run_nsjail(["python3", "-I", "-c", code], timeout)
+            return self._run_nsjail([self._python, "-I", "-c", code], timeout)
         if self.level == 2:
-            return self._run_bwrap(["python3", "-I", "-c", code], timeout,
+            return self._run_bwrap([self._python, "-I", "-c", code], timeout,
                                    net_shim=not self.allow_network)
-        # Nivel 1: rlimits + python aislado + bloqueo de red por shim.
+        # Nivel 1/0: rlimits (si disponible) + python aislado + bloqueo de red por shim.
         prefix = "" if self.allow_network else _NET_BLOCK_BOOTSTRAP
         argv = [self._python, "-I", "-c", prefix + "\n" + code]
-        return self._run_direct(argv, timeout, rlimits=True)
+        return self._run_direct(argv, timeout, rlimits=bool(self.level >= 1 and resource is not None))
 
     def run_cmd(self, argv: list[str], timeout: Optional[int] = None) -> SandboxResult:
         timeout = timeout or self.timeout
@@ -116,15 +124,16 @@ class Sandbox:
             return self._run_nsjail(argv, timeout)
         if self.level == 2:
             return self._run_bwrap(argv, timeout)
-        return self._run_direct(argv, timeout, rlimits=True)
+        return self._run_direct(argv, timeout, rlimits=bool(self.level >= 1 and resource is not None))
 
     # -- implementaciones por nivel -------------------------------------------
     def _run_direct(self, argv: list[str], timeout: int, rlimits: bool) -> SandboxResult:
+        use_rlimits = bool(rlimits and resource is not None and sys.platform != "win32")
         try:
             proc = subprocess.run(
                 argv, capture_output=True, text=True, timeout=timeout,
                 cwd=self.workspace,
-                preexec_fn=self._set_rlimits if rlimits else None)
+                preexec_fn=self._set_rlimits if use_rlimits else None)
             return SandboxResult(stdout=proc.stdout, stderr=proc.stderr,
                                  returncode=proc.returncode,
                                  level=self.level, level_name=self.level_name)

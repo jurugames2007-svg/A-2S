@@ -340,7 +340,7 @@ class ToolRegistry:
                 return f"(sandbox {res.level_name}: TIEMPO AGOTADO)\n" + res.output[-1000:]
             return res.output.strip() or f"(exit={res.returncode}, sin salida)"
         proc = subprocess.run(
-            ["python3", "-c", code], capture_output=True, text=True,
+            [sys.executable, "-c", code], capture_output=True, text=True,
             timeout=60, cwd=self.workspace)
         out = proc.stdout + proc.stderr
         return out if out.strip() else "(sin salida)"
