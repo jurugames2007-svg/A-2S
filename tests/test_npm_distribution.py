@@ -63,7 +63,7 @@ class TestNpmLauncher(unittest.TestCase):
             ["node", "npm/bin/a2s.mjs", "--version"], cwd=ROOT,
             capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("A²S 1.10.0", result.stdout)
+        self.assertIn("A²S 1.11.0", result.stdout)
 
     def test_launcher_informa_python_ausente_sin_stacktrace(self):
         with tempfile.TemporaryDirectory() as empty_path:
