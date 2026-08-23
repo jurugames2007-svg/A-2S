@@ -108,14 +108,19 @@ class Sandbox:
     # -- API ----------------------------------------------------------------
     def run_python(self, code: str, timeout: Optional[int] = None) -> SandboxResult:
         timeout = timeout or self.timeout
+        # ``-X utf8`` es OBLIGATORIO en el hijo: el modo aislado ``-I``
+        # ignora las variables de entorno (PYTHONUTF8 incluido), así que sin
+        # esta bandera el código sandboxeado abre archivos con la encoding
+        # local (cp1252 en Windows) y el resto del sistema —que sí va en
+        # UTF-8— no puede leerlos (UnicodeDecodeError).
         if self.level == 3:
-            return self._run_nsjail([self._python, "-I", "-c", code], timeout)
+            return self._run_nsjail([self._python, "-I", "-X", "utf8", "-c", code], timeout)
         if self.level == 2:
-            return self._run_bwrap([self._python, "-I", "-c", code], timeout,
+            return self._run_bwrap([self._python, "-I", "-X", "utf8", "-c", code], timeout,
                                    net_shim=not self.allow_network)
         # Nivel 1/0: rlimits (si disponible) + python aislado + bloqueo de red por shim.
         prefix = "" if self.allow_network else _NET_BLOCK_BOOTSTRAP
-        argv = [self._python, "-I", "-c", prefix + "\n" + code]
+        argv = [self._python, "-I", "-X", "utf8", "-c", prefix + "\n" + code]
         return self._run_direct(argv, timeout, rlimits=bool(self.level >= 1 and resource is not None))
 
     def run_cmd(self, argv: list[str], timeout: Optional[int] = None) -> SandboxResult:
@@ -132,6 +137,9 @@ class Sandbox:
         try:
             proc = subprocess.run(
                 argv, capture_output=True, text=True, timeout=timeout,
+                # Decodificación tolerante: ni un mensaje localizado del SO
+                # (cp1252/cp850) puede lanzar UnicodeDecodeError aquí.
+                encoding="utf-8", errors="replace",
                 cwd=self.workspace, stdin=subprocess.DEVNULL,
                 preexec_fn=self._set_rlimits if use_rlimits else None)
             return SandboxResult(stdout=proc.stdout, stderr=proc.stderr,

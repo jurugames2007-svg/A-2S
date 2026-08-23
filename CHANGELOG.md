@@ -3,6 +3,62 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.12.0] — 2026-08-23
+
+### Añadido
+
+- **OmniRoute cero-config**: si el operador ejecuta OmniRoute en su máquina
+  (puerto 20128), A²S lo detecta mirando SOLO `127.0.0.1` (TCP + `GET
+  /v1/models`, jamás terceros) y lo registra en el pool SORL con el modelo
+  `auto` (enrutado inteligente de OmniRoute). Si el gateway pide clave,
+  `a2s doctor` indica declararla con `A2S_OMNIROUTE_KEY` (Dashboard →
+  Endpoints); `A2S_OMNIROUTE=off` apaga la detección.
+- **Crecimiento autónomo (`a2s grow` / dashboard)**: nuevo módulo
+  `a2s.growth.AutoLearner` — al abrir el dashboard, A²S **se pone a
+  estudiar** en segundo plano: Ciclos de Enriquecimiento continuos contra un
+  currículo de brechas propias más lo que el operador escriba en
+  `workspace/.a2s/growth_queue.txt`. Solo lectura de código público (rate
+  limits respetados), nunca ejecuta lo estudiado; eventos `growth_cycle` en
+  el feed del dashboard, `/api/growth` y bitácora `.a2s/growth_log.json`.
+  `--learn-interval`, `A2S_AUTO_LEARN=0` para apagarlo.
+- **Guardián de auto-actualización (`update tkm --watch`)**: sincroniza el
+  checkout solo cada N segundos (default 600) con fast-forward, sin pisar
+  árboles sucios, usando las credenciales que git ya tiene (A²S no pide ni
+  guarda contraseñas). `npm run update:watch`.
+- **Auto-actualización en el sitio (`update tkm`)**: nuevo comando
+  `a2s update` (apelativo admitido: `a2s update tkm`) que actualiza el
+  checkout actual con `git fetch` + fast-forward, **sin re-descargar el
+  repositorio**, para iterar/tests más rápido. Incluye `--check` (solo
+  mirar), `--branch`, `--force` y `--root`; jamás toca cambios locales sin
+  avisar. Vías de uso: `update.cmd` en la raíz del repo (`update tkm` desde
+  PowerShell/cmd), `npm run update -- tkm` y el bin `a2s`.
+- Tests del updater (origen + clon reales en temporales): fast-forward,
+  `--check` inofensivo, protección de cambios sucios, `--force`, alias.
+- `a2s doctor` en Windows ahora informa qué shell POSIX quedó **verificado**
+  (o si no hay ninguno funcional).
+
+### Corregido (Windows: 5 fallos + 1 error de la suite)
+
+- **Shell POSIX verificado, no "el primero que exista"**: el descubrimiento
+  ahora **sonda** cada candidato (`echo` + marcador) y descarta los rotos —
+  el caso típico era `System32\bash.exe` (lanzador de WSL sin distribución),
+  que respondía con exit != 0 y mensajes localizados a TODO comando
+  (`(exit=1, sin salida)` en `test_evolution`, `test_fsm`, `test_tools`).
+  Git-Bash/MSYS2 se prueban antes que WSL y el resultado se cachea.
+- **Decodificación tolerante en TODOS los subprocesos** (`tools`, `sandbox`,
+  `audit`, plugins forenses, planner): `encoding="utf-8", errors="replace"`
+  elimina el muro de `UnicodeDecodeError` en los hilos `_readerthread` cuando
+  un hijo emite bytes cp1252/cp850 (mensajes localizados de Windows).
+- **El sandbox fuerza UTF-8 en el hijo** (`python -I -X utf8`): el modo
+  aislado `-I` ignora `PYTHONUTF8`, así que el código sandboxeado abría
+  archivos en cp1252 y el resto del sistema no podía leerlos (ERROR en
+  `test_split_recovery_achieves_goal`). El tool-swap del planner además
+  genera `open(..., encoding='utf-8')` explícito.
+- Tests: lecturas de archivos del agente con encoding explícita; nuevas
+  regresiones (shell roto se descarta, salida no-UTF-8 no pierde resultado)
+  + suites de OmniRoute cero-config, crecimiento autónomo y guardián de
+  auto-update (240 tests en total).
+
 ## [1.11.0] — 2026-08-23
 
 ### Añadido

@@ -95,6 +95,7 @@ def run_forensic(registry, binary, args, out_file):
     argv = [exe] + _check_args(args)
     try:
         proc = subprocess.run(argv, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace",
                               timeout=120, cwd=registry.workspace)
     except subprocess.TimeoutExpired:
         return f"(timeout ejecutando {binary})"

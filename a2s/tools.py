@@ -285,7 +285,11 @@ class ToolRegistry:
             return subprocess.Popen(
                 [posix_shell, "-c", segment],
                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, text=True, cwd=self.workspace)
+                stderr=subprocess.PIPE, text=True,
+                # Decodificación tolerante: mensajes localizados de Windows
+                # (cp1252/cp850) no deben tumbar los hilos lectores ni
+                # perder la salida del comando.
+                encoding="utf-8", errors="replace", cwd=self.workspace)
         except OSError as exc:
             raise PermissionError(f"no se pudo invocar bash: {exc}") from exc
 
@@ -318,7 +322,8 @@ class ToolRegistry:
                 proc = subprocess.Popen(
                     argv, stdin=stdin, stdout=subprocess.PIPE,
                     stderr=redirect_err if redirect_err is not None else default_err,
-                    text=True, cwd=self.workspace)
+                    text=True, encoding="utf-8", errors="replace",
+                    cwd=self.workspace)
             except OSError as exc:
                 _abort_pipeline(procs)
                 raise PermissionError(
@@ -429,7 +434,8 @@ class ToolRegistry:
                 return f"(sandbox {res.level_name}: TIEMPO AGOTADO)\n" + res.output[-1000:]
             return res.output.strip() or f"(exit={res.returncode}, sin salida)"
         proc = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True,
+            [sys.executable, "-X", "utf8", "-c", code], capture_output=True,
+            text=True, encoding="utf-8", errors="replace",
             timeout=60, cwd=self.workspace, stdin=subprocess.DEVNULL)
         out = proc.stdout + proc.stderr
         return out if out.strip() else "(sin salida)"

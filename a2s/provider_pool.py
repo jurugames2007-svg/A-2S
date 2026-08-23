@@ -1176,6 +1176,48 @@ def _local_ollama_alive(host: str = "127.0.0.1", port: int = 11434,
         return False
 
 
+#: Puerto por defecto del gateway OmniRoute (dashboard y API OpenAI-compat).
+OMNIROUTE_DEFAULT_PORT = 20128
+
+#: Diagnóstico de la última detección local de OmniRoute (para doctor/pool-status).
+OMNIROUTE_DETECTED: dict[str, Any] = {}
+
+
+def _local_omniroute_status(port: int = OMNIROUTE_DEFAULT_PORT,
+                            timeout: float = 2.0) -> Optional[dict]:
+    """Detección CERO-CONFIG de un OmniRoute local del propio operador.
+
+    Solo se mira ``127.0.0.1`` (software que el operador instaló y ejecuta en
+    su propia máquina — mismo precedente que la sonda de Ollama); jamás se
+    sondea un servicio de terceros. Pasos:
+
+    1. TCP vivo en el puerto (descarte rápido, ~ms).
+    2. ``GET /v1/models``: si responde 200 con JSON OpenAI-compatible es un
+       gateway utilizable tal cual; 401/403 → existe pero pide la clave del
+       Dashboard (se registrará solo si el operador la declara).
+    """
+    try:
+        sock = socket.create_connection(("127.0.0.1", port), timeout=0.4)
+        sock.close()
+    except OSError:
+        return None
+    base = f"http://127.0.0.1:{port}"
+    req = urllib.request.Request(f"{base}/v1/models",
+                                 headers={"User-Agent": "A2S/1.12 (+local discovery)"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read(200_000).decode("utf-8", "replace"))
+        models = [m.get("id", "") for m in data.get("data", [])
+                  if isinstance(m, dict) and m.get("id")]
+        return {"base_url": f"{base}/v1", "auth": "open", "models": models[:50]}
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            return {"base_url": f"{base}/v1", "auth": "key", "models": []}
+        return None
+    except (OSError, ValueError):
+        return None
+
+
 def discover_endpoints_from_env(include_local: bool = True) -> list[PoolEndpoint]:
     """Descubre endpoints LEGÍTIMOS: solo los cuya clave posee el operador.
 
@@ -1216,7 +1258,7 @@ def discover_endpoints_from_env(include_local: bool = True) -> list[PoolEndpoint
             "cheap", rpm=15, quality=0.75, caps=("general",),
             extra={"X-Title": "A2S-agent"})
     # OmniRoute es un gateway OPCIONAL del operador, nunca la base de A²S.
-    # Solo se registra por configuración explícita; descubrir no hace requests.
+    # Vía 1 — declaración explícita del operador (entorno).
     omniroute_url = os.environ.get("A2S_OMNIROUTE_URL", "").strip()
     if omniroute_url:
         add("omniroute", omniroute_url.rstrip("/"),
@@ -1224,6 +1266,21 @@ def discover_endpoints_from_env(include_local: bool = True) -> list[PoolEndpoint
             os.environ.get("A2S_OMNIROUTE_MODEL", "auto"),
             "free", rpm=0, quality=0.8,
             caps=("plan", "code", "summarize", "general"), timeout=180)
+    elif include_local and os.environ.get("A2S_OMNIROUTE", "").lower() != "off":
+        # Vía 2 — cero-config: el operador TIENE OmniRoute si lo ejecuta en su
+        # propia máquina; se detecta mirando SOLO 127.0.0.1 (sin terceros).
+        found = _local_omniroute_status()
+        if found:
+            OMNIROUTE_DETECTED.clear()
+            OMNIROUTE_DETECTED.update(found)
+            key = os.environ.get("A2S_OMNIROUTE_KEY", "").strip()
+            if found["auth"] == "open" or key:
+                add("omniroute", found["base_url"], key or "omniroute-local",
+                    os.environ.get("A2S_OMNIROUTE_MODEL", "auto"),
+                    "free", rpm=0, quality=0.85,
+                    caps=("plan", "code", "summarize", "general"), timeout=180)
+            # auth == "key" sin clave: no se registra (fallaría cada request);
+            # `a2s doctor` indica cómo declararla (Dashboard → Endpoints).
     openai_key = os.environ.get("OPENAI_API_KEY")
     if openai_key:
         add("openai", os.environ.get("A2S_LLM_BASE_URL",

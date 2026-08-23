@@ -43,7 +43,9 @@ class TestRecoveryLadder(unittest.TestCase):
         path = os.path.join(self.ws, "objetivo.txt")
         if not os.path.isfile(path):
             return None
-        with open(path) as fh:
+        # Encoding explícito: el contenido lo escribe el agente (posiblemente
+        # desde el sandbox) y el sistema entero opera en UTF-8.
+        with open(path, encoding="utf-8", errors="replace") as fh:
             return fh.read()
 
     def test_split_recovery_achieves_goal(self):

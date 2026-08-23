@@ -146,12 +146,16 @@ class Planner:
                 if old == "shell" and new == "python_exec":
                     cmd = params.pop("command", "print('sin comando')")
                     params = {"code": ("import subprocess; p = subprocess.run("
-                                       f"{cmd!r}, shell=True, capture_output=True, text=True); "
+                                       f"{cmd!r}, shell=True, capture_output=True, text=True, "
+                                       "encoding='utf-8', errors='replace'); "
                                        "print((p.stdout or '') + (p.stderr or ''))")}
                 elif old == "write_file" and new == "python_exec":
                     path = params.pop("path", "salida.txt")
                     content = params.pop("content", "")
-                    params = {"code": f"open({path!r}, 'w').write({content!r}); "
+                    # encoding explícito: el código corre en el sandbox y no
+                    # debe heredar cp1252 en Windows (regresión v1.11).
+                    params = {"code": f"open({path!r}, 'w', encoding='utf-8')"
+                                      f".write({content!r}); "
                                       f"print('escrito {path}')"}
                 elif old == "fetch_url" and new == "web_search":
                     url = params.pop("url", "")

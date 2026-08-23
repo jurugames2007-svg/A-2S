@@ -1,6 +1,6 @@
 {
   "name": "a2s-agent-control-plane",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "A²S autonomous agent and industrial control plane — local-first, auditable, Python stdlib runtime launched through npm.",
   "license": "MIT",
   "type": "module",
@@ -29,6 +29,9 @@
     "start": "node npm/bin/a2s.mjs dashboard",
     "dashboard": "node npm/bin/a2s.mjs dashboard",
     "doctor": "node npm/bin/a2s.mjs doctor",
+    "update": "node npm/bin/a2s.mjs update",
+    "update:watch": "node npm/bin/a2s.mjs update tkm --watch",
+    "grow": "node npm/bin/a2s.mjs grow",
     "test": "node npm/scripts/run-python.mjs -m unittest discover -s tests -v",
     "test:fuzz": "node npm/scripts/run-python.mjs -m unittest -v tests.test_fuzz",
     "test:npm": "node npm/scripts/test-package.mjs",
