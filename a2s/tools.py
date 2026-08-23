@@ -306,7 +306,10 @@ class ToolRegistry:
                 redirect_err = subprocess.DEVNULL
             if not argv:
                 continue
-            stdin = procs[-1].stdout if procs else None
+            prev_out = procs[-1].stdout if procs else None
+            # Sin redirección de entrada en la mini-shell: el primer comando
+            # lee de DEVNULL (evita bloqueos heredando la stdin del agente).
+            stdin = prev_out if prev_out is not None else subprocess.DEVNULL
             # El stderr de etapas intermedias entra al pipeline: evita un PIPE
             # sin lector que podría bloquear o quedar abierto.
             default_err = (subprocess.PIPE if pipe_index == len(pipes) - 1
@@ -321,8 +324,8 @@ class ToolRegistry:
                 raise PermissionError(
                     f"comando '{argv[0]}' no disponible: {exc}") from exc
             procs.append(proc)
-            if stdin is not None:
-                stdin.close()
+            if prev_out is not None:
+                prev_out.close()
         return procs
 
     def shell(self, command: str, depth: int = 0) -> str:
@@ -427,7 +430,7 @@ class ToolRegistry:
             return res.output.strip() or f"(exit={res.returncode}, sin salida)"
         proc = subprocess.run(
             [sys.executable, "-c", code], capture_output=True, text=True,
-            timeout=60, cwd=self.workspace)
+            timeout=60, cwd=self.workspace, stdin=subprocess.DEVNULL)
         out = proc.stdout + proc.stderr
         return out if out.strip() else "(sin salida)"
 

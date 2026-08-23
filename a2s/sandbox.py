@@ -132,7 +132,7 @@ class Sandbox:
         try:
             proc = subprocess.run(
                 argv, capture_output=True, text=True, timeout=timeout,
-                cwd=self.workspace,
+                cwd=self.workspace, stdin=subprocess.DEVNULL,
                 preexec_fn=self._set_rlimits if use_rlimits else None)
             return SandboxResult(stdout=proc.stdout, stderr=proc.stderr,
                                  returncode=proc.returncode,

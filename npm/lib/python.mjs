@@ -61,6 +61,12 @@ export function packageEnvironment(packageRoot, extra = {}) {
     ...extra,
     PYTHONPATH: current ? `${packageRoot}${delimiter}${current}` : packageRoot,
     PYTHONUNBUFFERED: "1",
+    // Windows: la consola/cp1252 no representa ✔ → · y rompe cualquier print
+    // con símbolos (UnicodeEncodeError). UTF-8 modo Python para TODO proceso
+    // lanzado desde npm (tests, CLI, dashboard) — defensa en profundidad junto
+    // a a2s._platform.force_utf8().
+    PYTHONUTF8: "1",
+    PYTHONIOENCODING: "utf-8",
   };
 }
 

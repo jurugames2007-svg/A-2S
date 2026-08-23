@@ -70,21 +70,80 @@ class BaseProvider:
 # Núcleo heurístico determinista
 # --------------------------------------------------------------------------
 
+# Código de los pasos de recopilación de la plantilla forense. 100% stdlib
+# (os.walk/hashlib/os.stat): el núcleo heurístico no depende de herramientas
+# POSIX (find/stat/sha256sum) ni de shell alguno — funciona igual en Windows
+# sin Git-Bash/MSYS2/WSL y dentro del sandbox.
+_INV_CODE = """\
+import os
+lineas = []
+for root, dirs, files in os.walk("."):
+    dirs[:] = sorted(d for d in dirs if d not in (".git", ".a2s"))
+    for fn in sorted(files):
+        lineas.append(os.path.relpath(os.path.join(root, fn), ".").replace(os.sep, "/"))
+print("\\n".join(lineas[:200]) or "(workspace vacío)")
+"""
+
+_META_CODE = """\
+import os, time
+for root, dirs, files in os.walk("."):
+    dirs[:] = sorted(d for d in dirs if d not in (".git", ".a2s"))
+    for fn in sorted(files):
+        full = os.path.join(root, fn)
+        try:
+            st = os.stat(full)
+        except OSError:
+            continue
+        rel = os.path.relpath(full, ".").replace(os.sep, "/")
+        mt = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(st.st_mtime))
+        print(f"{rel} | {st.st_size} bytes | mtime {mt}")
+"""
+
+_HASH_CODE = """\
+import hashlib, os
+for root, dirs, files in os.walk("."):
+    dirs[:] = sorted(d for d in dirs if d not in (".git", ".a2s"))
+    for fn in sorted(files):
+        full = os.path.join(root, fn)
+        if not os.path.isfile(full):
+            continue
+        try:
+            h = hashlib.sha256()
+            with open(full, "rb") as fh:
+                for chunk in iter(lambda: fh.read(65536), b""):
+                    h.update(chunk)
+        except OSError:
+            continue
+        print(h.hexdigest() + "  " + os.path.relpath(full, ".").replace(os.sep, "/"))
+"""
+
+_CUSTODIA_CODE = """\
+import subprocess
+try:
+    p = subprocess.run(["git", "log", "--oneline", "-20"], capture_output=True,
+                       text=True, timeout=10, stdin=subprocess.DEVNULL)
+    out = (p.stdout or "").strip()
+except Exception:
+    out = ""
+print(out or "sin repositorio git")
+print("(fin del registro de custodia)")
+"""
+
 _HEURISTIC_PLANS: list[tuple[tuple[str, ...], str, list[tuple[str, str, dict[str, Any], list[str]]]]] = [
     # (palabras clave, nombre de plantilla, pasos (nombre, tool, params, criterios))
     (("forense", "informe", "auditor", "analiza", "análisis", "evidence", "evidencia"),
      "forensic_report", [
-         ("inventariar_evidencia", "shell",
-          {"command": "find . -type f -not -path './.git/*' | sort | head -200"},
+         ("inventariar_evidencia", "python_exec",
+          {"code": _INV_CODE},
           ["lista de archivos obtenida"]),
-         ("extraer_metadatos", "shell",
-          {"command": "find . -type f -not -path './.git/*' -exec stat -c '%n | %s bytes | mtime %y' {} \\;"},
+         ("extraer_metadatos", "python_exec",
+          {"code": _META_CODE},
           ["metadatos de archivos obtenidos"]),
-         ("calcular_hashes", "shell",
-          {"command": "find . -type f -not -path './.git/*' -exec sha256sum {} \\;"},
+         ("calcular_hashes", "python_exec",
+          {"code": _HASH_CODE},
           ["hashes SHA-256 calculados"]),
-         ("registrar_cadena_custodia", "shell",
-          {"command": "git log --oneline -20 2>/dev/null; echo '(fin del registro de custodia)'"},
+         ("registrar_cadena_custodia", "python_exec",
+          {"code": _CUSTODIA_CODE},
           ["historial o estado del repositorio registrado"]),
          ("redactar_informe", "write_file",
           {"path": "informe_forense.md",
