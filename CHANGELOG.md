@@ -7,6 +7,24 @@ versionado semántico mientras la API pública permanece en evolución.
 
 ### Añadido
 
+- **OmniRoute cero-config**: si el operador ejecuta OmniRoute en su máquina
+  (puerto 20128), A²S lo detecta mirando SOLO `127.0.0.1` (TCP + `GET
+  /v1/models`, jamás terceros) y lo registra en el pool SORL con el modelo
+  `auto` (enrutado inteligente de OmniRoute). Si el gateway pide clave,
+  `a2s doctor` indica declararla con `A2S_OMNIROUTE_KEY` (Dashboard →
+  Endpoints); `A2S_OMNIROUTE=off` apaga la detección.
+- **Crecimiento autónomo (`a2s grow` / dashboard)**: nuevo módulo
+  `a2s.growth.AutoLearner` — al abrir el dashboard, A²S **se pone a
+  estudiar** en segundo plano: Ciclos de Enriquecimiento continuos contra un
+  currículo de brechas propias más lo que el operador escriba en
+  `workspace/.a2s/growth_queue.txt`. Solo lectura de código público (rate
+  limits respetados), nunca ejecuta lo estudiado; eventos `growth_cycle` en
+  el feed del dashboard, `/api/growth` y bitácora `.a2s/growth_log.json`.
+  `--learn-interval`, `A2S_AUTO_LEARN=0` para apagarlo.
+- **Guardián de auto-actualización (`update tkm --watch`)**: sincroniza el
+  checkout solo cada N segundos (default 600) con fast-forward, sin pisar
+  árboles sucios, usando las credenciales que git ya tiene (A²S no pide ni
+  guarda contraseñas). `npm run update:watch`.
 - **Auto-actualización en el sitio (`update tkm`)**: nuevo comando
   `a2s update` (apelativo admitido: `a2s update tkm`) que actualiza el
   checkout actual con `git fetch` + fast-forward, **sin re-descargar el
@@ -37,7 +55,9 @@ versionado semántico mientras la API pública permanece en evolución.
   `test_split_recovery_achieves_goal`). El tool-swap del planner además
   genera `open(..., encoding='utf-8')` explícito.
 - Tests: lecturas de archivos del agente con encoding explícita; nuevas
-  regresiones (shell roto se descarta, salida no-UTF-8 no pierde resultado).
+  regresiones (shell roto se descarta, salida no-UTF-8 no pierde resultado)
+  + suites de OmniRoute cero-config, crecimiento autónomo y guardián de
+  auto-update (240 tests en total).
 
 ## [1.11.0] — 2026-08-23
 

@@ -131,6 +131,29 @@ class TestUpdateEnElSitio(unittest.TestCase):
         self.assertEqual(updater.read_version(updater.package_root()),
                          __version__)
 
+    def test_watch_sincroniza_y_para(self):
+        """Modo guardián (estilo arena.ai): ciclos de sincronización sola."""
+        self._commit_origin("v2")
+        mensajes: list[str] = []
+        rc = updater.watch(root=self.checkout, alias="tkm", interval=1,
+                           out=mensajes.append, max_cycles=2)
+        texto = "\n".join(mensajes)
+        self.assertEqual(rc, 0, texto)
+        self.assertIn("guardián activo", texto)
+        self.assertEqual(self._contenido_checkout(), "v2")
+
+    def test_watch_con_arbol_sucio_no_pisa_nada(self):
+        self._commit_origin("v2")
+        with open(os.path.join(self.checkout, "file.txt"), "w",
+                  encoding="utf-8") as fh:
+            fh.write("cambio local")
+        mensajes: list[str] = []
+        rc = updater.watch(root=self.checkout, interval=1,
+                           out=mensajes.append, max_cycles=1)
+        self.assertEqual(rc, 0)  # el guardián sigue vivo; el ciclo se reporta
+        self.assertEqual(self._contenido_checkout(), "cambio local")
+        self.assertIn("cambios locales", "\n".join(mensajes))
+
 
 if __name__ == "__main__":
     unittest.main()

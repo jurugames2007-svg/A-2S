@@ -69,6 +69,7 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 18 | **El filtro de texto de `python_exec` es eludible** (base64, ofuscación). | — | Por diseño: ahora el sandbox aporta la contención real; el filtro sigue siendo cosmético |
 | 19 | **Egress por iptables no auto-aplicado**: requiere root y administración de firewall; el control de red real hoy es la **lista blanca de hosts** (`--allow-host`) + `--no-network`. | Media | 🟡 lista blanca implementada y testeada; iptables queda como tarea del operador |
 | 20 | **Neuroevolución con buffer pequeño es ruido** (mínimo 8 episodios; resultados útiles desde cientos). | Baja | 🟡 documentado; `a2s evolve` avisa si el buffer es insuficiente |
+| 21 | **Autonomía nueva (v1.12)**: la detección de OmniRoute mira SOLO `127.0.0.1` (si cambias el puerto, usa `A2S_OMNIROUTE_URL`); el crecimiento autónomo depende de la cuota de la API de GitHub (sin token: ~10 búsquedas/min) y estudia TEXTO público sin ejecutarlo; el guardián `update --watch` nunca fuerza un árbol sucio (reporta y espera) y hereda las credenciales de git — A²S no gestiona contraseñas. | Baja | 🟡 aceptado: todo es observables (`a2s doctor`, `/api/growth`, logs del guardián) y desconectable (`A2S_AUTO_LEARN=0`, `A2S_OMNIROUTE=off`, Ctrl+C) |
 
 ---
 

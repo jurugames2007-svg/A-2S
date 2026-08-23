@@ -151,6 +151,7 @@ const EVENT_META = {
   operator_stop: ["!", "Parada solicitada", "failed"],
   ecosystem_scan: ["+", "Radar actualizado", "success"],
   step_done: ["✓", "Paso completado", "success"],
+  growth_cycle: ["🌱", "Crecimiento: estudio autónomo", "success"],
 };
 
 function eventDetail(event) {

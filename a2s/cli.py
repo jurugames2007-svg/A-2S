@@ -195,7 +195,21 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
     server = DashboardServer(port=args.port, workspace=args.workspace,
                              auto_demo=args.autodemo, public=args.public,
                              require_auth=args.auth)
-    server.serve_forever()
+    # Crecimiento autónomo: al abrirlo, se pone a estudiar (off con
+    # A2S_AUTO_LEARN=0; no afecta a tests que construyen DashboardServer directo).
+    from .growth import AutoLearner, autolearn_enabled
+    if autolearn_enabled():
+        server.growth = AutoLearner(server.workspace, hub=server.hub,
+                                    interval_seconds=args.learn_interval)
+        server.growth.start()
+        print("[A²S] 🌱 crecimiento autónomo activo (estudio continuo de "
+              f"repos públicos cada {args.learn_interval}s; A2S_AUTO_LEARN=0 "
+              "para apagarlo)")
+    try:
+        server.serve_forever()
+    finally:
+        if server.growth:
+            server.growth.stop()
     return 0
 
 
@@ -356,6 +370,17 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     else:
         print("  Pool SORL:     sin claves propias detectadas (GROQ/GEMINI/GITHUB/… "
               "o workspace/.a2s/pool.json) → solo fallback heurístico")
+    from .provider_pool import OMNIROUTE_DETECTED
+    if OMNIROUTE_DETECTED:
+        activo = any(e.name == "omniroute" for e in pool_eps)
+        if not activo:
+            print("  OmniRoute:     detectado en "
+                  f"{OMNIROUTE_DETECTED.get('base_url')} pero pide clave: cópiala "
+                  "de su Dashboard → Endpoints y declara A2S_OMNIROUTE_KEY")
+        else:
+            n = len(OMNIROUTE_DETECTED.get("models", []))
+            print(f"  OmniRoute:     ✔ conectado en {OMNIROUTE_DETECTED.get('base_url')} "
+                  f"({n} modelos visibles; el modelo 'auto' enruta solo, cero-config)")
     try:
         socket.create_connection(("duckduckgo.com", 443), timeout=5).close()
         print("  Red externa:   disponible (búsqueda web y fetch habilitados)")
@@ -367,10 +392,46 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 def cmd_update(args: argparse.Namespace) -> int:
     """Auto-actualización en el sitio: fetch + fast-forward, sin volver a
     descargar el repositorio. Apelativo admitido: ``a2s update tkm``."""
-    from .updater import update
+    from .updater import update, watch
+    if getattr(args, "watch", None):
+        return watch(root=getattr(args, "root", None), alias=args.alias,
+                     interval=args.watch, branch=args.branch, force=args.force)
     return update(root=getattr(args, "root", None), alias=args.alias,
                   check_only=args.check, branch=args.branch,
                   force=args.force)
+
+
+def cmd_grow(args: argparse.Namespace) -> int:
+    """Crecimiento autónomo en primer plano: A²S estudia repos públicos y
+    destila fichas de conocimiento (solo lectura; nunca ejecuta lo estudiado)."""
+    from .growth import AutoLearner
+    learner = AutoLearner(args.workspace,
+                          interval_seconds=args.interval,
+                          repos_per_cycle=args.repos)
+    if args.forever:
+        print(f"[A²S] 🌱 creciendo sin parar (ciclos cada {args.interval}s; "
+              "Ctrl+C para parar)")
+        learner.start()
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            learner.stop()
+            print(f"\n[A²S] crecimiento detenido tras {learner.cycles} ciclo(s)")
+            return 0
+    ciclos = args.cycles if args.cycles > 0 else 1
+    for _ in range(ciclos):
+        info = learner.cycle_once(query=args.query)
+        nuevas = info.get("new_cards", [])
+        print(f"[A²S] 🌱 ciclo {info.get('cycle')} «{info.get('query')}»: "
+              f"{len(nuevas)} ficha(s) nueva(s)"
+              + (f" — {info.get('error')}" if info.get("error") else "")
+              + (f" — {info.get('budget_stop')}" if info.get("budget_stop") else ""))
+        for repo in nuevas[:8]:
+            print(f"    · {repo}")
+    print(f"[A²S] conocimiento persistido en {os.path.abspath(args.workspace)} "
+          "(las misiones lo usan automáticamente al planificar)")
+    return 0
 
 
 def cmd_learn(args: argparse.Namespace) -> int:
@@ -857,6 +918,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="lanzar la misión demo al iniciar (por defecto espera al operador)")
     p_dash.add_argument("--no-autodemo", action="store_false", dest="autodemo",
                         help=argparse.SUPPRESS)
+    p_dash.add_argument("--learn-interval", type=int, default=1800,
+                        help="segundos entre ciclos de crecimiento autónomo "
+                             "(default 1800; A2S_AUTO_LEARN=0 lo desactiva)")
     p_dash.set_defaults(func=cmd_dashboard, autodemo=False)
 
     p_tok = sub.add_parser("token", help="genera un token de acceso para el dashboard")
@@ -931,7 +995,28 @@ def main(argv: list[str] | None = None) -> int:
                             "(reset --hard) — úsalo solo si sabes qué pierdes")
     p_upd.add_argument("--root", default=None,
                        help="ruta del checkout (default: la instalación actual)")
+    p_upd.add_argument("--watch", nargs="?", const=600, type=int, default=None,
+                       metavar="SEGUNDOS",
+                       help="modo guardián: sincroniza solo cada N segundos "
+                            "(default 600) hasta Ctrl+C — estilo arena.ai")
     p_upd.set_defaults(func=cmd_update)
+
+    p_grow = sub.add_parser(
+        "grow",
+        help="crecimiento autónomo: estudia repos públicos y destila fichas "
+             "de conocimiento (solo lectura; nunca ejecuta lo estudiado)")
+    p_grow.add_argument("--workspace", default="workspace")
+    p_grow.add_argument("--cycles", type=int, default=1,
+                        help="ciclos de estudio a ejecutar (default 1)")
+    p_grow.add_argument("--query", default=None,
+                        help="estudiar esta brecha concreta en vez del currículo")
+    p_grow.add_argument("--repos", type=int, default=3,
+                        help="repos estudiados por ciclo (default 3)")
+    p_grow.add_argument("--interval", type=int, default=1800,
+                        help="segundos entre ciclos con --forever (default 1800)")
+    p_grow.add_argument("--forever", action="store_true",
+                        help="crecer sin parar en segundo plano (Ctrl+C para parar)")
+    p_grow.set_defaults(func=cmd_grow)
 
     args = parser.parse_args(argv)
     if getattr(args, "seed", None) is not None:

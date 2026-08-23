@@ -428,6 +428,73 @@ class TestConfiguracion(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def _sin_env_omniroute(self):
+        previous = {k: os.environ.get(k) for k in
+                    ("A2S_OMNIROUTE_URL", "A2S_OMNIROUTE_KEY",
+                     "A2S_OMNIROUTE_MODEL", "A2S_OMNIROUTE")}
+        for key in previous:
+            os.environ.pop(key, None)
+
+        def restore():
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+        self.addCleanup(restore)
+
+    def test_omniroute_local_se_conecta_sin_config(self):
+        """Cero-config: si el operador ejecuta OmniRoute en su máquina,
+        A²S lo detecta (solo 127.0.0.1) y lo registra con el modelo 'auto'."""
+        self._sin_env_omniroute()
+        from unittest import mock
+        from a2s import provider_pool
+        deteccion = {"base_url": "http://127.0.0.1:20128/v1",
+                     "auth": "open", "models": ["auto", "auto/coding"]}
+        with mock.patch.object(provider_pool, "_local_omniroute_status",
+                               return_value=deteccion):
+            endpoints = discover_endpoints_from_env(include_local=True)
+        omni = next(e for e in endpoints if e.name == "omniroute")
+        self.assertEqual(omni.base_url, "http://127.0.0.1:20128/v1")
+        self.assertEqual(omni.model, "auto")
+        self.assertEqual(provider_pool.OMNIROUTE_DETECTED["auth"], "open")
+
+    def test_omniroute_local_pide_clave_no_se_registra_sin_ella(self):
+        self._sin_env_omniroute()
+        from unittest import mock
+        from a2s import provider_pool
+        deteccion = {"base_url": "http://127.0.0.1:20128/v1",
+                     "auth": "key", "models": []}
+        with mock.patch.object(provider_pool, "_local_omniroute_status",
+                               return_value=deteccion):
+            endpoints = discover_endpoints_from_env(include_local=True)
+        self.assertFalse(any(e.name == "omniroute" for e in endpoints))
+        # El diagnóstico queda visible para doctor/pool-status.
+        self.assertEqual(provider_pool.OMNIROUTE_DETECTED["auth"], "key")
+
+    def test_omniroute_local_con_clave_declarada_se_registra(self):
+        self._sin_env_omniroute()
+        os.environ["A2S_OMNIROUTE_KEY"] = "sk-del-dashboard"
+        from unittest import mock
+        from a2s import provider_pool
+        deteccion = {"base_url": "http://127.0.0.1:20128/v1",
+                     "auth": "key", "models": []}
+        with mock.patch.object(provider_pool, "_local_omniroute_status",
+                               return_value=deteccion):
+            endpoints = discover_endpoints_from_env(include_local=True)
+        omni = next(e for e in endpoints if e.name == "omniroute")
+        self.assertEqual(omni.api_key, "sk-del-dashboard")
+
+    def test_omniroute_apagado_con_a2s_omniroute_off(self):
+        self._sin_env_omniroute()
+        os.environ["A2S_OMNIROUTE"] = "off"
+        from unittest import mock
+        from a2s import provider_pool
+        with mock.patch.object(provider_pool, "_local_omniroute_status") as sonda:
+            endpoints = discover_endpoints_from_env(include_local=True)
+        sonda.assert_not_called()
+        self.assertFalse(any(e.name == "omniroute" for e in endpoints))
+
     def test_json_con_expansion_de_entorno(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)

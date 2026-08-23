@@ -22,7 +22,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-import sys
+import threading
 from typing import Callable, Optional
 
 Print = Callable[[str], None]
@@ -203,3 +203,43 @@ def _git_present() -> bool:
     except (OSError, subprocess.SubprocessError):
         return False
     return proc.returncode == 0
+
+
+def watch(root: Optional[str] = None, alias: Optional[str] = None,
+          interval: int = 600, branch: Optional[str] = None,
+          force: bool = False, out: Optional[Print] = None,
+          stop: Optional["threading.Event"] = None,
+          max_cycles: Optional[int] = None) -> int:
+    """Guardián de auto-actualización continua (estilo arena.ai).
+
+    Cada ``interval`` segundos hace un ciclo de ``update`` completo (fetch +
+    fast-forward). Nunca toca un árbol con cambios locales (a menos que se
+    pida ``--force``): un ciclo sucio se reporta y se reintenta al siguiente.
+    Usa las credenciales que git YA tiene (gestor de credenciales del sistema);
+    A²S no pide ni guarda contraseñas. ``stop``/``max_cycles`` existen para
+    tests y embebido; en CLI se sale con Ctrl+C.
+    """
+    import time as _time
+    say = out or print
+    titulo = f"[A²S update{' ' + alias if alias else ''} watch]"
+    say(f"{titulo} guardián activo: sincronizo solo cada {interval}s "
+        "(Ctrl+C para parar)")
+    cycles = 0
+    while True:
+        cycles += 1
+        try:
+            update(root=root, alias=None, check_only=False, branch=branch,
+                   force=force, out=say)
+        except Exception as exc:  # noqa: BLE001 — el guardián no muere solo
+            say(f"{titulo} ✗ ciclo {cycles} falló: {exc}")
+        if max_cycles is not None and cycles >= max_cycles:
+            return _EXIT_OK
+        if stop is not None:
+            if stop.wait(interval):
+                return _EXIT_OK
+        else:
+            try:
+                _time.sleep(interval)
+            except KeyboardInterrupt:
+                say(f"{titulo} detenido tras {cycles} ciclo(s)")
+                return _EXIT_OK

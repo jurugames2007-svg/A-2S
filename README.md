@@ -220,6 +220,49 @@ desde cualquier carpeta en PowerShell, añade a tu `$PROFILE`:
 function update { & "C:\Users\Leo\Desktop\A-2S\update.cmd" @args }
 ```
 
+Con `--watch` se queda de guardián sincronizando solo (estilo arena.ai):
+
+```bash
+update tkm --watch          # cada 600 s; --watch 60 para cada minuto
+npm run update:watch
+```
+
+El guardián usa las credenciales que **git ya tiene** en tu sistema (gestor
+de credenciales de Windows / `gh auth`); A²S nunca pide ni guarda contraseñas.
+
+### Cerebro conectado sin configurar (OmniRoute)
+
+Si tienes [OmniRoute](https://github.com/diegosouzapw/OmniRoute) corriendo en
+tu máquina (`npm i -g omniroute && omniroute`), A²S lo detecta **solo** en
+`127.0.0.1:20128` y lo enchufa al pool SORL con el modelo `auto` (enrutado
+inteligente, ~350 proveedores):
+
+```bash
+a2s doctor          # muestra: OmniRoute ✔ conectado en http://127.0.0.1:20128/v1
+```
+
+Cero-config de verdad; solo si el gateway exige clave, copia la de su
+Dashboard → Endpoints y declara `A2S_OMNIROUTE_KEY`. Nunca se sondea nada
+fuera de tu máquina. Con el cerebro conectado, cualquier tarea se pide con
+`a2s run "objetivo verificable"` o por el chat del dashboard.
+
+### Crecimiento autónomo (estudia solo)
+
+Al abrir el dashboard, A²S **se pone a estudiar** repos públicos en segundo
+plano (solo lectura; jamás ejecuta lo estudiado) y destila fichas de
+conocimiento que usan todas las misiones:
+
+```bash
+npm start                      # dashboard + crecimiento cada 30 min
+a2s grow --cycles 3            # estudiar ahora, en primer plano
+a2s grow --forever             # crecer sin parar (Ctrl+C para parar)
+A2S_AUTO_LEARN=0 npm start     # apagarlo
+```
+
+Tu propio temario: escribe una consulta por línea en
+`workspace/.a2s/growth_queue.txt`. Progreso visible en el feed del dashboard
+(eventos 🌱), `GET /api/growth` y `.a2s/growth_log.json`.
+
 ### Ejecución directa con Python
 
 ```bash

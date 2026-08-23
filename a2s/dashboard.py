@@ -238,6 +238,7 @@ class DashboardServer:
             launch_mission=self.missions.start_in_background,
             get_state=self.missions.snapshot)
         self.auto_demo = auto_demo
+        self.growth = None  # AutoLearner: lo arranca cmd_dashboard (si procede)
         self.token_manager = None
         if require_auth:
             from .auth import workspace_token_manager
@@ -415,8 +416,14 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
         if path == "/api/events":
             self._events()
         elif path == "/api/state":
+            growth = self.control_plane.growth
             self._json({**self.control_plane.missions.snapshot(),
-                        "system": self.control_plane._system_snapshot()})
+                        "system": self.control_plane._system_snapshot(),
+                        "growth": growth.snapshot() if growth
+                        else {"active": False}})
+        elif path == "/api/growth":
+            growth = self.control_plane.growth
+            self._json(growth.snapshot() if growth else {"active": False})
         elif path == "/api/system":
             self._json(self.control_plane._system_snapshot())
         elif path == "/api/pool":
