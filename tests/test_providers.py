@@ -14,7 +14,13 @@ class TestHeuristicProvider(unittest.TestCase):
         self.assertTrue(raw["steps"])
         tools = [s["tool"] for s in raw["steps"]]
         self.assertIn("write_file", tools)
-        self.assertIn("shell", tools)
+        # La recopilación del núcleo heurístico es stdlib (python_exec), no
+        # depende de shell POSIX: el plan debe funcionar en cualquier SO.
+        self.assertIn("python_exec", tools)
+        for step in raw["steps"]:
+            if step["tool"] == "python_exec":
+                self.assertNotIn("find ", step["params"]["code"])
+                self.assertNotIn("sha256sum", step["params"]["code"])
 
     def test_plan_variants(self):
         a = self.p.plan("investigar algo en la web", "", "tools", variant=0)

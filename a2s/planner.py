@@ -249,21 +249,44 @@ class Planner:
         return "\n".join(lines)
 
 
+# Recopilación 100% stdlib (os.walk + hashlib): NO depende de herramientas
+# POSIX (find/sha256sum) ni de shell alguno, de modo que la escalera de
+# recuperación funciona igual en Windows sin Git-Bash/MSYS2/WSL.
 _COLLECT_DATA_CODE = '''\
-import subprocess
+import hashlib, os
 from pathlib import Path
-def run(cmd):
-    p = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    return (p.stdout or "") + (p.stderr or "")
-hashes = run("find . -type f -not -path './.git/*' -not -path './.a2s/*' -exec sha256sum {} \\\\;")
-Path("datos_hashes.txt").write_text(hashes)
-git = run("git log --oneline -20 2>/dev/null").strip() or "sin repositorio git"
-Path("datos_git.txt").write_text(git)
-inv = run("find . -type f -not -path './.git/*' -not -path './.a2s/*' | sort")
-Path("datos_inventario.txt").write_text(inv)
-n = len([l for l in hashes.splitlines() if l.strip()])
-print(hashes.strip())
-print(f"hashes recopilados: {n}")
+EXCLUIR = {".git", ".a2s"}
+hashes, inv = [], []
+for root, dirs, files in os.walk("."):
+    dirs[:] = sorted(d for d in dirs if d not in EXCLUIR)
+    for fn in sorted(files):
+        full = os.path.join(root, fn)
+        if not os.path.isfile(full):
+            continue
+        rel = os.path.relpath(full, ".").replace(os.sep, "/")
+        inv.append(rel)
+        try:
+            h = hashlib.sha256()
+            with open(full, "rb") as fh:
+                for chunk in iter(lambda: fh.read(65536), b""):
+                    h.update(chunk)
+            hashes.append(h.hexdigest() + "  " + rel)
+        except OSError:
+            pass
+hashes.sort(key=lambda linea: linea.split("  ", 1)[-1])
+Path("datos_hashes.txt").write_text("\\n".join(hashes) + ("\\n" if hashes else ""), encoding="utf-8")
+Path("datos_inventario.txt").write_text("\\n".join(inv) + ("\\n" if inv else ""), encoding="utf-8")
+git = ""
+try:
+    import subprocess
+    p = subprocess.run(["git", "log", "--oneline", "-20"], capture_output=True,
+                       text=True, timeout=10, stdin=subprocess.DEVNULL)
+    git = (p.stdout or "").strip()
+except Exception:
+    git = ""
+Path("datos_git.txt").write_text(git or "sin repositorio git", encoding="utf-8")
+print("\\n".join(hashes))
+print(f"hashes recopilados: {len(hashes)}")
 '''
 
 _COMPOSE_REPORT_CODE = '''\
@@ -271,7 +294,7 @@ import os, re
 def read(p, default="(sin datos)"):
     if not os.path.exists(p):
         return default
-    with open(p) as fh:
+    with open(p, encoding="utf-8", errors="replace") as fh:
         return fh.read().strip()
 hash_lines = [l for l in read("datos_hashes.txt").splitlines() if l.strip()]
 inv = read("datos_inventario.txt")
@@ -289,6 +312,6 @@ if not base.strip() or any(m in base for m in markers):
     body += sec("Conclusiones", f"Análisis completado por el agente A2S. Evidencias procesadas: {n} archivos con hash SHA-256.")
 else:
     body = base.rstrip() + "\\n\\n## Anexo: datos recopilados\\n\\n" + "\\n".join(hash_lines[:50]) + f"\\n\\nTotal de evidencias con hash: {n}\\n"
-open("__TARGET__", "w").write(body)
+open("__TARGET__", "w", encoding="utf-8").write(body)
 print(f"informe generado con {n} hashes")
 '''

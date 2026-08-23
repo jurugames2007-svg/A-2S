@@ -2,19 +2,20 @@
 
 import contextlib
 import os
-import tempfile
 import unittest
 
 from a2s._platform import windows_has_posix_tools
 from a2s.models import ToolCall
 from a2s.tools import ToolRegistry
+from tests._winutil import temp_dir
 
 _SKIP_WIN_SHELL = (os.name == "nt" and not windows_has_posix_tools())
 
 
 class TestTools(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        # temp_dir(): tolerante en Windows y sin kwargs de py3.10 (CI py3.9).
+        self.tmp = temp_dir()
         self.reg = ToolRegistry(self.tmp.name, allow_network=False)
 
     def tearDown(self):

@@ -55,11 +55,39 @@ versionado semántico mientras la API pública permanece en evolución.
   bash (`@unittest.skipIf`); los `TemporaryDirectory` de las pruebas de
   misión usan `ignore_cleanup_errors=True` (con respaldo para 3.9); el test
   RBAC de misión da 60 s de margen al hilo en Windows.
+- **Núcleo heurístico 100% portable**: la plantilla forense ya no llama a
+  `find`/`stat`/`sha256sum`/`git` por shell — inventario, metadatos, hashes
+  y custodia se calculan con `python_exec` y stdlib pura (`os.walk`,
+  `hashlib`, `os.stat`). Lo mismo para la recopilación del split de la
+  escalera de recuperación (`_COLLECT_DATA_CODE`). Resultado: la misión
+  demo, la recuperación por división y la misión del modo servicio se logran
+  en Windows CON o SIN Git-Bash/MSYS2/WSL (antes: `test_demo_mission`,
+  `test_split_recovery` y `test_operator_lanza_mision` fallaban sin bash).
+- **UTF-8 desde el launcher npm**: todo Python lanzado por npm (tests, CLI,
+  dashboard) hereda `PYTHONUTF8=1` + `PYTHONIOENCODING=utf-8`; defensa en
+  profundidad contra `UnicodeEncodeError` en consolas cp1252, además de
+  `force_utf8()` en el paquete.
+- **stdin cerrada en subprocesos**: la primera etapa del pipeline de la
+  mini-shell, el sandbox y `python_exec` leen de `DEVNULL`; sin esto,
+  comandos como el `find` de Windows podían quedarse bloqueados esperando
+  stdin heredada (los "subprocess is still running" del test de la demo).
+- Los `TemporaryDirectory(ignore_cleanup_errors=True)` directos de
+  `test_tools` y `test_v2resoluciones` rompían en Python 3.9 (kwarg de 3.10+;
+  la CI corre también 3.9): ahora usan `tests/_winutil.temp_dir()`.
+
+### Añadido (regresiones Windows)
+
+- `tests.test_loop.TestRecopilacionSinShell`: la recopilación del split
+  produce hashes SHA-256 reales sin shell disponible.
+- `tests.test_goals.test_demo_mission_sin_shell_posix`: la misión demo
+  completa con `allow_shell=False` (simulación exacta de Windows sin
+  Git-Bash) logra el informe forense verificado.
 
 ### Verificación
 
-- `python -m unittest discover -s tests`: 210 tests OK en Linux; simulación
-  de consola `PYTHONIOENCODING=cp1252` de doctor/guardianes sin errores.
+- `python -m unittest discover -s tests`: 212 tests OK en Linux (incluida la
+  simulación de Windows sin shell POSIX); simulación de consola
+  `PYTHONIOENCODING=cp1252` de doctor/guardianes sin errores.
 
 ## [1.10.0] — 2026-08-22
 

@@ -4,7 +4,6 @@ fachada async pura-stdlib y del auditor ejecutable."""
 import contextlib
 import json
 import os
-import tempfile
 import threading
 import time
 import unittest
@@ -15,6 +14,7 @@ from a2s.asyncapi import AsyncPool, demo_async, open_async_pool
 from a2s.audit import run_audit
 from a2s.provider_pool import PoolEndpoint, ProviderPool
 from a2s.serve import ROLE_PERMS, ServeAPI, UserStore, make_server
+from tests._winutil import temp_dir
 
 
 def _req(url, method="GET", token=None, body=None):
@@ -32,9 +32,15 @@ def _req(url, method="GET", token=None, body=None):
 
 class TestUserStore(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(
-            ignore_cleanup_errors=True)  # Windows: manejadores SQLite/WAL
-        self.addCleanup(self.tmp.cleanup)
+        # temp_dir(): tolerante con manejadores SQLite/WAL en Windows y sin
+        # kwargs exclusivas de py3.10 (la CI también corre en py3.9).
+        self.tmp = temp_dir()
+
+        def _cleanup():
+            with contextlib.suppress(Exception):
+                self.tmp.cleanup()
+
+        self.addCleanup(_cleanup)
         self.store = UserStore(self.tmp.name)
 
     def test_add_y_verificar(self):
@@ -58,8 +64,7 @@ class TestRBACSobreHTTP(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory(
-            ignore_cleanup_errors=True)  # Windows: manejadores SQLite/WAL
+        cls.tmp = temp_dir()  # Windows: manejadores SQLite/WAL (y py3.9-safe)
         ws = cls.tmp.name
         store = UserStore(ws)
         cls.tok_admin = store.add("root", "admin")["token"]

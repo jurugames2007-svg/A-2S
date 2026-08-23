@@ -63,7 +63,7 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 12 | **Extracción de JSON del LLM por regex**: el LLM no tiene salida estructurada garantizada. | Media | 🟡 degradación controlada; pendiente: function-calling/JSON mode |
 | 13 | **Sin retries/backoff en llamadas al LLM**. | Baja | 🔴 pendiente |
 | 14 | **Overshoot del plazo dentro de un paso**: el deadline se comprueba *entre* pasos. | Baja | 🟡 aceptado (tiempos de subproceso acotados) |
-| 15 | **Windows no soportado**: los comandos (`find`, `sha256sum`, `stat`, `git`), `python3` y las pruebas asumen POSIX. | Media | 🔴 pendiente |
+| 15 | **Windows**: el núcleo heurístico ya es portable (recopilación stdlib vía `python_exec`, UTF-8 forzado, tests con skip/simulación), pero la herramienta `shell` sigue requiriendo un shell POSIX (Git-Bash/MSYS2/WSL) y las máquinas FSM de los ejemplos usan comandos POSIX. | Media | 🟡 mitigado en v1.11 (sin bash: la mini-shell da error claro y el agente continúa por `python_exec`; pendiente fallback PowerShell nativo) |
 | 16 | **`supervise` no reanuda el plan**; **`swarm` sin coordinación entre réplicas**; **`--resume` cosmético**. | Baja | 🔴 pendiente (checkpoint de plan, merge de aprendizajes) |
 | 17 | **Lecturas concurrentes del ledger** durante appends pueden leer una línea a medio escribir. | Baja | 🟡 los appends están serializados; `verify` no usa el lock |
 | 18 | **El filtro de texto de `python_exec` es eludible** (base64, ofuscación). | — | Por diseño: ahora el sandbox aporta la contención real; el filtro sigue siendo cosmético |
@@ -196,7 +196,8 @@ expansivo" es renunciable: el tope real siempre es `--max-time`.
 **P1 — robustez**
 - Retries con backoff en el LLM; JSON mode / function-calling si el endpoint lo soporta.
 - Checkpoint real del plan (reanudar pasos pendientes, no replanificar).
-- Compatibilidad Windows (fallback PowerShell / comandos portables).
+- Compatibilidad Windows: fallback PowerShell nativo para la mini-shell (lo
+  portable — recopilación stdlib y UTF-8 — ya está en v1.11).
 - Compartir aprendizajes entre réplicas del `swarm` (merge de strategies).
 - CI (GitHub Actions) ejecutando los tests en cada push.
 - Sandbox para `shell` además de `python_exec`; nivel nsjail con chroot preconfigurado.
@@ -222,7 +223,9 @@ evolucionado ($VAR, globs, $()).
 **NO probado:**
 - Con un LLM real (no hay tests de integración con API).
 - Con red real (búsqueda/fetch nunca se ejercitan en CI).
-- En Windows, macOS, ni con Python 3.9/3.12 distintos del 3.11 actual.
+- En Windows físico la suite completa (se simula con `allow_shell=False` y el
+  e2e npm corre en `windows-latest`); macOS; Python 3.9/3.12 distintos del
+  3.11 actual (la matriz CI cubre 3.9/3.11/3.13 en Linux).
 - Bajo carga larga (soak test), fuzzing del mini-shell, ni ataques al modelo
   de permisos (los test solo cubren el caso obvio).
 - La UI del dashboard (sin tests de interfaz).

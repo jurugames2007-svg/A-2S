@@ -148,6 +148,34 @@ class TestRecoveryLadder(unittest.TestCase):
         self.assertGreaterEqual(n, 2)
 
 
+class TestRecopilacionSinShell(unittest.TestCase):
+    """La recopilación de datos del split (escalera de recuperación) no puede
+    depender de herramientas POSIX (find/sha256sum): en Windows sin Git-Bash
+    la misión debe poder recopilar hashes reales igualmente (regresión v1.11)."""
+
+    def setUp(self):
+        self.tmp = temp_dir()
+        self.ws = self.tmp.name
+        os.makedirs(os.path.join(self.ws, "evidence"), exist_ok=True)
+        with open(os.path.join(self.ws, "evidence", "e1.txt"), "w") as fh:
+            fh.write("evidencia uno\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_collect_datos_sin_shell_posix(self):
+        from a2s.planner import _COLLECT_DATA_CODE
+        from a2s.tools import ToolRegistry
+        # allow_shell=False simula un Windows sin shell POSIX disponible.
+        reg = ToolRegistry(self.ws, allow_network=False, allow_shell=False)
+        obs = reg.invoke(ToolCall("python_exec", {"code": _COLLECT_DATA_CODE}))
+        self.assertTrue(obs.ok, obs.error)
+        self.assertRegex(obs.output, _SHA_RE)
+        with open(os.path.join(self.ws, "datos_hashes.txt"),
+                  encoding="utf-8") as fh:
+            self.assertRegex(fh.read(), _SHA_RE)
+
+
 class TestFractalSubagents(unittest.TestCase):
     def setUp(self):
         self.tmp = temp_dir()
