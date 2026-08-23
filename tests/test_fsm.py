@@ -10,9 +10,15 @@ import time
 import unittest
 import urllib.request
 
+from a2s._platform import windows_has_posix_tools
 from a2s.fsm import (FSMEngine, Watcher, escalation_goal, jitter,
                      registry_action_fn)
 from a2s.tools import ToolRegistry
+from tests._winutil import temp_dir
+
+# En Windows las pruebas que lanzan comandos POSIX (ls/grep/sha256sum) solo
+# tienen sentido si hay un shell POSIX (Git-Bash/MSYS2/WSL).
+_SKIP_WIN_SHELL = (os.name == "nt" and not windows_has_posix_tools())
 
 
 def _machine():
@@ -132,7 +138,7 @@ class TestEjecucionDeterminista(unittest.TestCase):
 
 class TestAccionesConRegistroReal(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.addCleanup(self.tmp.cleanup)
         self.ws = self.tmp.name
         os.makedirs(os.path.join(self.ws, "inbox"), exist_ok=True)
@@ -143,6 +149,8 @@ class TestAccionesConRegistroReal(unittest.TestCase):
         out = act("s", {"tool": "inexistente", "params": {}})
         self.assertIn("ERROR: herramienta desconocida", out)
 
+    @unittest.skipIf(_SKIP_WIN_SHELL,
+                     "shell POSIX (bash) no disponible en Windows")
     def test_shell_real_dentro_del_workspace(self):
         with open(os.path.join(self.ws, "inbox", "a.txt"), "w") as fh:
             fh.write("hash " + "a" * 64 + "\n")
@@ -153,6 +161,8 @@ class TestAccionesConRegistroReal(unittest.TestCase):
                          "params": {"command": "grep -oE '[0-9a-f]{64}' inbox/a.txt"}})
         self.assertEqual(out2.strip(), "a" * 64)
 
+    @unittest.skipIf(_SKIP_WIN_SHELL,
+                     "shell POSIX (bash) no disponible en Windows")
     def test_maquina_real_de_punta_a_punta(self):
         with open(os.path.join(self.ws, "inbox", "evid.txt"), "w") as fh:
             fh.write("informe con verificador interno\n")
@@ -173,7 +183,7 @@ class TestAccionesConRegistroReal(unittest.TestCase):
 
 class TestWatcher(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.addCleanup(self.tmp.cleanup)
         self.ws = self.tmp.name
 

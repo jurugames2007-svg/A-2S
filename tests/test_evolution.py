@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 
+from a2s._platform import windows_has_posix_tools
 from a2s.config import Config
 from a2s.consensus import ConsensusChecker
 from a2s.loop import AgentLoop
@@ -12,6 +13,10 @@ from a2s.memory import MemoryHub
 from a2s.models import Step, ToolCall
 from a2s.neural import GovernanceNet
 from a2s.tools import ToolRegistry
+
+# En Windows los comandos de la lista blanca (echo, cat, grep, find,
+# sha256sum...) solo existen si hay un shell POSIX (Git-Bash/MSYS2/WSL).
+_SKIP_WIN_SHELL = (os.name == "nt" and not windows_has_posix_tools())
 
 
 class TestGovernanceNet(unittest.TestCase):
@@ -42,7 +47,8 @@ class TestGovernanceNet(unittest.TestCase):
 
 class TestConsensus(unittest.TestCase):
     def _loop(self, ws, verifier=None):
-        cfg = Config(workspace=ws, quiet=True, max_wall_seconds=30)
+        cfg = Config(workspace=ws, quiet=True, max_wall_seconds=30,
+                     provider="heuristic")
         return AgentLoop.create("objetivo", config=cfg, goal_verifier=verifier)
 
     def test_verifier_veto(self):
@@ -79,6 +85,8 @@ class TestMemoryPersistence(unittest.TestCase):
         self.assertEqual(m2.strategies["directa"].fails, 1)
 
 
+@unittest.skipIf(_SKIP_WIN_SHELL,
+                 "shell POSIX (bash) no disponible en Windows; instala Git-Bash/MSYS2/WSL")
 class TestShellEvolution(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

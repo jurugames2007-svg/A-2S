@@ -924,13 +924,25 @@ class ProviderPool(BaseProvider):
     # -- ejecución distribuida: fanout (map) y DAG -----------------------------
 
     def chat(self, prompt: str, kind: str = "general", max_tokens: int = 1000,
-             system: str = SYSTEM_PROMPT) -> Optional[str]:
-        """Petición chat directa contra el pool (para herramientas externas)."""
+             system: str = SYSTEM_PROMPT,
+             allow_fallback: bool = True) -> Optional[str]:
+        """Petición chat directa contra el pool.
+
+        Por defecto (``allow_fallback=True``), si el pool no tiene endpoints
+        activos o todos fallan, degrada al núcleo heurístico para que el chat
+        nunca quede mudo. El orquestador de DAG pasa ``allow_fallback=False``
+        para conservar la semántica de fallo (los dependientes se omiten).
+        """
         content, _ = self._chat(
             [{"role": "system", "content": system},
              {"role": "user", "content": prompt}],
             kind=kind, max_tokens=max_tokens)
-        return content
+        if content is not None:
+            return content
+        if not allow_fallback:
+            return None
+        from .chat import HeuristicAssistant
+        return HeuristicAssistant().reply([{"role": "user", "content": prompt}])
 
     def fanout(self, prompts: list[str], kind: str = "general",
                max_tokens: int = 1000, max_parallel: Optional[int] = None,
@@ -971,7 +983,8 @@ class ProviderPool(BaseProvider):
                 continue
             with ThreadPoolExecutor(max_workers=min(max_par, len(runnable))) as pool:
                 futs = {pool.submit(self.chat, t["prompt"], t.get("kind", "general"),
-                                    t.get("max_tokens", 1000)): t["id"] for t in runnable}
+                                    t.get("max_tokens", 1000),
+                                    SYSTEM_PROMPT, False): t["id"] for t in runnable}
                 for fut in as_completed(futs):
                     tid = futs[fut]
                     try:

@@ -1,7 +1,21 @@
 "use strict";
 
 const $ = (selector) => document.querySelector(selector);
-const state = { running: false, eventCount: 0, iterations: 0, source: null };
+const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+const state = {
+  running: false,
+  eventCount: 0,
+  iterations: 0,
+  source: null,
+  chatBusy: false,
+  activeView: "overview",
+  selectedArtifact: null,
+};
+
+/* ------------------------------------------------------------------ */
+/* Utilidades                                                          */
+/* ------------------------------------------------------------------ */
 
 function widthClass(percent) {
   const bounded = Math.max(0, Math.min(100, Number(percent) || 0));
@@ -10,6 +24,13 @@ function widthClass(percent) {
 
 function text(node, value) {
   if (node) node.textContent = value == null ? "—" : String(value);
+}
+
+function el(tag, className, parent) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (parent) parent.appendChild(node);
+  return node;
 }
 
 function toast(message, error = false) {
@@ -21,11 +42,18 @@ function toast(message, error = false) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
+  const response = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+  });
   if (response.status === 401) {
     const token = window.prompt("Control Plane protegido. Introduce el token emitido por a2s token:");
     if (!token) throw new Error("Autenticación requerida");
-    const login = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+    const login = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
     if (!login.ok) throw new Error("Token inválido o expirado");
     return api(path, options);
   }
@@ -35,26 +63,78 @@ async function api(path, options = {}) {
   return data;
 }
 
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function fmtSize(bytes) {
+  if (!bytes && bytes !== 0) return "—";
+  const u = ["B", "KB", "MB", "GB"];
+  let i = 0; let n = Number(bytes) || 0;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
+}
+
+function fmtTime(iso) {
+  return (iso || "").slice(11, 19) || "";
+}
+
+function fmtMtime(ts) {
+  if (!ts) return "";
+  const d = new Date(ts * 1000);
+  return d.toLocaleString();
+}
+
+/* ------------------------------------------------------------------ */
+/* Conexión / estado                                                   */
+/* ------------------------------------------------------------------ */
+
 function setConnection(ok, label = "ONLINE") {
   const pill = $("#system-pill");
-  const dot = $("#side-dot");
   pill.classList.toggle("ok", ok);
   pill.classList.toggle("bad", !ok);
-  dot.classList.toggle("ok", ok);
-  dot.classList.toggle("bad", !ok);
   text(pill.querySelector("span"), label);
-  text($("#side-state"), ok ? "Sistema operativo" : "Sin conexión");
+}
+
+function setChatState(label, cls = "") {
+  const dot = $("#chat-dot");
+  const st = $("#chat-state");
+  dot.className = "";
+  if (cls) $("#chat-status")?.classList;
+  const wrap = dot.parentElement;
+  wrap.classList.remove("busy", "off");
+  if (cls) wrap.classList.add(cls);
+  if (st) text(st, label);
 }
 
 function updateMissionControls(running) {
   state.running = running;
-  $("#start").disabled = running;
-  $("#demo").disabled = running;
-  $("#stop").disabled = !running;
+  if ($("#start")) $("#start").disabled = running;
+  if ($("#demo")) $("#demo").disabled = running;
+  if ($("#stop")) $("#stop").disabled = !running;
   text($("#metric-state"), running ? "RUNNING" : "IDLE");
   text($("#metric-state-note"), running ? "Agente ejecutando la directiva" : "Listo para recibir objetivo");
   $("#metric-state").closest(".metric").classList.toggle("primary", running);
 }
+
+/* ------------------------------------------------------------------ */
+/* Navegación por pestañas (pills)                                     */
+/* ------------------------------------------------------------------ */
+
+function switchView(name) {
+  state.activeView = name;
+  $$(".pill").forEach((p) => p.classList.toggle("active", p.dataset.view === name));
+  $$(".view-panel").forEach((v) => v.classList.toggle("active", v.id === name));
+  if (name === "results") loadArtifacts().catch((e) => toast(e.message, true));
+  if (name === "routing") loadPool().catch((e) => toast(e.message, true));
+  if (name === "ecosystem") loadKnowledge().catch((e) => toast(e.message, true));
+}
+
+/* ------------------------------------------------------------------ */
+/* Eventos SSE                                                         */
+/* ------------------------------------------------------------------ */
 
 const EVENT_META = {
   run_start: ["▶", "Misión iniciada", "step_start"],
@@ -70,6 +150,7 @@ const EVENT_META = {
   run_end: ["■", "Misión finalizada", "run_end"],
   operator_stop: ["!", "Parada solicitada", "failed"],
   ecosystem_scan: ["+", "Radar actualizado", "success"],
+  step_done: ["✓", "Paso completado", "success"],
 };
 
 function eventDetail(event) {
@@ -81,6 +162,7 @@ function eventDetail(event) {
   if (event.event === "failure_handled") return event.countermeasure || "";
   if (event.event === "run_end" || event.event === "operator_stop") return event.note || "";
   if (event.event === "ecosystem_scan") return `${event.added || 0} nuevos · ${event.total || 0} totales`;
+  if (event.event === "step_done") return event.reason || event.status || "";
   return event.note || event.status || event.goal || event.event || "evento";
 }
 
@@ -89,28 +171,22 @@ function addEvent(event, scroll = true) {
   const feed = $("#event-feed");
   if (feed.querySelector(".empty")) feed.replaceChildren();
   const [icon, title, cls] = EVENT_META[event.event] || ["·", event.event, ""];
-  const verdictClass = event.verdict === "success" || event.success ? " success" :
-    (event.verdict === "failed" || event.verdict === "blocked" || event.success === false ? " failed" : "");
-  const item = document.createElement("li");
-  item.className = `event ${cls}${verdictClass}`;
-  const iconNode = document.createElement("span");
-  iconNode.className = "event-icon";
-  iconNode.textContent = icon;
-  const content = document.createElement("div");
-  const heading = document.createElement("b");
-  heading.textContent = title;
-  const detail = document.createElement("small");
-  detail.textContent = eventDetail(event).slice(0, 520);
+  const verdictClass = event.verdict === "success" || event.success ? " success"
+    : (event.verdict === "failed" || event.verdict === "blocked" || event.success === false ? " failed" : "");
+  const item = el("li", `event ${cls}${verdictClass}`);
+  const iconNode = el("span", "event-icon"); iconNode.textContent = icon;
+  const content = el("div");
+  const heading = el("b"); heading.textContent = title;
+  const detail = el("small"); detail.textContent = eventDetail(event).slice(0, 520);
   content.append(heading, detail);
-  const stamp = document.createElement("time");
-  stamp.textContent = (event.at || "").slice(11, 19) || "LIVE";
+  const stamp = el("time"); stamp.textContent = fmtTime(event.at) || "LIVE";
   item.append(iconNode, content, stamp);
   feed.appendChild(item);
   while (feed.children.length > 220) feed.firstElementChild.remove();
   if (scroll) feed.scrollTop = feed.scrollHeight;
   state.eventCount += 1;
 
-  if (event.event === "run_start") updateMissionControls(true);
+  if (event.event === "run_start") { updateMissionControls(true); setChatState("Trabajando…", "busy"); }
   if (event.event === "evaluation") {
     state.iterations += 1;
     text($("#metric-iterations"), state.iterations);
@@ -120,7 +196,23 @@ function addEvent(event, scroll = true) {
     text($("#metric-state"), event.success ? "VERIFIED" : "PARTIAL");
     text($("#metric-state-note"), event.success ? "Objetivo verificado" : "Estado persistido y reanudable");
     toast(event.success ? "Misión verificada correctamente" : "Misión cerrada sin verificación completa", !event.success);
+    setChatState("Listo", "");
+    // Refrescar resultados automáticamente cuando termine una misión.
+    loadArtifacts().catch(() => {});
+    if (event.success) {
+      appendAssistantBubble("✔ Misión verificada. Revisa la pestaña **Resultados** para ver los archivos que produje.");
+    }
   }
+
+  // Eventos de chat
+  if (event.event === "chat_typing") { showTyping(); setChatState("Escribiendo…", "busy"); }
+  if (event.event === "chat_message") {
+    removeTyping();
+    appendBubble(event.role || "assistant", event.content || "", { error: event.error, mission: event.mission_id });
+    setChatState("Listo", "");
+  }
+  if (event.event === "chat_idle") { removeTyping(); state.chatBusy = false; setChatState("Listo", ""); }
+  if (event.event === "chat_cleared") { renderChatHistory([]); }
 }
 
 function connectEvents() {
@@ -129,7 +221,7 @@ function connectEvents() {
   state.source = source;
   source.onopen = () => setConnection(true);
   source.onmessage = (message) => {
-    try { addEvent(JSON.parse(message.data)); } catch (_) { /* evento malformado ignorado */ }
+    try { addEvent(JSON.parse(message.data)); } catch (_) { /* evento malformado */ }
   };
   source.onerror = () => {
     setConnection(false, "RECONNECTING");
@@ -157,151 +249,113 @@ async function loadState() {
   }
 }
 
-function quotaClass(value) {
-  if (value === "exhausted") return "bad";
-  if (value === "approaching_limit") return "warn";
-  return "";
+/* ------------------------------------------------------------------ */
+/* Chat                                                                */
+/* ------------------------------------------------------------------ */
+
+function renderChat(history) {
+  const thread = $("#chat-thread");
+  thread.replaceChildren();
+  // Mensaje de bienvenida siempre.
+  appendAssistantBubble("Hola. Soy tu asistente A²S. Conversa conmigo mientras trabajo; lo que produzca aparecerá en **Resultados**.");
+  (history || []).forEach((m) => appendBubble(m.role, m.content, { error: m.error, mission: m.mission_id, at: m.at }));
+  scrollChat();
 }
 
-function renderPool(data) {
-  const status = data.status || {};
-  const preview = data.preview || {};
-  text($("#metric-endpoints"), status.totals?.endpoints_active || 0);
-  text($("#metric-pool-note"), `${status.totals?.total_calls || 0} llamadas registradas`);
-  text($("#routing-strategy"), status.strategy || "—");
-  const list = $("#provider-list");
-  list.replaceChildren();
-  (status.endpoints || []).forEach((endpoint) => {
-    const row = document.createElement("div");
-    row.className = "provider";
-    const name = document.createElement("div");
-    name.className = "provider-name";
-    const dot = document.createElement("i");
-    if (!endpoint.active || endpoint.circuit_open) dot.className = "down";
-    const nameText = document.createElement("b");
-    nameText.textContent = endpoint.name;
-    name.append(dot, nameText);
-    const model = document.createElement("div");
-    model.className = "provider-model";
-    model.textContent = endpoint.model || (endpoint.role === "fallback_only" ? "núcleo determinista" : "sin modelo");
-    const tier = document.createElement("small");
-    tier.textContent = endpoint.role === "fallback_only" ? "FALLBACK" : String(endpoint.cost_tier || "—").toUpperCase();
-    const quota = document.createElement("div");
-    const usage = endpoint.rpm_effective > 0 ? Math.min(100, (endpoint.window_used / endpoint.rpm_effective) * 100) : 0;
-    const quotaText = document.createElement("small");
-    quotaText.textContent = endpoint.rpm_effective > 0 ? `${endpoint.window_used}/${endpoint.rpm_effective} RPM` : "CUOTA UNKNOWN";
-    const quotaTrack = document.createElement("div"); quotaTrack.className = "quota";
-    const quotaFill = document.createElement("i"); quotaFill.className = widthClass(usage); quotaTrack.appendChild(quotaFill);
-    quota.append(quotaText, quotaTrack);
-    row.append(name, model, tier, quota);
-    list.appendChild(row);
-  });
-  if (!(status.endpoints || []).length) list.innerHTML = '<p class="empty-copy">No hay endpoints configurados; queda el núcleo heurístico.</p>';
-  renderPreview(preview);
+function renderChatHistory(history) { renderChat(history); }
+
+function appendBubble(role, content, opts = {}) {
+  const thread = $("#chat-thread");
+  // Quitar saludo inicial si ya hay mensajes reales.
+  const welcome = thread.querySelector(".chat-msg.assistant:first-child .quick-row");
+  if (welcome && thread.children.length === 1) { /* dejar welcome */ }
+  const wrap = el("div", `chat-msg ${role === "user" ? "user" : "assistant"}`);
+  const bubble = el("div", `bubble${opts.error ? " error" : ""}`);
+  bubble.innerHTML = renderRich(content);
+  wrap.appendChild(bubble);
+  if (opts.at) {
+    const t = el("time"); t.textContent = fmtTime(opts.at); t.style.cssText = "display:block;margin-top:4px;opacity:.55;font-size:9px;";
+    bubble.appendChild(t);
+  }
+  thread.appendChild(wrap);
+  scrollChat();
 }
 
-function renderPreview(preview) {
-  const rows = preview.candidates || [];
-  const selected = rows.find((row) => row.selected);
-  text($("#selected-provider"), preview.selected || "Sin ruta");
-  text($("#selected-model"), selected?.model || (selected?.role === "fallback_only" ? "núcleo heurístico local" : "—"));
-  text($("#preview-stamp"), `${preview.kind || "general"} · ${preview.at || "—"} · upstream: NO`);
-  const bars = $("#factor-bars");
-  bars.replaceChildren();
-  Object.entries(selected?.factors || {}).forEach(([key, value]) => {
-    const row = document.createElement("div");
-    row.className = `factor${key === "quota_risk" ? " negative" : ""}`;
-    const label = document.createElement("label"); label.textContent = key.replace("_", " ");
-    const track = document.createElement("div"); track.className = "factor-track";
-    const fill = document.createElement("i"); fill.className = widthClass(Number(value) * 100); track.appendChild(fill);
-    const output = document.createElement("output"); output.textContent = Number(value).toFixed(2);
-    row.append(label, track, output); bars.appendChild(row);
-  });
-  const body = $("#route-table");
-  body.replaceChildren();
-  rows.forEach((row) => {
-    const tr = document.createElement("tr");
-    if (row.selected) tr.className = "selected";
-    const reason = (row.reasons || []).join(", ") || (row.selected ? "mejor utilidad" : "elegible");
-    [row.name, row.model || "—"].forEach((value) => { const td = document.createElement("td"); td.textContent = value; tr.appendChild(td); });
-    const eligible = document.createElement("td");
-    const eChip = document.createElement("span"); eChip.className = `status-chip${row.eligible ? "" : " bad"}`; eChip.textContent = row.eligible ? "ELIGIBLE" : "BLOCKED"; eligible.appendChild(eChip);
-    const quota = document.createElement("td");
-    const qChip = document.createElement("span"); qChip.className = `status-chip ${quotaClass(row.quota_state)}`; qChip.textContent = row.quota_state; quota.appendChild(qChip);
-    const score = document.createElement("td"); score.textContent = Number(row.utility || 0).toFixed(3);
-    const why = document.createElement("td"); why.textContent = reason;
-    tr.append(eligible, quota, score, why); body.appendChild(tr);
-  });
+function appendAssistantBubble(content) { appendBubble("assistant", content); }
+
+function renderRich(text) {
+  // Markdown mínimo: **bold**, `code`, bloques ```, enlaces y saltos.
+  let s = escapeHtml(text);
+  s = s.replace(/```([\s\S]*?)```/g, (_, code) => `<pre>${code}</pre>`);
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  s = s.replace(/(https?:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--cyan);text-decoration:underline">$1</a>');
+  s = s.replace(/\n/g, "<br>");
+  return s;
 }
 
-async function loadPool() {
-  const kind = $("#route-kind").value;
-  const data = await api(`/api/pool?kind=${encodeURIComponent(kind)}`);
-  renderPool(data);
+function showTyping() {
+  removeTyping();
+  const thread = $("#chat-thread");
+  const wrap = el("div", "chat-msg assistant");
+  const bubble = el("div", "bubble");
+  const t = el("span", "typing");
+  t.innerHTML = "<i></i><i></i><i></i>";
+  bubble.appendChild(t);
+  wrap.appendChild(bubble);
+  wrap.id = "chat-typing";
+  thread.appendChild(wrap);
+  scrollChat();
 }
 
-function renderKnowledge(data) {
-  const ecosystem = data.ecosystem || {};
-  text($("#metric-knowledge"), data.cards_total || 0);
-  text($("#metric-knowledge-note"), `${ecosystem.total || 0} proyectos en radar`);
-  text($("#project-count"), ecosystem.total || 0);
-  text($("#card-count"), data.cards_total || 0);
-  const projects = $("#project-list");
-  projects.replaceChildren();
-  (ecosystem.projects || []).forEach((project) => {
-    const row = document.createElement("article"); row.className = "project";
-    const fit = document.createElement("div"); fit.className = "fit-score"; fit.textContent = project.fit_score;
-    const main = document.createElement("div");
-    const title = document.createElement("h3"); const link = document.createElement("a");
-    link.href = project.url; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = project.repo; title.appendChild(link);
-    const desc = document.createElement("p"); desc.textContent = project.description || "Sin descripción pública.";
-    const lessons = document.createElement("div"); lessons.className = "lesson-list";
-    (project.lessons || []).forEach((lesson) => { const span = document.createElement("span"); span.textContent = lesson; lessons.appendChild(span); });
-    main.append(title, desc, lessons);
-    const meta = document.createElement("div"); meta.className = "project-meta";
-    const license = document.createElement("b"); license.textContent = project.license;
-    meta.append(license, document.createElement("br"), document.createTextNode(`★ ${project.stars || 0}`), document.createElement("br"), document.createTextNode(project.language || "—"));
-    row.append(fit, main, meta); projects.appendChild(row);
-  });
-  const cards = $("#card-list");
-  cards.replaceChildren();
-  (data.cards || []).slice().reverse().forEach((card) => {
-    const row = document.createElement("article"); row.className = "knowledge-card";
-    const title = document.createElement("h3"); title.textContent = card.repo;
-    const summary = document.createElement("p"); summary.textContent = card.summary;
-    const meta = document.createElement("small"); meta.textContent = `${card.license} · usos ${card.used} · éxitos ${card.wins}`;
-    row.append(title, summary, meta); cards.appendChild(row);
-  });
-  if (!(data.cards || []).length) cards.innerHTML = '<p class="empty-copy">Aún no hay fichas. Usa <code>a2s learn</code> para estudiar READMEs con trazabilidad.</p>';
+function removeTyping() {
+  const node = $("#chat-typing");
+  if (node) node.remove();
 }
 
-async function loadKnowledge() { renderKnowledge(await api("/api/knowledge")); }
-
-function renderAudit(report) {
-  const score = Number(report.nota_medible || 0);
-  text($("#audit-score"), score.toFixed(2));
-  $("#score-ring").className = `score-ring ${widthClass(score * 20).replace("w-", "score-")}`;
-  text($("#audit-title"), report.todos_ok ? "Todos los gates pasan" : "Hay gates por corregir");
-  text($("#audit-note"), `${(report.checks || []).length} controles reproducibles · escala honesta 0–5`);
-  const list = $("#audit-checks"); list.replaceChildren();
-  (report.checks || []).forEach((check) => {
-    const row = document.createElement("div"); row.className = `check${check.ok ? "" : " bad"}`;
-    const icon = document.createElement("i"); icon.textContent = check.ok ? "✓" : "!";
-    const name = document.createElement("b"); name.textContent = check.nombre;
-    const detail = document.createElement("small"); detail.textContent = check.detalle;
-    const value = document.createElement("output"); value.textContent = `${Number(check.nota).toFixed(1)}/5`;
-    row.append(icon, name, detail, value); list.appendChild(row);
-  });
+function scrollChat() {
+  const t = $("#chat-thread");
+  if (t) t.scrollTop = t.scrollHeight;
 }
 
-async function refreshAll() {
-  $("#refresh-all").disabled = true;
+async function sendChat(message) {
+  message = (message || "").trim();
+  if (!message || state.chatBusy) return;
+  state.chatBusy = true;
+  appendBubble("user", message);
+  $("#chat-input").value = "";
+  autoGrowChat();
+  showTyping();
+  setChatState("Pensando…", "busy");
   try {
-    await Promise.all([loadState(), loadPool(), loadKnowledge()]);
-  } catch (error) {
-    setConnection(false, "DEGRADED"); toast(error.message, true);
-  } finally { $("#refresh-all").disabled = false; }
+    await api("/api/chat", { method: "POST", body: JSON.stringify({ message }) });
+  } catch (e) {
+    removeTyping();
+    appendBubble("assistant", `No pude enviar el mensaje: ${e.message}`, { error: true });
+    setChatState("Listo", "");
+    state.chatBusy = false;
+  }
 }
+
+async function loadChat() {
+  try {
+    const data = await api("/api/chat");
+    renderChat(data.history || []);
+  } catch (e) {
+    // el chat puede no estar disponible; no es crítico
+  }
+}
+
+function autoGrowChat() {
+  const ta = $("#chat-input");
+  if (!ta) return;
+  ta.style.height = "auto";
+  ta.style.height = Math.min(160, ta.scrollHeight) + "px";
+}
+
+/* ------------------------------------------------------------------ */
+/* Misión                                                              */
+/* ------------------------------------------------------------------ */
 
 function missionPayload(demo = false) {
   return {
@@ -323,7 +377,303 @@ async function launch(demo = false) {
   } catch (error) { status.className = "form-status error"; text(status, error.message); toast(error.message, true); }
 }
 
+/* ------------------------------------------------------------------ */
+/* Pool / routing                                                      */
+/* ------------------------------------------------------------------ */
+
+function quotaClass(value) {
+  if (value === "exhausted") return "bad";
+  if (value === "approaching_limit") return "warn";
+  return "";
+}
+
+function renderPool(data) {
+  const status = data.status || {};
+  const preview = data.preview || {};
+  text($("#metric-endpoints"), status.totals?.endpoints_active || 0);
+  text($("#metric-pool-note"), `${status.totals?.total_calls || 0} llamadas registradas`);
+  text($("#routing-strategy"), status.strategy || "—");
+  const list = $("#provider-list");
+  list.replaceChildren();
+  (status.endpoints || []).forEach((endpoint) => {
+    const row = el("div", "provider");
+    const name = el("div", "provider-name");
+    const dot = el("i"); if (!endpoint.active || endpoint.circuit_open) dot.className = "down";
+    const nameText = el("b"); nameText.textContent = endpoint.name;
+    name.append(dot, nameText);
+    const model = el("div", "provider-model");
+    model.textContent = endpoint.model || (endpoint.role === "fallback_only" ? "núcleo determinista" : "sin modelo");
+    const tier = el("small");
+    tier.textContent = endpoint.role === "fallback_only" ? "FALLBACK" : String(endpoint.cost_tier || "—").toUpperCase();
+    const quota = el("div");
+    const usage = endpoint.rpm_effective > 0 ? Math.min(100, (endpoint.window_used / endpoint.rpm_effective) * 100) : 0;
+    const quotaText = el("small");
+    quotaText.textContent = endpoint.rpm_effective > 0 ? `${endpoint.window_used}/${endpoint.rpm_effective} RPM` : "CUOTA UNKNOWN";
+    const quotaTrack = el("div", "quota"); const quotaFill = el("i"); quotaFill.className = widthClass(usage); quotaTrack.appendChild(quotaFill);
+    quota.append(quotaText, quotaTrack);
+    row.append(name, model, tier, quota);
+    list.appendChild(row);
+  });
+  if (!(status.endpoints || []).length) list.innerHTML = '<p class="empty-copy">No hay endpoints configurados; queda el núcleo heurístico.</p>';
+  renderPreview(preview);
+}
+
+function renderPreview(preview) {
+  const rows = preview.candidates || [];
+  const selected = rows.find((row) => row.selected);
+  text($("#selected-provider"), preview.selected || "Sin ruta");
+  text($("#selected-model"), selected?.model || (selected?.role === "fallback_only" ? "núcleo heurístico local" : "—"));
+  text($("#preview-stamp"), `${preview.kind || "general"} · ${preview.at || "—"} · upstream: NO`);
+  const bars = $("#factor-bars"); bars.replaceChildren();
+  Object.entries(selected?.factors || {}).forEach(([key, value]) => {
+    const row = el("div", `factor${key === "quota_risk" ? " negative" : ""}`);
+    const label = el("label"); label.textContent = key.replace("_", " ");
+    const track = el("div", "factor-track");
+    const fill = el("i"); fill.className = widthClass(Number(value) * 100); track.appendChild(fill);
+    const output = el("output"); output.textContent = Number(value).toFixed(2);
+    row.append(label, track, output); bars.appendChild(row);
+  });
+  const body = $("#route-table"); body.replaceChildren();
+  rows.forEach((row) => {
+    const tr = el("tr"); if (row.selected) tr.className = "selected";
+    const reason = (row.reasons || []).join(", ") || (row.selected ? "mejor utilidad" : "elegible");
+    [row.name, row.model || "—"].forEach((value) => { const td = el("td"); td.textContent = value; tr.appendChild(td); });
+    const eligible = el("td");
+    const eChip = el("span", `status-chip${row.eligible ? "" : " bad"}`); eChip.textContent = row.eligible ? "ELIGIBLE" : "BLOCKED"; eligible.appendChild(eChip);
+    const quota = el("td");
+    const qChip = el("span", `status-chip ${quotaClass(row.quota_state)}`); qChip.textContent = row.quota_state; quota.appendChild(qChip);
+    const score = el("td"); score.textContent = Number(row.utility || 0).toFixed(3);
+    const why = el("td"); why.textContent = reason;
+    tr.append(eligible, quota, score, why); body.appendChild(tr);
+  });
+}
+
+async function loadPool() {
+  const kind = $("#route-kind").value;
+  renderPool(await api(`/api/pool?kind=${encodeURIComponent(kind)}`));
+}
+
+/* ------------------------------------------------------------------ */
+/* Conocimiento / radar                                                */
+/* ------------------------------------------------------------------ */
+
+function renderKnowledge(data) {
+  const ecosystem = data.ecosystem || {};
+  text($("#card-count"), data.cards_total || 0);
+  text($("#project-count"), ecosystem.total || 0);
+  const projects = $("#project-list"); projects.replaceChildren();
+  (ecosystem.projects || []).forEach((project) => {
+    const row = el("article", "project");
+    const fit = el("div", "fit-score"); fit.textContent = project.fit_score;
+    const main = el("div");
+    const title = el("h3"); const link = el("a");
+    link.href = project.url; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = project.repo; title.appendChild(link);
+    const desc = el("p"); desc.textContent = project.description || "Sin descripción pública.";
+    const lessons = el("div", "lesson-list");
+    (project.lessons || []).forEach((lesson) => { const span = el("span"); span.textContent = lesson; lessons.appendChild(span); });
+    main.append(title, desc, lessons);
+    const meta = el("div", "project-meta");
+    const license = el("b"); license.textContent = project.license;
+    meta.append(license, el("br"), document.createTextNode(`★ ${project.stars || 0}`), el("br"), document.createTextNode(project.language || "—"));
+    row.append(fit, main, meta); projects.appendChild(row);
+  });
+  const cards = $("#card-list"); cards.replaceChildren();
+  (data.cards || []).slice().reverse().forEach((card) => {
+    const row = el("article", "knowledge-card");
+    const title = el("h3"); title.textContent = card.repo;
+    const summary = el("p"); summary.textContent = card.summary;
+    const meta = el("small"); meta.textContent = `${card.license} · usos ${card.used} · éxitos ${card.wins}`;
+    row.append(title, summary, meta); cards.appendChild(row);
+  });
+  if (!(data.cards || []).length) cards.innerHTML = '<p class="empty-copy">Aún no hay fichas.</p>';
+}
+
+async function loadKnowledge() { renderKnowledge(await api("/api/knowledge")); }
+
+/* ------------------------------------------------------------------ */
+/* Assurance                                                           */
+/* ------------------------------------------------------------------ */
+
+function renderAudit(report) {
+  const score = Number(report.nota_medible || 0);
+  text($("#audit-score"), score.toFixed(2));
+  $("#score-ring").className = `score-ring ${widthClass(score * 20).replace("w-", "score-")}`;
+  text($("#audit-title"), report.todos_ok ? "Todos los gates pasan" : "Hay gates por corregir");
+  text($("#audit-note"), `${(report.checks || []).length} controles reproducibles · escala honesta 0–5`);
+  const list = $("#audit-checks"); list.replaceChildren();
+  (report.checks || []).forEach((check) => {
+    const row = el("div", `check${check.ok ? "" : " bad"}`);
+    const icon = el("i"); icon.textContent = check.ok ? "✓" : "!";
+    const name = el("b"); name.textContent = check.nombre;
+    const detail = el("small"); detail.textContent = check.detalle;
+    const value = el("output"); value.textContent = `${Number(check.nota).toFixed(1)}/5`;
+    row.append(icon, name, detail, value); list.appendChild(row);
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Resultados / artefactos                                             */
+/* ------------------------------------------------------------------ */
+
+const ARTIFACT_ICONS = {
+  image: "IMG", pdf: "PDF", text: "TXT", audio: "AUD",
+  video: "VID", archive: "ZIP", binary: "BIN",
+};
+
+async function loadArtifacts(silent = false) {
+  try {
+    const data = await api("/api/artifacts");
+    const items = data.artifacts || [];
+    text($("#metric-artifacts"), items.length);
+    text($("#metric-artifacts-note"), "archivos en el workspace");
+    text($("#artifact-count"), items.length);
+    const list = $("#artifact-list");
+    list.replaceChildren();
+    if (!items.length) {
+      list.innerHTML = '<p class="empty-copy">Aún no hay archivos. Lanza una misión o pídeme algo por el chat.</p>';
+      return;
+    }
+    items.forEach((a) => {
+      const btn = el("button", `artifact-row${state.selectedArtifact === a.path ? " active" : ""}`);
+      btn.dataset.path = a.path;
+      const ico = el("span", `artifact-ico ${a.kind}`); ico.textContent = ARTIFACT_ICONS[a.kind] || "FILE";
+      const main = el("div", "artifact-main");
+      const name = el("span", "artifact-name"); name.textContent = a.path;
+      const meta = el("span", "artifact-meta");
+      meta.textContent = `${fmtSize(a.size)} · ${fmtMtime(a.mtime)}`;
+      main.append(name, meta);
+      btn.append(ico, main);
+      btn.addEventListener("click", () => selectArtifact(a.path));
+      list.appendChild(btn);
+    });
+    if (state.selectedArtifact) {
+      // refrescar visor si sigue seleccionado
+      const exists = items.some((a) => a.path === state.selectedArtifact);
+      if (exists) selectArtifact(state.selectedArtifact);
+      else clearViewer();
+    }
+  } catch (e) {
+    if (!silent) toast(e.message, true);
+  }
+}
+
+function clearViewer() {
+  state.selectedArtifact = null;
+  text($("#viewer-title"), "Sin selección");
+  const dl = $("#viewer-download"); dl.hidden = true; dl.removeAttribute("href");
+  $("#artifact-viewer").replaceChildren();
+  $("#artifact-viewer").innerHTML = '<p class="empty-copy">Selecciona un archivo para previsualizarlo.</p>';
+}
+
+async function selectArtifact(path) {
+  state.selectedArtifact = path;
+  $$(".artifact-row").forEach((r) => r.classList.toggle("active", r.dataset.path === path));
+  text($("#viewer-title"), path);
+  const viewer = $("#artifact-viewer");
+  viewer.replaceChildren();
+  const loading = el("p", "loading"); loading.textContent = "Cargando…"; viewer.appendChild(loading);
+  try {
+    const data = await api(`/api/artifact?path=${encodeURIComponent(path)}`);
+    renderViewer(data);
+  } catch (e) {
+    viewer.replaceChildren();
+    const p = el("p", "empty-copy"); p.textContent = `No pude abrir este archivo: ${e.message}`;
+    viewer.appendChild(p);
+  }
+}
+
+function renderViewer(data) {
+  const viewer = $("#artifact-viewer");
+  viewer.replaceChildren();
+  const dl = $("#viewer-download");
+  dl.hidden = !data.download_url;
+  if (data.download_url) dl.href = data.download_url;
+
+  if (data.kind === "image" && data.raw_url) {
+    const img = el("img");
+    img.src = data.raw_url;
+    img.alt = data.name;
+    img.addEventListener("click", () => openMediaModal(img.src, "image"));
+    viewer.appendChild(img);
+    return;
+  }
+  if (data.kind === "pdf" && data.raw_url) {
+    const iframe = el("iframe");
+    iframe.src = data.raw_url;
+    viewer.appendChild(iframe);
+    return;
+  }
+  if (data.kind === "audio" && data.raw_url) {
+    const audio = el("audio");
+    audio.controls = true; audio.src = data.raw_url;
+    viewer.appendChild(audio);
+    return;
+  }
+  if (data.kind === "video" && data.raw_url) {
+    const video = el("video");
+    video.controls = true; video.src = data.raw_url;
+    viewer.appendChild(video);
+    return;
+  }
+  if (data.kind === "text") {
+    if (data.name.toLowerCase().endsWith(".md") || data.name.toLowerCase().endsWith(".markdown")) {
+      const div = el("div", "md-render");
+      div.innerHTML = renderRich(data.text || "");
+      viewer.appendChild(div);
+    } else {
+      const pre = el("pre");
+      pre.textContent = data.text || "";
+      viewer.appendChild(pre);
+    }
+    return;
+  }
+  // Binario / archivo no previsualizable
+  const note = el("div", "binary-note");
+  const big = el("span", "big"); big.textContent = "📦";
+  const p = el("p"); p.textContent = `${data.name} · ${fmtSize(data.size)}`;
+  const p2 = el("p"); p2.textContent = "No se puede previsualizar en el navegador. Descárgalo para abrirlo.";
+  note.append(big, p, p2);
+  viewer.appendChild(note);
+}
+
+function openMediaModal(src, kind) {
+  const modal = $("#media-modal");
+  const stage = $("#media-stage");
+  stage.replaceChildren();
+  if (kind === "image") {
+    const img = el("img"); img.src = src; img.alt = ""; stage.appendChild(img);
+  } else if (kind === "video") {
+    const v = el("video"); v.controls = true; v.autoplay = true; v.src = src; stage.appendChild(v);
+  } else if (kind === "pdf") {
+    const f = el("iframe"); f.src = src; stage.appendChild(f);
+  }
+  modal.hidden = false;
+}
+
+function closeMediaModal() {
+  $("#media-modal").hidden = true;
+  $("#media-stage").replaceChildren();
+}
+
+/* ------------------------------------------------------------------ */
+/* Refresco global                                                     */
+/* ------------------------------------------------------------------ */
+
+async function refreshAll() {
+  $("#refresh-all").disabled = true;
+  try {
+    await Promise.all([loadState(), loadPool().catch(() => {}), loadKnowledge().catch(() => {}), loadArtifacts(true)]);
+  } catch (error) {
+    setConnection(false, "DEGRADED"); toast(error.message, true);
+  } finally { $("#refresh-all").disabled = false; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Cableado de eventos UI                                              */
+/* ------------------------------------------------------------------ */
+
 function wireActions() {
+  // Misión
   $("#mission-form").addEventListener("submit", (event) => { event.preventDefault(); launch(false); });
   $("#demo").addEventListener("click", () => launch(true));
   $("#stop").addEventListener("click", async () => {
@@ -333,9 +683,36 @@ function wireActions() {
   $("#clear-events").addEventListener("click", () => {
     $("#event-feed").innerHTML = '<li class="event empty"><span class="event-icon">·</span><div><b>Vista limpiada</b><small>La historia persistida no fue eliminada.</small></div></li>';
   });
+
+  // Chat
+  $("#chat-form").addEventListener("submit", (e) => { e.preventDefault(); sendChat($("#chat-input").value); });
+  $("#chat-input").addEventListener("input", autoGrowChat);
+  $("#chat-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat($("#chat-input").value); }
+  });
+  $("#chat-clear").addEventListener("click", async () => {
+    if (!window.confirm("¿Reiniciar la conversación? Se borrará el historial del chat.")) return;
+    try { await api("/api/chat/clear", { method: "POST" }); } catch (e) { toast(e.message, true); }
+  });
+  $$(".quick").forEach((b) => b.addEventListener("click", () => sendChat(b.dataset.text)));
+
+  // Navegación por pestañas
+  $$(".pill").forEach((p) => p.addEventListener("click", () => switchView(p.dataset.view)));
+
+  // Pool
   $("#refresh-all").addEventListener("click", refreshAll);
   $("#preview-route").addEventListener("click", async () => { try { await loadPool(); toast("Ruta simulada sin llamada upstream"); } catch (error) { toast(error.message, true); } });
   $("#route-kind").addEventListener("change", () => loadPool().catch((error) => toast(error.message, true)));
+
+  // Resultados
+  $("#refresh-artifacts").addEventListener("click", () => loadArtifacts().catch((e) => toast(e.message, true)));
+
+  // Modal
+  $("#media-close").addEventListener("click", closeMediaModal);
+  $("#media-modal").addEventListener("click", (e) => { if (e.target.id === "media-modal") closeMediaModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMediaModal(); });
+
+  // Scout
   $("#run-scout").addEventListener("click", async () => {
     const button = $("#run-scout"); button.disabled = true; text(button, "Explorando…");
     try {
@@ -346,6 +723,8 @@ function wireActions() {
     } catch (error) { toast(error.message, true); }
     finally { button.disabled = false; text(button, "Explorar GitHub"); }
   });
+
+  // Audit
   $("#run-audit").addEventListener("click", async () => {
     const button = $("#run-audit"); button.disabled = true; text(button, "Midiendo…");
     try { renderAudit(await api("/api/audit")); toast("Auditoría reproducible completada"); }
@@ -354,24 +733,16 @@ function wireActions() {
   });
 }
 
-function wireNavigation() {
-  const links = [...document.querySelectorAll(".nav-link")];
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (!entry.isIntersecting) return;
-      links.forEach((link) => link.classList.toggle("active", link.getAttribute("href") === `#${entry.target.id}`));
-      const titles = { overview: "Estado del sistema", routing: "Inteligencia de ruta", ecosystem: "Radar abierto", assurance: "Assurance verificable" };
-      text($("#page-title"), titles[entry.target.id]);
-    });
-  }, { rootMargin: "-35% 0px -55% 0px" });
-  document.querySelectorAll(".view-section").forEach((section) => observer.observe(section));
-}
-
-function tick() {
-  text($("#clock"), `${new Date().toISOString().slice(11, 19)} UTC`);
-}
+function tick() { text($("#clock"), `${new Date().toISOString().slice(11, 19)} UTC`); }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  wireActions(); wireNavigation(); tick(); window.setInterval(tick, 1000);
-  await refreshAll(); connectEvents();
+  wireActions();
+  tick(); window.setInterval(tick, 1000);
+  await refreshAll();
+  await loadChat();
+  connectEvents();
+  // Refresco periódico de artefactos mientras el usuario está en Resultados o hay misión.
+  window.setInterval(() => {
+    if (state.running || state.activeView === "results") loadArtifacts(true).catch(() => {});
+  }, 6000);
 });

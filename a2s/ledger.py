@@ -16,6 +16,7 @@ para análisis post-mortem"* y *"preservación de cadena de custodia digital"*:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -24,6 +25,19 @@ import threading
 from typing import Any, Iterator, Optional
 
 from .models import now_iso
+
+
+@contextlib.contextmanager
+def _connect(path: str, timeout: float = 10.0) -> Iterator[sqlite3.Connection]:
+    """Conexión SQLite que se CIERRA al salir (el context-manager nativo solo
+    gestiona la transacción). Imprescindible en Windows: un manejador abierto
+    bloquea el borrado del directorio temporal (WinError 32)."""
+    con = sqlite3.connect(path, timeout=timeout)
+    try:
+        with con:  # commit/rollback de la transacción
+            yield con
+    finally:
+        con.close()
 
 
 class Ledger:
@@ -40,7 +54,7 @@ class Ledger:
 
     # -- persistencia ------------------------------------------------------
     def _init_db(self) -> None:
-        with sqlite3.connect(self.db_path, timeout=30) as con:
+        with _connect(self.db_path, timeout=30) as con:
             con.execute("PRAGMA journal_mode=WAL")
             con.execute(
                 """CREATE TABLE IF NOT EXISTS journal (
@@ -69,7 +83,7 @@ class Ledger:
                 fh.write(json.dumps(record, ensure_ascii=False) + "\n")
             self._last_hash_cache = record["hash"]
             try:  # el JSONL es la fuente de verdad; un fallo del índice no rompe el loop
-                with sqlite3.connect(self.db_path, timeout=30) as con:
+                with _connect(self.db_path, timeout=30) as con:
                     con.execute(
                         "INSERT INTO journal (ts, event, payload, prev_hash, hash) VALUES (?,?,?,?,?)",
                         (ts, event, json.dumps(payload, ensure_ascii=False),
@@ -103,7 +117,7 @@ class Ledger:
 
     def _journal_count(self) -> Optional[int]:
         try:
-            with sqlite3.connect(self.db_path, timeout=10) as con:
+            with _connect(self.db_path, timeout=10) as con:
                 return con.execute("SELECT COUNT(*) FROM journal").fetchone()[0]
         except Exception:  # noqa: BLE001
             return None
@@ -125,7 +139,7 @@ class Ledger:
         return True, "cadena de custodia íntegra", len(entries)
 
     def query(self, event: Optional[str] = None, limit: int = 100) -> Iterator[dict[str, Any]]:
-        with sqlite3.connect(self.db_path, timeout=10) as con:
+        with _connect(self.db_path, timeout=10) as con:
             con.row_factory = sqlite3.Row
             if event:
                 rows = con.execute(

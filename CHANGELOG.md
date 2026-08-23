@@ -3,6 +3,64 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.11.0] — 2026-08-23
+
+### Añadido
+
+- **Asistente conversacional en paralelo**: el dashboard incorpora un chat a
+  la izquierda con el que puedes dialogar con A²S mientras una misión corre
+  en segundo plano. Las respuestas llegan en tiempo real por SSE
+  (`chat_typing` / `chat_message` / `chat_idle`) y el historial persiste en
+  `.a2s/chat_history.json`.
+- El asistente usa el pool SORL (OmniRoute, OpenRouter, Groq, Gemini,
+  GitHub Models, OpenAI…) y degrada con honestidad al núcleo heurístico si
+  no hay endpoints disponibles; puede lanzar misiones de fondo desde
+  lenguaje natural.
+- **Pestaña Resultados**: panel que lista los archivos del workspace con
+  tipo/tamaño/fecha, visor de imágenes (clic para pantalla completa),
+  PDF en `<iframe>`, reproductor de audio y vídeo, renderizado de Markdown
+  y visor de texto con resaltado básico, más descarga binaria.
+- Nuevos endpoints: `GET/POST /api/chat`, `POST /api/chat/clear`,
+  `GET /api/artifacts`, `GET /api/artifact?path=...[&download=1]`.
+- `ProviderPool.chat(allow_fallback=True)`: respaldo heurístico cuando el
+  pool no puede servir (el DAG sigue usando `allow_fallback=False` para
+  conservar la semántica de dependencias fallidas).
+- Tests del chat y artefactos (texto, imagen, ruta fuera del workspace,
+  mensaje vacío).
+
+### Cambiado
+
+- UI rediseñada con layout de dos columnas (chat + workspace por pestañas);
+  el proveedor por defecto pasa a ser el pool SORL.
+- CSP ajustada para permitir previsualización de media/PDF embebidos.
+
+### Corregido (compatibilidad Windows)
+
+- **Codificación de consola cp1252**: `a2s doctor` y los guardianes
+  `check_cc.py` / `check_purity.py` reconfiguran stdout/stderr a UTF-8,
+  eliminando los `UnicodeEncodeError` al imprimir `✔`, `→` o `·` en consolas
+  Windows (afectaba a `test_guardian_cc`, `test_pureza_stdlib` y
+  `test_zipapp_runs`).
+- **Mini-shell en Windows**: `ls`, `echo`, `cat`, `grep`, `find` y
+  `sha256sum` no son ejecutables nativos; ahora la shell delega en un shell
+  POSIX detectado (Git-Bash, MSYS2 o WSL) y da un error claro si no hay
+  ninguno, en lugar de `FileNotFoundError [WinError 2]`. Si una etapa del
+  pipeline no arranca, se matan y esperan los procesos previos, cerrando sus
+  pipes (sin `ResourceWarning` de subprocessos huérfanos).
+- **Cierre de SQLite**: las conexiones a `journal.sqlite` y `memory.sqlite`
+  se cierran explícitamente; el contexto `with sqlite3.connect(...)` solo
+  gestiona la transacción, no el cierre, y en Windows bloqueaba el borrado
+  del directorio temporal (`PermissionError [WinError 32]` en tearDown).
+- Tests que dependen de comandos POSIX se omiten limpiamente en Windows sin
+  bash (`@unittest.skipIf`); los `TemporaryDirectory` de las pruebas de
+  misión usan `ignore_cleanup_errors=True` (con respaldo para 3.9); el test
+  RBAC de misión da 60 s de margen al hilo en Windows.
+
+### Verificación
+
+- `python -m unittest discover -s tests`: 210 tests OK en Linux; simulación
+  de consola `PYTHONIOENCODING=cp1252` de doctor/guardianes sin errores.
+
 ## [1.10.0] — 2026-08-22
 
 ### Añadido

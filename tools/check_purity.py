@@ -8,6 +8,11 @@ import ast
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from a2s._platform import force_utf8  # noqa: E402
+
+force_utf8()
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAQUETE = "a2s"
 

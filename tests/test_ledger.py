@@ -3,6 +3,7 @@
 import json
 import os
 import tempfile
+from tests._winutil import temp_dir
 import unittest
 
 from a2s.ledger import Ledger
@@ -10,7 +11,7 @@ from a2s.ledger import Ledger
 
 class TestLedger(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.dir = self.tmp.name
         self.ledger = Ledger(self.dir)
 

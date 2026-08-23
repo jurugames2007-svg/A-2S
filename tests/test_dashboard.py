@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+from tests._winutil import temp_dir
 import threading
 import unittest
 import urllib.error
@@ -40,7 +41,7 @@ class FakeMissions:
 
 class TestMissionManager(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.addCleanup(self.tmp.cleanup)
         self.manager = MissionManager(EventHub(), self.tmp.name)
 
@@ -69,7 +70,7 @@ class TestMissionManager(unittest.TestCase):
 
 class TestDashboardHTTP(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.addCleanup(self.tmp.cleanup)
         self.dashboard = DashboardServer(port=0, workspace=self.tmp.name,
                                          auto_demo=False)
@@ -131,10 +132,75 @@ class TestDashboardHTTP(unittest.TestCase):
         self.assertTrue(data["ecosystem"]["open_source_only"])
         self.assertFalse(data["ecosystem"]["code_executed"])
 
+    def test_chat_envia_y_responde(self):
+        # snapshot inicial
+        code, _, body = request(self.base + "/api/chat")
+        self.assertEqual(code, 200)
+        self.assertIn("history", json.loads(body))
+        # envío
+        code, _, body = request(self.base + "/api/chat", "POST",
+                                {"message": "hola, ¿qué tal?"})
+        self.assertEqual(code, 202, body)
+        # esperar a que el hilo genere respuesta
+        import time
+        for _ in range(30):
+            _, _, body = request(self.base + "/api/chat")
+            history = json.loads(body)["history"]
+            if any(m["role"] == "assistant" for m in history):
+                break
+            time.sleep(0.2)
+        roles = [m["role"] for m in json.loads(
+            request(self.base + "/api/chat")[2])["history"]]
+        self.assertIn("user", roles)
+        self.assertIn("assistant", roles)
+
+    def test_chat_rechaza_vacio(self):
+        code, _, body = request(self.base + "/api/chat", "POST", {"message": ""})
+        self.assertEqual(code, 400)
+
+    def test_artefactos_listan_y_sirven(self):
+        import os
+        ws = self.tmp.name
+        with open(os.path.join(ws, "nota.md"), "w", encoding="utf-8") as fh:
+            fh.write("# Hola\n\nprueba **markdown**")
+        code, _, body = request(self.base + "/api/artifacts")
+        self.assertEqual(code, 200)
+        arts = json.loads(body)["artifacts"]
+        self.assertTrue(any(a["name"] == "nota.md" for a in arts))
+        code, _, body = request(self.base + "/api/artifact?path=nota.md")
+        self.assertEqual(code, 200)
+        data = json.loads(body)
+        self.assertEqual(data["kind"], "text")
+        self.assertIn("prueba", data["text"])
+        # descarga binaria
+        code, headers, body = request(self.base + "/api/artifact?path=nota.md&download=1")
+        self.assertEqual(code, 200)
+        self.assertIn(b"prueba", body)
+        self.assertIn("attachment", headers.get("Content-Disposition", ""))
+        # ruta fuera del workspace
+        code, _, _ = request(self.base + "/api/artifact?path=../../etc/passwd")
+        self.assertEqual(code, 404)
+
+    def test_artefacto_imagen(self):
+        import os
+        ws = self.tmp.name
+        png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+        with open(os.path.join(ws, "x.png"), "wb") as fh:
+            fh.write(png)
+        # la imagen se sirve en línea como bytes para embeber en <img>
+        code, headers, body = request(self.base + "/api/artifact?path=x.png")
+        self.assertEqual(code, 200)
+        self.assertEqual(headers.get("Content-Type"), "image/png")
+        self.assertEqual(body, png)
+        # y también se puede descargar
+        code, headers, body = request(self.base + "/api/artifact?path=x.png&download=1")
+        self.assertEqual(code, 200)
+        self.assertIn("attachment", headers.get("Content-Disposition", ""))
+
 
 class TestDashboardAuth(unittest.TestCase):
     def test_api_protegida_admite_bearer_valido(self):
-        tmp = tempfile.TemporaryDirectory()
+        tmp = temp_dir()
         self.addCleanup(tmp.cleanup)
         dash = DashboardServer(port=0, workspace=tmp.name, require_auth=True)
         dash.missions = FakeMissions()

@@ -2,6 +2,7 @@
 y entregar el informe forense verificable (el "loop hasta el objetivo")."""
 
 import tempfile
+from tests._winutil import temp_dir
 import unittest
 
 from a2s.config import Config
@@ -12,7 +13,7 @@ from a2s.loop import AgentLoop
 
 class TestDemoMission(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.ws = self.tmp.name
 
     def tearDown(self):
@@ -20,7 +21,8 @@ class TestDemoMission(unittest.TestCase):
 
     def test_demo_mission_achieves_goal(self):
         config = Config(workspace=self.ws, quiet=True,
-                        max_wall_seconds=180, max_iterations=40, max_rounds=5)
+                        max_wall_seconds=180, max_iterations=40, max_rounds=5,
+                        provider="heuristic")
         loop = AgentLoop.create(DEMO_GOAL, config=config,
                                 goal_verifier=forensic_report_goal_verifier)
         prepare_demo_workspace(loop.memory)

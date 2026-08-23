@@ -4,6 +4,7 @@ de estancamiento (looping hasta conseguir el objetivo)."""
 import os
 import re
 import tempfile
+from tests._winutil import temp_dir
 import unittest
 
 from a2s.config import Config
@@ -15,8 +16,12 @@ _SHA_RE = re.compile(r"\b[0-9a-f]{64}\b")
 
 
 def _cfg(workspace: str) -> Config:
+    # Proveedor heurístico: estas pruebas validan la escalera de recuperación
+    # del núcleo, por lo que deben ser herméticas frente a claves de LLM que
+    # existan en el entorno (GITHUB_TOKEN activa github-models en modo auto).
     return Config(workspace=workspace, max_wall_seconds=120,
-                  max_iterations=30, max_rounds=4, quiet=True)
+                  max_iterations=30, max_rounds=4, quiet=True,
+                  provider="heuristic")
 
 
 class TestRecoveryLadder(unittest.TestCase):
@@ -24,7 +29,7 @@ class TestRecoveryLadder(unittest.TestCase):
     con verificadores correctos, lograr el objetivo."""
 
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.ws = self.tmp.name
         # Evidencia de ejemplo para que la recopilación tenga datos reales.
         os.makedirs(os.path.join(self.ws, "evidence"), exist_ok=True)
@@ -145,7 +150,7 @@ class TestRecoveryLadder(unittest.TestCase):
 
 class TestFractalSubagents(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.ws = self.tmp.name
 
     def tearDown(self):

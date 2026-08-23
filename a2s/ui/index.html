@@ -5,36 +5,63 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#07111d">
-  <title>A²S Control Plane</title>
+  <title>A²S Control Plane — Tu asistente autónomo</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/app.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <div class="shell">
-    <aside class="sidebar" aria-label="Navegación principal">
-      <a class="brand" href="#overview" aria-label="A²S inicio">
-        <span class="brand-mark">A²</span>
-        <span><b>A²S</b><small>CONTROL PLANE</small></span>
-      </a>
-      <nav>
-        <a class="nav-link active" href="#overview"><span>01</span> Operaciones</a>
-        <a class="nav-link" href="#routing"><span>02</span> Inteligencia de ruta</a>
-        <a class="nav-link" href="#ecosystem"><span>03</span> Radar abierto</a>
-        <a class="nav-link" href="#assurance"><span>04</span> Assurance</a>
-      </nav>
-      <div class="sidebar-foot">
-        <div class="mini-status"><i id="side-dot"></i><span id="side-state">Inicializando</span></div>
-        <small>stdlib · local-first · auditable</small>
+  <div class="shell assistant-shell">
+    <!-- ===== Columna izquierda: chat con el asistente ===== -->
+    <aside class="chat-dock" aria-label="Asistente A²S">
+      <div class="chat-head">
+        <a class="brand brand-compact" href="#overview" aria-label="A²S inicio">
+          <span class="brand-mark">A²</span>
+          <span><b>A²S</b><small>ASISTENTE</small></span>
+        </a>
+        <div class="chat-status">
+          <i id="chat-dot" class=""></i>
+          <span id="chat-state">Listo</span>
+        </div>
+      </div>
+
+      <div id="chat-thread" class="chat-thread" aria-live="polite">
+        <div class="chat-msg assistant">
+          <div class="bubble">
+            <p><b>Hola.</b> Soy tu asistente A²S.</p>
+            <p>Puedes conversar conmigo mientras trabajo. Dime qué objetivo perseguir,
+            pregúntame qué está pasando o pídeme un archivo, imagen o informe y lo
+            produzco en segundo plano. Los resultados aparecerán a la derecha.</p>
+            <div class="quick-row">
+              <button class="quick" data-text="Analiza el workspace y dame un informe de mejoras.">Analizar workspace</button>
+              <button class="quick" data-text="¿Qué estás haciendo ahora mismo?">¿Qué haces?</button>
+              <button class="quick" data-text="Muéstrame los archivos que has producido.">Ver resultados</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form id="chat-form" class="chat-composer">
+        <button type="button" id="chat-clear" class="icon-btn icon-btn-sm" title="Reiniciar conversación" aria-label="Reiniciar conversación">⟲</button>
+        <textarea id="chat-input" rows="1" maxlength="8000"
+          placeholder="Escribe a A²S… (Enter para enviar, Shift+Enter nueva línea)"></textarea>
+        <button type="submit" id="chat-send" class="btn btn-primary" title="Enviar">➤</button>
+      </form>
+      <div class="chat-foot">
+        <small>SORL/OmniRoute · local-first · auditable</small>
       </div>
     </aside>
 
-    <div class="workspace">
+    <!-- ===== Columna derecha: workspace operativo ===== -->
+    <div class="workspace workspace--assistant">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">CENTRO DE OPERACIONES AUTÓNOMAS</p>
-          <h1 id="page-title">Estado del sistema</h1>
-        </div>
+        <nav class="pills" aria-label="Vistas">
+          <button class="pill active" data-view="overview">◉ Operaciones</button>
+          <button class="pill" data-view="results">⬚ Resultados</button>
+          <button class="pill" data-view="routing">⌖ Ruta SORL</button>
+          <button class="pill" data-view="ecosystem">◎ Radar</button>
+          <button class="pill" data-view="assurance">⚖ Assurance</button>
+        </nav>
         <div class="top-actions">
           <time id="clock">--:--:-- UTC</time>
           <button class="icon-btn" id="refresh-all" title="Actualizar datos" aria-label="Actualizar datos">↻</button>
@@ -42,8 +69,9 @@
         </div>
       </header>
 
-      <main>
-        <section id="overview" class="section view-section">
+      <main class="view-main">
+        <!-- ---------- Operaciones ---------- -->
+        <section id="overview" class="view-panel active">
           <div class="metric-grid" aria-label="Indicadores operativos">
             <article class="metric primary">
               <div class="metric-head"><span>ESTADO DE MISIÓN</span><i class="pulse"></i></div>
@@ -61,9 +89,9 @@
               <small id="metric-pool-note">recursos legítimos</small>
             </article>
             <article class="metric">
-              <div class="metric-head"><span>CONOCIMIENTO</span><em>OSS</em></div>
-              <strong id="metric-knowledge">0</strong>
-              <small id="metric-knowledge-note">fichas verificables</small>
+              <div class="metric-head"><span>RESULTADOS</span><em>FILES</em></div>
+              <strong id="metric-artifacts">0</strong>
+              <small id="metric-artifacts-note">archivos en el workspace</small>
             </article>
           </div>
 
@@ -79,8 +107,8 @@
                 <div class="form-row">
                   <label>Proveedor
                     <select id="provider">
+                      <option value="pool">Pool SORL (OmniRoute…)</option>
                       <option value="auto">Auto seguro</option>
-                      <option value="pool">Pool SORL</option>
                       <option value="heuristic">Heurístico local</option>
                       <option value="openai">OpenAI compatible</option>
                     </select>
@@ -108,7 +136,7 @@
                 </details>
                 <div class="button-row">
                   <button class="btn btn-primary" id="start" type="submit"><span>▶</span> Ejecutar misión</button>
-                  <button class="btn btn-secondary" id="demo" type="button">Ejecutar diagnóstico demo</button>
+                  <button class="btn btn-secondary" id="demo" type="button">Diagnóstico demo</button>
                   <button class="btn btn-danger" id="stop" type="button" disabled>Detener</button>
                 </div>
                 <p class="form-status" id="form-status" role="status"></p>
@@ -118,7 +146,7 @@
             <article class="panel stream-panel">
               <header class="panel-head">
                 <div><p class="kicker">LIVE TELEMETRY</p><h2>Flujo de ejecución</h2></div>
-                <div class="stream-tools"><button id="clear-events" class="text-btn">Limpiar vista</button><span class="live"><i></i> SSE</span></div>
+                <div class="stream-tools"><button id="clear-events" class="text-btn">Limpiar</button><span class="live"><i></i> SSE</span></div>
               </header>
               <ol id="event-feed" class="event-feed" aria-live="polite">
                 <li class="event empty"><span class="event-icon">·</span><div><b>Esperando telemetría</b><small>Los eventos del agente aparecerán aquí.</small></div></li>
@@ -127,16 +155,43 @@
           </div>
         </section>
 
-        <section id="routing" class="section view-section">
+        <!-- ---------- Resultados / artefactos ---------- -->
+        <section id="results" class="view-panel">
+          <header class="section-head">
+            <div><p class="eyebrow">RESULTADOS</p><h2>Lo que he producido</h2>
+              <p class="section-copy">Archivos, imágenes, informes y medios en tu workspace. Ábrelos, previsualízalos o descárgalos. Se actualiza en vivo.</p></div>
+            <div class="inline-control">
+              <button id="refresh-artifacts" class="btn btn-secondary">↻ Actualizar</button>
+            </div>
+          </header>
+          <div class="results-grid">
+            <article class="panel artifact-list-panel">
+              <header class="panel-head"><div><p class="kicker">WORKSPACE</p><h2>Archivos</h2></div>
+                <span id="artifact-count" class="tag">0</span></header>
+              <div id="artifact-list" class="artifact-list"><p class="loading">Buscando resultados…</p></div>
+            </article>
+            <article class="panel artifact-viewer-panel">
+              <header class="panel-head"><div><p class="kicker">VISOR</p><h2 id="viewer-title">Sin selección</h2></div>
+                <a id="viewer-download" class="btn btn-secondary" download hidden>Descargar</a></header>
+              <div id="artifact-viewer" class="artifact-viewer">
+                <p class="empty-copy">Selecciona un archivo de la izquierda para previsualizarlo. Las imágenes, PDFs, audio y vídeo se muestran aquí; los archivos de texto se renderizan con resaltado básico.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- ---------- Routing ---------- -->
+        <section id="routing" class="view-panel">
           <header class="section-head">
             <div><p class="eyebrow">SORL / ROUTING INTELLIGENCE</p><h2>Topología y decisión explicable</h2></div>
             <div class="inline-control">
-              <label for="route-kind">Tipo de tarea</label>
-              <select id="route-kind">
-                <option value="general">General</option><option value="plan">Planificación</option>
-                <option value="code">Código</option><option value="evaluate">Evaluación</option>
-                <option value="goal_check">Verificación</option><option value="summarize">Resumen</option>
-              </select>
+              <label for="route-kind">Tipo de tarea
+                <select id="route-kind">
+                  <option value="general">General</option><option value="plan">Planificación</option>
+                  <option value="code">Código</option><option value="evaluate">Evaluación</option>
+                  <option value="goal_check">Verificación</option><option value="summarize">Resumen</option>
+                </select>
+              </label>
               <button class="btn btn-secondary" id="preview-route">Simular ruta</button>
             </div>
           </header>
@@ -161,7 +216,8 @@
           </article>
         </section>
 
-        <section id="ecosystem" class="section view-section">
+        <!-- ---------- Ecosistema ---------- -->
+        <section id="ecosystem" class="view-panel">
           <header class="section-head">
             <div><p class="eyebrow">CONTINUOUS ENRICHMENT</p><h2>Radar de ecosistema abierto</h2><p class="section-copy">A²S estudia señales de diseño de proyectos públicos; no clona, instala ni ejecuta su código.</p></div>
             <div class="scout-box"><input id="scout-query" aria-label="Consulta de radar" placeholder="Consulta opcional: agent gateway eval…"><button id="run-scout" class="btn btn-primary">Explorar GitHub</button></div>
@@ -174,12 +230,13 @@
             </article>
             <article class="panel knowledge-panel">
               <header class="panel-head"><div><p class="kicker">KNOWLEDGE BASE</p><h2>Fichas destiladas</h2></div><span id="card-count" class="tag">0</span></header>
-              <div id="card-list" class="card-list"><p class="empty-copy">Aún no hay fichas. Usa <code>a2s learn</code> para estudiar READMEs con trazabilidad.</p></div>
+              <div id="card-list" class="card-list"><p class="empty-copy">Aún no hay fichas.</p></div>
             </article>
           </div>
         </section>
 
-        <section id="assurance" class="section view-section">
+        <!-- ---------- Assurance ---------- -->
+        <section id="assurance" class="view-panel">
           <header class="section-head">
             <div><p class="eyebrow">QUALITY / GOVERNANCE</p><h2>Assurance verificable</h2><p class="section-copy">La calidad no es una promesa: cada criterio muestra su medición reproducible.</p></div>
             <button id="run-audit" class="btn btn-primary">Ejecutar auditoría</button>
@@ -194,21 +251,17 @@
               <div id="audit-checks" class="check-list"><p class="empty-copy">Sin resultados todavía.</p></div>
             </article>
           </div>
-          <article class="panel methodology-panel">
-            <header class="panel-head"><div><p class="kicker">IMPROVEMENT LOOP</p><h2>Camino al óptimo teórico</h2></div><span class="tag">PDCA + OODA + DMAIC</span></header>
-            <div class="phase-line">
-              <div><b>01</b><span>Definir</span><small>objetivo y restricciones</small></div><i></i>
-              <div><b>02</b><span>Medir</span><small>baseline reproducible</small></div><i></i>
-              <div><b>03</b><span>Analizar</span><small>causa y cuello de botella</small></div><i></i>
-              <div><b>04</b><span>Mejorar</span><small>experimento mínimo</small></div><i></i>
-              <div><b>05</b><span>Controlar</span><small>gates y regresión</small></div><i></i>
-              <div><b>∞</b><span>Repetir</span><small>frontera de Pareto</small></div>
-            </div>
-          </article>
         </section>
       </main>
     </div>
   </div>
+
+  <!-- Visor modal de medios a pantalla completa -->
+  <div id="media-modal" class="media-modal" hidden>
+    <button id="media-close" class="media-close" aria-label="Cerrar">✕</button>
+    <div id="media-stage" class="media-stage"></div>
+  </div>
+
   <div id="toast-region" class="toast-region" aria-live="assertive"></div>
 </body>
 </html>

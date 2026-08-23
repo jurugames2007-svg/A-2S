@@ -14,12 +14,14 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
+from ._platform import find_posix_shell
 from .config import SHELL_ALLOWLIST, classify_forbidden
 from .models import Observation, ToolCall
 from .sandbox import Sandbox, SandboxResult
@@ -30,6 +32,22 @@ def _close_process_pipes(processes: list[subprocess.Popen]) -> None:
         for stream in (proc.stdin, proc.stdout, proc.stderr):
             if stream is not None and not stream.closed:
                 stream.close()
+
+
+def _abort_pipeline(processes: list[subprocess.Popen]) -> None:
+    """Mata y espera los procesos ya lanzados cuando una etapa posterior no
+    pudo arrancar (p.ej. ejecutable ausente), cerrando sus pipes."""
+    for proc in processes:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    for proc in processes:
+        try:
+            proc.wait(timeout=5)
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+    _close_process_pipes(processes)
 
 
 def _finish_pipeline(processes: list[subprocess.Popen], timeout: int = 60
@@ -208,6 +226,105 @@ class ToolRegistry:
                       lambda m: self.shell(m.group(1), depth=depth + 1).strip(),
                       command)
 
+    # Patrones de predicado de `find` cuyo valor NO debe expandirse como ruta
+    # del disco: `find` lo interpreta como patrón (p.ej. -path "./.git/*").
+    _FIND_PATTERN_PREDS = frozenset((
+        "-path", "-ipath", "-name", "-iname", "-lname", "-ilname",
+        "-wholename", "-iwholename", "-samefile",
+    ))
+
+    def _expand_argv_globs(self, argv: list[str]) -> list[str]:
+        """Expande comodines (* ? [) en argumentos que son rutas del disco.
+
+        Excluye los valores de predicados de patrón de ``find`` y los
+        patrones sueltos del propio ``find``, para no corromper mandatos como
+        ``find . -not -path "./.git/*"`` cuando el workspace es un repo.
+        """
+        if len(argv) <= 1:
+            return argv
+        expanded: list[str] = [argv[0]]
+        skip_next = False
+        is_find = argv[0] == "find"
+        for token in argv[1:]:
+            if skip_next:
+                expanded.append(token)
+                skip_next = False
+                continue
+            if token in self._FIND_PATTERN_PREDS:
+                expanded.append(token)
+                skip_next = True
+                continue
+            if "*" in token or "?" in token or "[" in token:
+                if is_find:
+                    expanded.append(token)            # patrón del propio find
+                else:
+                    matches = sorted(glob.glob(os.path.join(self.workspace, token)))
+                    expanded.extend(matches or [token])
+            else:
+                expanded.append(token)
+        return expanded
+
+    def _check_pipeline_allowlist(self, pipes: list[str]) -> None:
+        """El primer comando de cada etapa del pipeline debe estar permitido."""
+        for p in pipes:
+            argv0 = shlex.split(p, posix=(os.name != "nt"))
+            if not argv0:
+                continue
+            if not self.shell_unsafe and argv0[0] not in SHELL_ALLOWLIST:
+                raise PermissionError(
+                    f"comando '{argv0[0]}' fuera de la lista blanca (usa --unsafe para ampliar)")
+
+    def _spawn_windows_shell(self, segment: str) -> subprocess.Popen:
+        """Ejecuta el segmento completo en bash (Git/MSYS2/WSL) en Windows."""
+        posix_shell = find_posix_shell()
+        if posix_shell is None:
+            raise PermissionError(
+                "shell POSIX no disponible en Windows: instala Git-Bash, "
+                "MSYS2 o WSL para ejecutar comandos de la lista blanca")
+        try:
+            return subprocess.Popen(
+                [posix_shell, "-c", segment],
+                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, cwd=self.workspace)
+        except OSError as exc:
+            raise PermissionError(f"no se pudo invocar bash: {exc}") from exc
+
+    def _spawn_unix_pipeline(self, pipes: list[str]) -> list[subprocess.Popen]:
+        """Lanza un pipeline POSIX directo, limpiando procesos si una etapa
+        falla al arrancar (evita pipes/procesos huérfanos)."""
+        procs: list[subprocess.Popen] = []
+        for pipe_index, p in enumerate(pipes):
+            argv = shlex.split(p)
+            if len(argv) > 1:  # expansión de globs en argumentos de ruta
+                argv = self._expand_argv_globs(argv)
+            redirect_err = None
+            if "2>&1" in argv:
+                argv.remove("2>&1")
+                redirect_err = subprocess.STDOUT
+            elif "2>/dev/null" in argv:
+                argv.remove("2>/dev/null")
+                redirect_err = subprocess.DEVNULL
+            if not argv:
+                continue
+            stdin = procs[-1].stdout if procs else None
+            # El stderr de etapas intermedias entra al pipeline: evita un PIPE
+            # sin lector que podría bloquear o quedar abierto.
+            default_err = (subprocess.PIPE if pipe_index == len(pipes) - 1
+                           else subprocess.STDOUT)
+            try:
+                proc = subprocess.Popen(
+                    argv, stdin=stdin, stdout=subprocess.PIPE,
+                    stderr=redirect_err if redirect_err is not None else default_err,
+                    text=True, cwd=self.workspace)
+            except OSError as exc:
+                _abort_pipeline(procs)
+                raise PermissionError(
+                    f"comando '{argv[0]}' no disponible: {exc}") from exc
+            procs.append(proc)
+            if stdin is not None:
+                stdin.close()
+        return procs
+
     def shell(self, command: str, depth: int = 0) -> str:
         """Mini-shell seguro: ';', '|', '>', '2>&1', $VAR, globs y $().
 
@@ -236,42 +353,11 @@ class ToolRegistry:
                     raise PermissionError("redirección sin comando")
                 segment, redirect_out = left, right.strip()
             pipes = [p.strip() for p in self._split_top(segment, "|") if p.strip()]
-            procs: list[subprocess.Popen] = []
-            for pipe_index, p in enumerate(pipes):
-                argv = shlex.split(p)
-                if len(argv) > 1:  # expansión de globs solo en argumentos
-                    expanded: list[str] = [argv[0]]
-                    for a in argv[1:]:
-                        if "*" in a or "?" in a:
-                            matches = sorted(glob.glob(os.path.join(self.workspace, a)))
-                            expanded.extend(matches or [a])
-                        else:
-                            expanded.append(a)
-                    argv = expanded
-                redirect_err = None
-                if "2>&1" in argv:
-                    argv.remove("2>&1")
-                    redirect_err = subprocess.STDOUT
-                elif "2>/dev/null" in argv:
-                    argv.remove("2>/dev/null")
-                    redirect_err = subprocess.DEVNULL
-                if not argv:
-                    continue
-                if not self.shell_unsafe and argv[0] not in SHELL_ALLOWLIST:
-                    raise PermissionError(
-                        f"comando '{argv[0]}' fuera de la lista blanca (usa --unsafe para ampliar)")
-                stdin = procs[-1].stdout if procs else None
-                # El stderr de etapas intermedias entra al pipeline: evita un
-                # PIPE sin lector que podría bloquear o quedar abierto.
-                default_err = (subprocess.PIPE if pipe_index == len(pipes) - 1
-                               else subprocess.STDOUT)
-                proc = subprocess.Popen(
-                    argv, stdin=stdin, stdout=subprocess.PIPE,
-                    stderr=redirect_err if redirect_err is not None else default_err,
-                    text=True, cwd=self.workspace)
-                procs.append(proc)
-                if stdin is not None:
-                    stdin.close()
+            self._check_pipeline_allowlist(pipes)
+            if os.name == "nt":
+                procs = [self._spawn_windows_shell(segment)]
+            else:
+                procs = self._spawn_unix_pipeline(pipes)
             if not procs:
                 continue
             out, err, final_rc = _finish_pipeline(procs, timeout=60)
