@@ -21,6 +21,8 @@ from importlib import resources
 from typing import Any, Optional
 
 from . import __version__
+from .artifacts import get_artifact, list_artifacts, read_artifact_bytes
+from .chat import ChatManager
 from .config import Config
 from .goals import (DEMO_GOAL, build_demo_step_verifiers,
                     forensic_report_goal_verifier, prepare_demo_workspace)
@@ -190,6 +192,34 @@ class MissionManager:
                     "started_at": self.started_at, "options": dict(self.options),
                     "report": report, "events": list(self.hub.history)}
 
+    def provider_for_chat(self):
+        """Proveedor de razonamiento para el asistente conversacional.
+
+        Reutiliza el pool SORL si está configurado (OmniRoute, OpenRouter,
+        Groq, Gemini…) y, si no hay endpoints, cae al núcleo heurístico.
+        El proveedor se construye por llamada para reflejar cambios de
+        configuración sin reiniciar el servicio.
+        """
+        from .providers import get_provider
+        # Si la misión activa ya tiene un provider vivo, lo reutilizamos
+        # (comparte cuotas/telemetría aprendida).
+        with self._lock:
+            if self.current is not None:
+                return self.current.provider
+        cfg = Config(workspace=self.workspace, quiet=True,
+                     provider=os.environ.get("A2S_CHAT_PROVIDER", "pool"))
+        return get_provider(cfg.provider, config=cfg)
+
+    def start_in_background(self, goal: str, options: Optional[dict[str, Any]] = None
+                            ) -> tuple[bool, str]:
+        """Lanzamiento desde el chat con opciones por defecto seguras."""
+        defaults = {"provider": "pool", "pool_strategy": "multi_objective",
+                    "max_time": 600, "max_rounds": 6, "speculative": 0,
+                    "allow_network": True, "allow_shell": True}
+        if options:
+            defaults.update(options)
+        return self.start(goal, False, defaults)
+
 
 class DashboardServer:
     def __init__(self, port: int = 8000, workspace: str = "workspace",
@@ -202,6 +232,11 @@ class DashboardServer:
         self.host = "0.0.0.0" if public else "127.0.0.1"
         self.hub = EventHub()
         self.missions = MissionManager(self.hub, self.workspace)
+        self.chat = ChatManager(
+            self.hub, self.workspace,
+            get_provider=self.missions.provider_for_chat,
+            launch_mission=self.missions.start_in_background,
+            get_state=self.missions.snapshot)
         self.auto_demo = auto_demo
         self.token_manager = None
         if require_auth:
@@ -296,9 +331,10 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy",
-                         "default-src 'self'; script-src 'self'; style-src 'self'; "
-                         "connect-src 'self'; img-src 'self' data:; "
-                         "object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+                         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+                         "connect-src 'self'; img-src 'self' data: blob:; "
+                         "media-src 'self' data: blob:; frame-src 'self'; "
+                         "object-src 'self'; base-uri 'none'; frame-ancestors 'none'")
 
     def _json(self, obj: Any, code: int = 200) -> None:
         body = json.dumps(obj, ensure_ascii=False).encode()
@@ -391,8 +427,61 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
         elif path == "/api/audit":
             from .audit import run_audit
             self._json(run_audit())
+        elif path == "/api/chat":
+            self._json(self.control_plane.chat.snapshot())
+        elif path == "/api/artifacts":
+            self._json({"artifacts": list_artifacts(
+                self.control_plane.workspace)})
+        elif path == "/api/artifact":
+            self._serve_artifact(query)
         else:
             self._json({"error": "endpoint no encontrado"}, 404)
+
+    def _serve_artifact(self, query: dict[str, list[str]]) -> None:
+        """Sirve un archivo del workspace.
+
+        * ``?path=...&download=1`` → bytes con ``Content-Disposition: attachment``.
+        * ``?path=...`` sobre medios/PDF → bytes en línea (para ``<img>``,
+          ``<audio>``, ``<video>`` o ``<iframe>``).
+        * Resto (texto, binario) → metadata JSON (el visor pinta el texto).
+        """
+        rel = (query.get("path") or [""])[0]
+        if not rel:
+            self._json({"error": "falta 'path'"}, 400)
+            return
+        download = (query.get("download") or ["0"])[0] == "1"
+
+        meta = get_artifact(self.control_plane.workspace, rel)
+        if meta is None:
+            self._json({"error": "archivo no encontrado"}, 404)
+            return
+
+        # Los formatos previsualizables nativos del navegador se sirven como
+        # bytes (in-line) para que el visor los pueda embeber; el resto va
+        # como JSON (texto) o como descarga.
+        inline_kinds = {"image", "audio", "video", "pdf"}
+        if download or meta["kind"] in inline_kinds:
+            result = read_artifact_bytes(self.control_plane.workspace, rel)
+            if result is None:
+                self._json({"error": "archivo no encontrado"}, 404)
+                return
+            blob, mime, name = result
+            self.send_response(200)
+            self.send_header("Content-Type", mime)
+            self.send_header("Content-Length", str(len(blob)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            disposition = "attachment" if download else "inline"
+            self.send_header(
+                "Content-Disposition",
+                f"{disposition}; filename=\"{name}\"")
+            self.end_headers()
+            try:
+                self.wfile.write(blob)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+        self._json(meta)
 
     def _events(self) -> None:
         self.send_response(200)
@@ -451,6 +540,16 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
                                "added": len(report["added"]),
                                "total": report["total"]})
             self._json({"scan": report, **radar.snapshot()}, 200)
+        elif path == "/api/chat":
+            message = str(payload.get("message", "")).strip()
+            ok, msg = self.control_plane.chat.send(message)
+            if not ok:
+                self._json({"error": msg}, 409 if "curso" in msg or "respondiendo" in msg else 400)
+            else:
+                self._json({"status": msg}, 202)
+        elif path == "/api/chat/clear":
+            self.control_plane.chat.clear()
+            self._json({"status": "conversación reiniciada"})
         else:
             self._json({"error": "endpoint no encontrado"}, 404)
 

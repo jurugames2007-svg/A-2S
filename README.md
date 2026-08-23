@@ -88,6 +88,16 @@
 > en un prefijo aislado y verifica CLI, doctor, healthz y GUI reales. Node es el
 > launcher multiplataforma y Python stdlib conserva el núcleo auditable.
 
+> **v1.11 — Asistente conversacional en paralelo:** el dashboard se transforma
+> en un chat a la izquierda donde puedes **conversar con A²S mientras una
+> misión corre en segundo plano**. El asistente usa el pool SORL (OmniRoute,
+> OpenRouter, Groq, Gemini, OpenAI… o el núcleo heurístico si no hay claves),
+> puede lanzar misiones de fondo desde el lenguaje natural, y una pestaña
+> **Resultados** lista, previsualiza y descarga los archivos producidos
+> (imágenes, PDF, audio, vídeo, Markdown y texto) con visor y modal de
+> pantalla completa. Endpoints: `POST /api/chat`, `GET /api/chat`,
+> `GET /api/artifacts`, `GET /api/artifact?path=...`.
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -200,10 +210,13 @@ python -m a2s run "Investiga el proyecto y escribe un resumen con datos reales"
 # Varios objetivos con sub-agentes fractales en paralelo
 python -m a2s run "Objetivo A;Objetivo B" --parallel
 
-# Agent Control Plane industrial (SSE, topología, radar, assurance)
+# Agent Control Plane industrial (chat a la izquierda, SSE, resultados, ruta, radar, assurance)
 python -m a2s dashboard --port 8000
 # Al exponerlo en red, autenticación obligatoria recomendada
 python -m a2s dashboard --public --auth --port 8000
+# Para que el asistente conversacional use OmniRoute (gateway OpenAI-compatible):
+export A2S_OMNIROUTE_URL=http://127.0.0.1:20128/v1   # o usa examples/pool.omniroute.json
+python -m a2s dashboard --port 8000                  # el chat usará el pool SORL
 
 # Ruta SORL explicable: simula la decisión sin llamar un modelo
 python -m a2s route-preview --kind plan --json
@@ -418,8 +431,10 @@ a2s/
 ├── goals.py        biblioteca de objetivos con verificadores (misión demo)
 ├── models.py       tipos de datos (Step, Observation, Evaluation, RunReport…)
 ├── report.py       informes de ejecución (texto/Markdown/JSON)
-├── dashboard.py    API del Agent Control Plane (SSE, auth, seguridad web)
-├── ui/             GUI industrial empaquetada (HTML/CSS/JS, sin CDN)
+├── dashboard.py    API del Agent Control Plane (SSE, chat, artefactos, auth, seguridad web)
+├── chat.py         asistente conversacional en paralelo a las misiones (prosa + lanzador de misiones)
+├── artifacts.py    listado y servicio de archivos/resultados (imágenes, PDF, audio, vídeo, texto)
+├── ui/             GUI empaquetada (HTML/CSS/JS, sin CDN; layout chat + workspace)
 ├── ecosystem.py    radar creciente de proyectos con licencia OSS verificada
 └── directiva.py    mapa de reinterpretación operativa
 ```
@@ -481,7 +496,7 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-198 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
+202 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
 permisos, proveedores, cuotas y ruta explicable, escalera de recuperación,
 división fractal, misión demo completa, red de gobernanza, consenso, memoria,
 shell sin procesos huérfanos, sandbox, firmas HMAC, auth, plugins, zipapp,
