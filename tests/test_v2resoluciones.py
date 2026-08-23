@@ -1,6 +1,7 @@
 """Pruebas del modo SERVICIO experimental (RBAC real sobre HTTP), de la
 fachada async pura-stdlib y del auditor ejecutable."""
 
+import contextlib
 import json
 import os
 import tempfile
@@ -31,7 +32,8 @@ def _req(url, method="GET", token=None, body=None):
 
 class TestUserStore(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = tempfile.TemporaryDirectory(
+            ignore_cleanup_errors=True)  # Windows: manejadores SQLite/WAL
         self.addCleanup(self.tmp.cleanup)
         self.store = UserStore(self.tmp.name)
 
@@ -56,7 +58,8 @@ class TestRBACSobreHTTP(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory()
+        cls.tmp = tempfile.TemporaryDirectory(
+            ignore_cleanup_errors=True)  # Windows: manejadores SQLite/WAL
         ws = cls.tmp.name
         store = UserStore(ws)
         cls.tok_admin = store.add("root", "admin")["token"]
@@ -70,9 +73,25 @@ class TestRBACSobreHTTP(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.srv.shutdown()
-        cls.srv.server_close()
-        cls.tmp.cleanup()
+        # Cierra el servidor y el pool antes de borrar el workspace: en Windows
+        # los archivos SQLite/WAL permanecen bloqueados si hay conexiones vivas.
+        try:
+            api = getattr(cls, "api", None)
+            if api is not None and hasattr(api, "close"):
+                api.close()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            cls.srv.shutdown()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            cls.srv.server_close()
+        except Exception:  # noqa: BLE001
+            pass
+        time.sleep(0.2)
+        with contextlib.suppress(Exception):
+            cls.tmp.cleanup()
 
     def url(self, path):
         return f"http://127.0.0.1:{self.port}{path}"
@@ -106,13 +125,16 @@ class TestRBACSobreHTTP(unittest.TestCase):
                          body={"goal": "informe forense del workspace"})
         self.assertEqual(code, 202)
         mid = out["mission_id"]
-        for _ in range(60):                       # espera la misión (hilo propio)
+        # En Windows el arranque del hilo y el shell (bash) son más lentos:
+        # 60 s de margen en lugar de 12.
+        st = {}
+        for _ in range(120):                      # espera la misión (hilo propio)
             code, st = _req(self.url(f"/api/mission/{mid}"), token=self.tok_op)
             self.assertEqual(code, 200)
             if st.get("status") in ("done", "error"):
                 break
-            time.sleep(0.2)
-        self.assertEqual(st["status"], "done")
+            time.sleep(0.5)
+        self.assertEqual(st.get("status"), "done", st)
         self.assertIn(st["success"], (True, False))
         code, rep = _req(self.url(f"/api/report/{mid}"), token=self.tok_view)
         self.assertEqual(code, 200)

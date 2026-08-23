@@ -34,9 +34,32 @@ versionado semántico mientras la API pública permanece en evolución.
   el proveedor por defecto pasa a ser el pool SORL.
 - CSP ajustada para permitir previsualización de media/PDF embebidos.
 
+### Corregido (compatibilidad Windows)
+
+- **Codificación de consola cp1252**: `a2s doctor` y los guardianes
+  `check_cc.py` / `check_purity.py` reconfiguran stdout/stderr a UTF-8,
+  eliminando los `UnicodeEncodeError` al imprimir `✔`, `→` o `·` en consolas
+  Windows (afectaba a `test_guardian_cc`, `test_pureza_stdlib` y
+  `test_zipapp_runs`).
+- **Mini-shell en Windows**: `ls`, `echo`, `cat`, `grep`, `find` y
+  `sha256sum` no son ejecutables nativos; ahora la shell delega en un shell
+  POSIX detectado (Git-Bash, MSYS2 o WSL) y da un error claro si no hay
+  ninguno, en lugar de `FileNotFoundError [WinError 2]`. Si una etapa del
+  pipeline no arranca, se matan y esperan los procesos previos, cerrando sus
+  pipes (sin `ResourceWarning` de subprocessos huérfanos).
+- **Cierre de SQLite**: las conexiones a `journal.sqlite` y `memory.sqlite`
+  se cierran explícitamente; el contexto `with sqlite3.connect(...)` solo
+  gestiona la transacción, no el cierre, y en Windows bloqueaba el borrado
+  del directorio temporal (`PermissionError [WinError 32]` en tearDown).
+- Tests que dependen de comandos POSIX se omiten limpiamente en Windows sin
+  bash (`@unittest.skipIf`); los `TemporaryDirectory` de las pruebas de
+  misión usan `ignore_cleanup_errors=True` (con respaldo para 3.9); el test
+  RBAC de misión da 60 s de margen al hilo en Windows.
+
 ### Verificación
 
-- `python -m unittest discover -s tests`: 202 tests, sin skips.
+- `python -m unittest discover -s tests`: 210 tests OK en Linux; simulación
+  de consola `PYTHONIOENCODING=cp1252` de doctor/guardianes sin errores.
 
 ## [1.10.0] — 2026-08-22
 

@@ -128,8 +128,10 @@ class MemoryHub:
 
     def _insert_episode(self, ep: dict[str, Any]) -> None:
         # Persistencia tolerante: un fallo de almacenamiento nunca rompe el loop.
+        con = None
         try:
-            with sqlite3.connect(os.path.join(self._dir, "memory.sqlite")) as con:
+            con = sqlite3.connect(os.path.join(self._dir, "memory.sqlite"))
+            with con:
                 con.execute(
                     """CREATE TABLE IF NOT EXISTS episodes (
                            at TEXT, step_id TEXT, step_goal TEXT, approach TEXT,
@@ -144,6 +146,9 @@ class MemoryHub:
                 )
         except Exception:  # noqa: BLE001 — la memoria en RAM ya conserva el episodio
             pass
+        finally:
+            if con is not None:
+                con.close()
 
     def recent_history(self, n: int = 8) -> str:
         lines = []

@@ -10,7 +10,10 @@ import time
 import urllib.error
 
 from . import __version__
+from ._platform import force_utf8
 from .config import Config
+
+force_utf8()
 from .directiva import print_capability_map, scope_note
 from .goals import (DEMO_GOAL, build_demo_step_verifiers,
                     forensic_report_goal_verifier, prepare_demo_workspace)

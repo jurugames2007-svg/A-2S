@@ -2,6 +2,7 @@
 y entregar el informe forense verificable (el "loop hasta el objetivo")."""
 
 import tempfile
+from tests._winutil import temp_dir
 import unittest
 
 from a2s.config import Config
@@ -12,7 +13,7 @@ from a2s.loop import AgentLoop
 
 class TestDemoMission(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.ws = self.tmp.name
 
     def tearDown(self):

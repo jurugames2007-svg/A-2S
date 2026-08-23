@@ -85,6 +85,7 @@ def _docs_episodios(workspace: str) -> list[Doc]:
     if not os.path.isfile(db):
         return []
     out = []
+    con = None
     try:
         con = sqlite3.connect(db)
         for row in con.execute(
@@ -96,9 +97,11 @@ def _docs_episodios(workspace: str) -> list[Doc]:
                 texto=" ".join(str(x) for x in (goal, approach, tool, reason) if x),
                 origen="episodio",
                 meta=f"{at} · {goal} ({tool})"))
-        con.close()
     except sqlite3.Error:
         pass
+    finally:
+        if con is not None:
+            con.close()
     return out
 
 

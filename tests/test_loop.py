@@ -4,6 +4,7 @@ de estancamiento (looping hasta conseguir el objetivo)."""
 import os
 import re
 import tempfile
+from tests._winutil import temp_dir
 import unittest
 
 from a2s.config import Config
@@ -28,7 +29,7 @@ class TestRecoveryLadder(unittest.TestCase):
     con verificadores correctos, lograr el objetivo."""
 
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.ws = self.tmp.name
         # Evidencia de ejemplo para que la recopilación tenga datos reales.
         os.makedirs(os.path.join(self.ws, "evidence"), exist_ok=True)
@@ -149,7 +150,7 @@ class TestRecoveryLadder(unittest.TestCase):
 
 class TestFractalSubagents(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.ws = self.tmp.name
 
     def tearDown(self):

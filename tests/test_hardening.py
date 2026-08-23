@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from tests._winutil import temp_dir
 import unittest
 
 from a2s.auth import workspace_token_manager

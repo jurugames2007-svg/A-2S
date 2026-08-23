@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+from tests._winutil import temp_dir
 import threading
 import unittest
 import urllib.error
@@ -40,7 +41,7 @@ class FakeMissions:
 
 class TestMissionManager(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.addCleanup(self.tmp.cleanup)
         self.manager = MissionManager(EventHub(), self.tmp.name)
 
@@ -69,7 +70,7 @@ class TestMissionManager(unittest.TestCase):
 
 class TestDashboardHTTP(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = temp_dir()
         self.addCleanup(self.tmp.cleanup)
         self.dashboard = DashboardServer(port=0, workspace=self.tmp.name,
                                          auto_demo=False)
@@ -199,7 +200,7 @@ class TestDashboardHTTP(unittest.TestCase):
 
 class TestDashboardAuth(unittest.TestCase):
     def test_api_protegida_admite_bearer_valido(self):
-        tmp = tempfile.TemporaryDirectory()
+        tmp = temp_dir()
         self.addCleanup(tmp.cleanup)
         dash = DashboardServer(port=0, workspace=tmp.name, require_auth=True)
         dash.missions = FakeMissions()

@@ -1,20 +1,25 @@
 """Pruebas del registro de herramientas y del modelo de permisos."""
 
+import contextlib
 import os
 import tempfile
 import unittest
 
+from a2s._platform import windows_has_posix_tools
 from a2s.models import ToolCall
 from a2s.tools import ToolRegistry
+
+_SKIP_WIN_SHELL = (os.name == "nt" and not windows_has_posix_tools())
 
 
 class TestTools(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
+        self.tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.reg = ToolRegistry(self.tmp.name, allow_network=False)
 
     def tearDown(self):
-        self.tmp.cleanup()
+        with contextlib.suppress(Exception):
+            self.tmp.cleanup()
 
     def test_write_read_roundtrip(self):
         obs = self.reg.invoke(ToolCall("write_file", {"path": "nota.txt", "content": "hola"}))
@@ -35,6 +40,8 @@ class TestTools(unittest.TestCase):
         self.assertIn("PERMISO DENEGADO", obs.error)
         self.assertTrue(any(d["tool"] == "write_file" for d in self.reg.denied))
 
+    @unittest.skipIf(_SKIP_WIN_SHELL,
+                     "shell POSIX (bash) no disponible en Windows")
     def test_shell_allowlist(self):
         obs = self.reg.invoke(ToolCall("shell", {"command": "echo hola"}))
         self.assertTrue(obs.ok)

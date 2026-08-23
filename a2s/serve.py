@@ -178,6 +178,17 @@ class ServeAPI:
 
     # -- RBAC y auditoría -----------------------------------------------------
 
+    def close(self) -> None:
+        """Cierra recursos persistentes antes de apagar el servicio.
+
+        Las misiones corren en hilos daemon; aquí solo se liberan las
+        conexiones SQLite cacheadas para que el directorio temporal pueda
+        borrarse en Windows (WinError 32) sin recurrir a reintentos.
+        """
+        close = getattr(self.users, "close", None)
+        if callable(close):
+            close()
+
     def audit(self, user: Optional[str], role: Optional[str], action: str,
               allowed: bool, detail: str = "") -> None:
         entry = {"at": now_iso(), "user": user or "-", "role": role or "-",
