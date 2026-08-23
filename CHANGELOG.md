@@ -3,6 +3,42 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.12.0] — 2026-08-23
+
+### Añadido
+
+- **Auto-actualización en el sitio (`update tkm`)**: nuevo comando
+  `a2s update` (apelativo admitido: `a2s update tkm`) que actualiza el
+  checkout actual con `git fetch` + fast-forward, **sin re-descargar el
+  repositorio**, para iterar/tests más rápido. Incluye `--check` (solo
+  mirar), `--branch`, `--force` y `--root`; jamás toca cambios locales sin
+  avisar. Vías de uso: `update.cmd` en la raíz del repo (`update tkm` desde
+  PowerShell/cmd), `npm run update -- tkm` y el bin `a2s`.
+- Tests del updater (origen + clon reales en temporales): fast-forward,
+  `--check` inofensivo, protección de cambios sucios, `--force`, alias.
+- `a2s doctor` en Windows ahora informa qué shell POSIX quedó **verificado**
+  (o si no hay ninguno funcional).
+
+### Corregido (Windows: 5 fallos + 1 error de la suite)
+
+- **Shell POSIX verificado, no "el primero que exista"**: el descubrimiento
+  ahora **sonda** cada candidato (`echo` + marcador) y descarta los rotos —
+  el caso típico era `System32\bash.exe` (lanzador de WSL sin distribución),
+  que respondía con exit != 0 y mensajes localizados a TODO comando
+  (`(exit=1, sin salida)` en `test_evolution`, `test_fsm`, `test_tools`).
+  Git-Bash/MSYS2 se prueban antes que WSL y el resultado se cachea.
+- **Decodificación tolerante en TODOS los subprocesos** (`tools`, `sandbox`,
+  `audit`, plugins forenses, planner): `encoding="utf-8", errors="replace"`
+  elimina el muro de `UnicodeDecodeError` en los hilos `_readerthread` cuando
+  un hijo emite bytes cp1252/cp850 (mensajes localizados de Windows).
+- **El sandbox fuerza UTF-8 en el hijo** (`python -I -X utf8`): el modo
+  aislado `-I` ignora `PYTHONUTF8`, así que el código sandboxeado abría
+  archivos en cp1252 y el resto del sistema no podía leerlos (ERROR en
+  `test_split_recovery_achieves_goal`). El tool-swap del planner además
+  genera `open(..., encoding='utf-8')` explícito.
+- Tests: lecturas de archivos del agente con encoding explícita; nuevas
+  regresiones (shell roto se descarta, salida no-UTF-8 no pierde resultado).
+
 ## [1.11.0] — 2026-08-23
 
 ### Añadido

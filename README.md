@@ -198,6 +198,28 @@ Cuando el paquete se publique en el registry podrá utilizarse con
 El launcher no descarga Python: detecta Python 3.9+ o usa la ruta indicada en
 `A2S_PYTHON`. Guía completa: [`docs/NPM_DISTRIBUTION.md`](docs/NPM_DISTRIBUTION.md).
 
+### Auto-actualización en el sitio (`update tkm`)
+
+Para iterar y testear rápido sin volver a descargar el repositorio:
+
+```bash
+# Desde el checkout (fetch + fast-forward; solo baja los objetos que faltan)
+update tkm                 # Windows: update.cmd en la raíz del repo
+a2s update tkm             # equivalente directo
+npm run update -- tkm      # equivalente npm
+
+a2s update tkm --check     # solo mira si hay novedades (sin tocar nada)
+a2s update tkm --force     # sincroniza a origin descartando lo local
+```
+
+El comando nunca pisa cambios locales sin avisar: si hay trabajo sin commit
+pide commit/stash (o `--force` explícito). Para poder escribir `update tkm`
+desde cualquier carpeta en PowerShell, añade a tu `$PROFILE`:
+
+```powershell
+function update { & "C:\Users\Leo\Desktop\A-2S\update.cmd" @args }
+```
+
 ### Ejecución directa con Python
 
 ```bash

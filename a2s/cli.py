@@ -326,6 +326,12 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     sandbox = Sandbox(ws)
     print(f"  Sandbox:       nivel {sandbox.level} ({sandbox.level_name}) "
           f"— nsjail: {sandbox._nsjail or 'no'}, bwrap: {sandbox._bwrap or 'no'}")
+    if os.name == "nt":
+        from ._platform import find_posix_shell
+        shell = find_posix_shell()
+        nota_shell = shell or ("NINGUNO funcional — instala Git-Bash, MSYS2 o "
+                               "WSL (la mini-shell quedará deshabilitada)")
+        print(f"  Shell POSIX:   {nota_shell}")
     loader = PluginLoader(ws)
     loader.discover()
     plugins = loader.describe()
@@ -356,6 +362,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     except OSError:
         print("  Red externa:   NO disponible (las herramientas de red fallarán y el loop las reparametrizará)")
     return 0
+
+
+def cmd_update(args: argparse.Namespace) -> int:
+    """Auto-actualización en el sitio: fetch + fast-forward, sin volver a
+    descargar el repositorio. Apelativo admitido: ``a2s update tkm``."""
+    from .updater import update
+    return update(root=getattr(args, "root", None), alias=args.alias,
+                  check_only=args.check, branch=args.branch,
+                  force=args.force)
 
 
 def cmd_learn(args: argparse.Namespace) -> int:
@@ -900,6 +915,23 @@ def main(argv: list[str] | None = None) -> int:
 
     p_map = sub.add_parser("map", help="mapa de reinterpretación operativa de la directiva")
     p_map.set_defaults(func=lambda _a: (print_capability_map(), 0)[1])
+
+    p_upd = sub.add_parser(
+        "update",
+        help="auto-actualización en el sitio (git fetch + fast-forward, "
+             "sin re-descargar el repo); admite apelativo: a2s update tkm")
+    p_upd.add_argument("alias", nargs="?", default=None,
+                       help="apelativo opcional del operador (p. ej. 'tkm')")
+    p_upd.add_argument("--check", action="store_true",
+                       help="solo comprobar si hay novedades (sin tocar nada)")
+    p_upd.add_argument("--branch", default=None,
+                       help="rama remota a seguir (default: la rama actual)")
+    p_upd.add_argument("--force", action="store_true",
+                       help="sincroniza a origin descartando lo local "
+                            "(reset --hard) — úsalo solo si sabes qué pierdes")
+    p_upd.add_argument("--root", default=None,
+                       help="ruta del checkout (default: la instalación actual)")
+    p_upd.set_defaults(func=cmd_update)
 
     args = parser.parse_args(argv)
     if getattr(args, "seed", None) is not None:

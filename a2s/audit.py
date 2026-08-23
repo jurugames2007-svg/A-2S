@@ -43,7 +43,8 @@ class Check:
 def _subprocess_ok(script: str, *args: str) -> tuple[bool, str]:
     try:
         r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", script), *args],
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=120)
         return r.returncode == 0, (r.stdout or r.stderr).strip().splitlines()[-1]
     except (OSError, subprocess.SubprocessError) as exc:
         return False, str(exc)

@@ -59,11 +59,15 @@ class TestNpmMetadata(unittest.TestCase):
 
 class TestNpmLauncher(unittest.TestCase):
     def test_launcher_ejecuta_version_real(self):
+        with open(os.path.join(ROOT, "a2s", "__init__.py"),
+                  encoding="utf-8") as fh:
+            version = re.search(r'^__version__ = "([^"]+)"', fh.read(),
+                                re.M).group(1)
         result = subprocess.run(
             ["node", "npm/bin/a2s.mjs", "--version"], cwd=ROOT,
             capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("A²S 1.11.0", result.stdout)
+        self.assertIn(f"A²S {version}", result.stdout)
 
     def test_launcher_informa_python_ausente_sin_stacktrace(self):
         with tempfile.TemporaryDirectory() as empty_path:
