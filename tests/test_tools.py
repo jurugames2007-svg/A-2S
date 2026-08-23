@@ -52,6 +52,27 @@ class TestTools(unittest.TestCase):
         self.assertFalse(obs.ok)
         self.assertIn("desconocida", obs.error)
 
+    def test_glob_no_expande_patrones_de_find(self):
+        """Regresión: ``find -path './.git/*'`` no debe romperse por la
+        expansión de globs del shell (antes convertía el patrón en rutas del
+        disco y find devolvía 'paths must precede expression')."""
+        os.makedirs(os.path.join(self.tmp.name, ".git"))
+        with open(os.path.join(self.tmp.name, ".git", "config"), "w") as fh:
+            fh.write("x")
+        with open(os.path.join(self.tmp.name, "real.txt"), "w") as fh:
+            fh.write("ok")
+        obs = self.reg.invoke(ToolCall("shell", {
+            "command": "find . -type f -not -path './.git/*' | sort"}))
+        self.assertTrue(obs.ok, obs.error)
+        self.assertIn("./real.txt", obs.output)
+        self.assertNotIn(".git/config", obs.output)
+        # Un glob real de shell sigue funcionando.
+        with open(os.path.join(self.tmp.name, "a.md"), "w") as fh:
+            fh.write("md")
+        obs2 = self.reg.invoke(ToolCall("shell", {"command": "ls *.md"}))
+        self.assertTrue(obs2.ok, obs2.error)
+        self.assertIn("a.md", obs2.output)
+
 
 if __name__ == "__main__":
     unittest.main()

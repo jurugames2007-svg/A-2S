@@ -20,7 +20,8 @@ class TestDemoMission(unittest.TestCase):
 
     def test_demo_mission_achieves_goal(self):
         config = Config(workspace=self.ws, quiet=True,
-                        max_wall_seconds=180, max_iterations=40, max_rounds=5)
+                        max_wall_seconds=180, max_iterations=40, max_rounds=5,
+                        provider="heuristic")
         loop = AgentLoop.create(DEMO_GOAL, config=config,
                                 goal_verifier=forensic_report_goal_verifier)
         prepare_demo_workspace(loop.memory)

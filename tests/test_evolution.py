@@ -42,7 +42,8 @@ class TestGovernanceNet(unittest.TestCase):
 
 class TestConsensus(unittest.TestCase):
     def _loop(self, ws, verifier=None):
-        cfg = Config(workspace=ws, quiet=True, max_wall_seconds=30)
+        cfg = Config(workspace=ws, quiet=True, max_wall_seconds=30,
+                     provider="heuristic")
         return AgentLoop.create("objetivo", config=cfg, goal_verifier=verifier)
 
     def test_verifier_veto(self):

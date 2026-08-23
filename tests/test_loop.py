@@ -15,8 +15,12 @@ _SHA_RE = re.compile(r"\b[0-9a-f]{64}\b")
 
 
 def _cfg(workspace: str) -> Config:
+    # Proveedor heurístico: estas pruebas validan la escalera de recuperación
+    # del núcleo, por lo que deben ser herméticas frente a claves de LLM que
+    # existan en el entorno (GITHUB_TOKEN activa github-models en modo auto).
     return Config(workspace=workspace, max_wall_seconds=120,
-                  max_iterations=30, max_rounds=4, quiet=True)
+                  max_iterations=30, max_rounds=4, quiet=True,
+                  provider="heuristic")
 
 
 class TestRecoveryLadder(unittest.TestCase):

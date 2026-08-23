@@ -208,6 +208,44 @@ class ToolRegistry:
                       lambda m: self.shell(m.group(1), depth=depth + 1).strip(),
                       command)
 
+    # Patrones de predicado de `find` cuyo valor NO debe expandirse como ruta
+    # del disco: `find` lo interpreta como patrón (p.ej. -path "./.git/*").
+    _FIND_PATTERN_PREDS = frozenset((
+        "-path", "-ipath", "-name", "-iname", "-lname", "-ilname",
+        "-wholename", "-iwholename", "-samefile",
+    ))
+
+    def _expand_argv_globs(self, argv: list[str]) -> list[str]:
+        """Expande comodines (* ? [) en argumentos que son rutas del disco.
+
+        Excluye los valores de predicados de patrón de ``find`` y los
+        patrones sueltos del propio ``find``, para no corromper mandatos como
+        ``find . -not -path "./.git/*"`` cuando el workspace es un repo.
+        """
+        if len(argv) <= 1:
+            return argv
+        expanded: list[str] = [argv[0]]
+        skip_next = False
+        is_find = argv[0] == "find"
+        for token in argv[1:]:
+            if skip_next:
+                expanded.append(token)
+                skip_next = False
+                continue
+            if token in self._FIND_PATTERN_PREDS:
+                expanded.append(token)
+                skip_next = True
+                continue
+            if "*" in token or "?" in token or "[" in token:
+                if is_find:
+                    expanded.append(token)            # patrón del propio find
+                else:
+                    matches = sorted(glob.glob(os.path.join(self.workspace, token)))
+                    expanded.extend(matches or [token])
+            else:
+                expanded.append(token)
+        return expanded
+
     def shell(self, command: str, depth: int = 0) -> str:
         """Mini-shell seguro: ';', '|', '>', '2>&1', $VAR, globs y $().
 
@@ -239,15 +277,8 @@ class ToolRegistry:
             procs: list[subprocess.Popen] = []
             for pipe_index, p in enumerate(pipes):
                 argv = shlex.split(p)
-                if len(argv) > 1:  # expansión de globs solo en argumentos
-                    expanded: list[str] = [argv[0]]
-                    for a in argv[1:]:
-                        if "*" in a or "?" in a:
-                            matches = sorted(glob.glob(os.path.join(self.workspace, a)))
-                            expanded.extend(matches or [a])
-                        else:
-                            expanded.append(a)
-                    argv = expanded
+                if len(argv) > 1:  # expansión de globs en argumentos de ruta
+                    argv = self._expand_argv_globs(argv)
                 redirect_err = None
                 if "2>&1" in argv:
                     argv.remove("2>&1")
