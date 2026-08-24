@@ -195,6 +195,17 @@ input, select { height: 36px; padding: 0 10px; font-size: 11px; }
 .artifact-ico { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 6px; font: 700 9px/1 ui-monospace, monospace; letter-spacing: .04em; }
 .artifact-ico.image { color: var(--cyan); background: #0a2029; border: 1px solid #24515c; }
 .artifact-ico.pdf { color: #ff7d8b; background: #2a131a; border: 1px solid #5c2b35; }
+.artifact-ico.html { color: var(--cyan); background: #0a2029; border: 1px solid #24515c; }
+.process-panel { margin-bottom: 14px; }
+.process-body { padding: 12px 16px 16px; }
+.process-bar { height: 6px; background: #172a3a; overflow: hidden; }
+.process-bar i { display: block; height: 100%; background: var(--cyan); }
+.process-note { margin: 10px 0 8px; color: #9db0c1; font: 11px/1.45 ui-monospace, monospace; }
+.process-log { margin: 0; padding: 0; list-style: none; max-height: 120px; overflow: auto; }
+.process-log li { color: #6e8295; font: 9px/1.45 ui-monospace, monospace; padding: 3px 0; border-bottom: 1px solid #17283a; }
+.pdf-frame { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+.pdf-frame object, .pdf-frame iframe { width: 100%; height: 68vh; border: 0; background: #fff; border-radius: 6px; }
+.viewer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .artifact-ico.text { color: var(--green); background: #0d211c; border: 1px solid #24503d; }
 .artifact-ico.audio { color: var(--amber); background: #211b0e; border: 1px solid #5d4827; }
 .artifact-ico.video { color: var(--blue); background: #0d1a2b; border: 1px solid #24466b; }

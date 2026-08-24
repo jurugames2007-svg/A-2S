@@ -131,9 +131,17 @@ print("(fin del registro de custodia)")
 
 _HEURISTIC_PLANS: list[tuple[tuple[str, ...], str, list[tuple[str, str, dict[str, Any], list[str]]]]] = [
     # (palabras clave, nombre de plantilla, pasos (nombre, tool, params, criterios))
+    (("ppt", "pptx", "powerpoint", "presentación", "presentacion",
+      "diapositiva", "slides"), "verified_deck", [
+        ("disenar_presentacion", "create_slides",
+         {"topic": "{goal}"},
+         ["slides/deck.pptx, HTML, PDF y process.json creados"]),
+        ("verificar_deck", "read_file", {"path": "slides/quality.json"},
+         ["calidad y número de láminas disponibles"]),
+    ]),
     (("libro", "ebook", "manual", "capítulos", "capitulos"), "verified_book", [
         ("investigar_y_crear_libro", "create_book",
-         {"topic": "{goal}", "chapters": 6, "target_words": 3000},
+         {"topic": "{goal}", "chapters": 12, "target_words": 5000},
          ["book/book.md, HTML, PDF y quality.json creados"]),
         ("verificar_manuscrito", "read_file", {"path": "book/quality.json"},
          ["quality gate y limitaciones disponibles"]),

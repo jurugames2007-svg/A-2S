@@ -12,7 +12,11 @@ from a2s.creator import create_document, write_markdown_pdf
 from a2s.dashboard import EventHub, MissionManager
 from a2s.finder import RepoFinder, expand_query, format_search
 from a2s.intent import classify_intent
+from a2s.acquire import fetch_public_domain
+from a2s.artifacts import classify_kind
 from a2s.literary import compose_book, is_principito, word_count
+from a2s.slides import create_deck
+from a2s.studio import classify_job, produce
 from a2s.loop import AgentLoop
 from a2s.models import Step, StepStatus, ToolCall
 from tests._winutil import temp_dir
@@ -31,6 +35,12 @@ class TestIntent(unittest.TestCase):
         self.assertTrue(crea.wants_book)
         self.assertEqual(classify_intent("hola").kind, "chat")
         self.assertEqual(classify_intent("qué haces ahora").kind, "status")
+        ppt = classify_intent("Diseña una presentación sobre A²S")
+        self.assertEqual(ppt.kind, "create")
+        self.assertTrue(ppt.wants_slides)
+        obt = classify_intent("Obtén Don Quijote de dominio público")
+        self.assertEqual(obt.kind, "create")
+        self.assertTrue(obt.wants_obtain)
 
 
 class TestInboxYStopToken(unittest.TestCase):
@@ -109,8 +119,8 @@ class TestCreator(unittest.TestCase):
         tmp = temp_dir()
         self.addCleanup(tmp.cleanup)
         result = create_document(tmp.name, "El Principito", kind="book")
-        self.assertGreaterEqual(result["word_count"], 1500)
-        self.assertGreaterEqual(result["chapters"], 8)
+        self.assertGreaterEqual(result["word_count"], 4000)
+        self.assertGreaterEqual(result["chapters"], 12)
         pdf = os.path.join(tmp.name, "book", "book.pdf")
         md = os.path.join(tmp.name, "book", "book.md")
         self.assertTrue(os.path.isfile(pdf))
@@ -129,6 +139,18 @@ class TestCreator(unittest.TestCase):
         token.set("test")
         with self.assertRaises(InterruptedError):
             create_document(tmp.name, "cualquier tema", stop=token)
+
+    def test_libro_generico_es_completo(self):
+        tmp = temp_dir()
+        self.addCleanup(tmp.cleanup)
+        seen = []
+        result = create_document(
+            tmp.name, "agentes autónomos verificables", kind="book",
+            progress=lambda p, n, extra=None: seen.append(p))
+        self.assertGreaterEqual(result["word_count"], 4000)
+        self.assertGreaterEqual(result["chapters"], 10)
+        self.assertTrue(seen)
+        self.assertGreaterEqual(max(seen), 100)
 
     def test_pdf_con_acentos(self):
         tmp = temp_dir()

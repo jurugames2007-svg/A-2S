@@ -139,6 +139,11 @@ class ToolRegistry:
              "target_words": "int opcional"},
             self.create_book, network=False, destructive=True))
         self.register(Tool(
+            "create_slides",
+            "Crea una presentación PPTX+HTML+PDF y deja el proceso visible.",
+            {"topic": "str", "title": "str opcional"},
+            self.create_slides, network=False, destructive=True))
+        self.register(Tool(
             "search_repos",
             "Busca repositorios públicos por palabra clave (es/en/cualquier idioma).",
             {"query": "str", "limit": "int opcional"},
@@ -459,11 +464,18 @@ class ToolRegistry:
         }, ensure_ascii=False)
 
     def create_book(self, topic: str, title: str = "", chapters: int = 6,
-                    target_words: int = 3000) -> str:
-        from .creator import create_document
-        result = create_document(
-            self.workspace, topic, title=title, kind="book",
-            stop=self.stop_token)
+                    target_words: int = 5000) -> str:
+        from .studio import produce
+        result = produce(self.workspace, topic,
+                         {"title": title, "kind": "book"},
+                         stop=self.stop_token)
+        return json.dumps(result, ensure_ascii=False)
+
+    def create_slides(self, topic: str, title: str = "") -> str:
+        from .studio import produce
+        result = produce(self.workspace, topic,
+                         {"title": title, "kind": "slides"},
+                         stop=self.stop_token)
         return json.dumps(result, ensure_ascii=False)
 
     def search_repos(self, query: str, limit: int = 8) -> str:

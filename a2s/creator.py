@@ -9,12 +9,14 @@ from __future__ import annotations
 import json
 import os
 import re
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from .control import StopToken
 from .literary import compose_book, is_literary, is_principito, to_markdown, word_count
 from .models import now_iso
 from .pdf import MiniPDF
+
+Progress = Callable[..., None]
 
 
 def _safe_dir(workspace: str, relative: str) -> str:
@@ -58,7 +60,8 @@ def write_markdown_pdf(path: str, title: str, markdown: str) -> int:
 
 def create_document(workspace: str, topic: str, title: str = "",
                     kind: str = "auto",
-                    stop: Optional[StopToken] = None) -> dict[str, Any]:
+                    stop: Optional[StopToken] = None,
+                    progress: Optional[Progress] = None) -> dict[str, Any]:
     """Crea un libro o un informe y deja md/html/pdf en el workspace."""
     topic = " ".join((topic or "").split())[:300]
     if not topic:
@@ -72,19 +75,29 @@ def create_document(workspace: str, topic: str, title: str = "",
         literary = False
 
     if literary or kind in ("book", "auto"):
-        return _create_book(workspace, topic, title, stop)
-    return _create_report(workspace, topic, title, stop)
+        return _create_book(workspace, topic, title, stop, progress)
+    return _create_report(workspace, topic, title, stop, progress)
+
+
+def _emit(progress: Optional[Progress], percent: int, note: str) -> None:
+    if progress:
+        progress(percent, note)
 
 
 def _create_book(workspace: str, topic: str, title: str,
-                 stop: Optional[StopToken]) -> dict[str, Any]:
+                 stop: Optional[StopToken],
+                 progress: Optional[Progress] = None) -> dict[str, Any]:
     if is_principito(topic):
         book_title = title.strip() or "El Principito — companion de lectura"
     else:
         book_title = title.strip() or f"Libro sobre {topic}"
+    _emit(progress, 8, "componiendo capítulos originales")
     chapters = compose_book(topic, book_title)
-    if stop and stop.is_set():
-        raise InterruptedError("parada durante la composición")
+    for index, (heading, _body) in enumerate(chapters, 1):
+        if stop and stop.is_set():
+            raise InterruptedError("parada durante la composición")
+        _emit(progress, 10 + int(index * 50 / max(len(chapters), 1)),
+              f"capítulo {index}/{len(chapters)}: {heading[:70]}")
     note = ("> Volumen original de A²S. No es una reproducción de una obra "
             "protegida. Consulte la nota editorial.")
     markdown = to_markdown(book_title, chapters, note=note)
@@ -92,27 +105,31 @@ def _create_book(workspace: str, topic: str, title: str,
     md_path = os.path.join(output, "book.md")
     html_path = os.path.join(output, "book.html")
     pdf_path = os.path.join(output, "book.pdf")
+    _emit(progress, 68, "escribiendo Markdown y HTML")
     _write(md_path, markdown)
     _write(html_path, _html(book_title, markdown))
+    _emit(progress, 82, "maquetando PDF visualizable")
     pages = write_markdown_pdf(pdf_path, book_title, markdown)
     words = word_count(markdown)
+    ready = words >= 4000
     quality = {
         "status": "original_volume",
-        "score": 90 if words >= 1500 else 70,
+        "score": 92 if ready else (80 if words >= 1500 else 70),
         "word_count": words,
         "chapters": len(chapters),
         "pages": pages,
         "literary": True,
         "copyright_safe": True,
-        "publication_ready": words >= 1500,
+        "publication_ready": ready,
         "created_at": now_iso(),
         "title": book_title,
         "topic": topic,
-        "limitations": [] if words >= 1500 else ["extensión corta"],
+        "limitations": [] if ready else ["extensión por debajo de 4000 palabras"],
     }
     qpath = os.path.join(output, "quality.json")
     with open(qpath, "w", encoding="utf-8") as handle:
         json.dump(quality, handle, ensure_ascii=False, indent=2)
+    _emit(progress, 100, f"libro listo · {words} palabras · {pages} páginas")
     rel = lambda p: os.path.relpath(p, os.path.abspath(workspace))
     return {
         "status": quality["status"], "quality_score": quality["score"],
@@ -124,9 +141,11 @@ def _create_book(workspace: str, topic: str, title: str,
 
 
 def _create_report(workspace: str, topic: str, title: str,
-                   stop: Optional[StopToken]) -> dict[str, Any]:
+                 stop: Optional[StopToken],
+                 progress: Optional[Progress] = None) -> dict[str, Any]:
     if stop and stop.is_set():
         raise InterruptedError("parada durante el informe")
+    _emit(progress, 20, "analizando workspace para el informe")
     from .publishing import RepositoryAnalyzer
     analysis = RepositoryAnalyzer.analyze(workspace)
     title = title.strip() or f"Informe: {topic}"

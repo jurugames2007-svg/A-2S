@@ -3,6 +3,21 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.17.0] — 2026-08-24
+
+### Añadido (estudio continuo: libros, PDF, PPT)
+
+- **Libros completos**: el compositor literario entrega volúmenes originales
+  de miles de palabras (El Principito: companion, no la novela). Quality gate
+  honesto a 4000 palabras.
+- **Obtención OA**: catálogo Gutenberg (Quijote, Odisea, Hamlet…) por HTTPS
+  allowlist. El Principito se rechaza y se escribe companion.
+- **PPT con proceso en vivo**: `create_slides` produce PPTX (OOXML stdlib),
+  HTML con log y PDF. SSE `studio_progress` y panel STUDIO LIVE.
+- **Visor PDF/HTML real**: `GET /api/artifact` devuelve JSON con `raw_url`;
+  los bytes van en `?raw=1`. El visor usa `<object>` + pantalla completa.
+- Módulos `studio`, `slides`, `acquire`, `prose`.
+
 ## [1.16.0] — 2026-08-24
 
 ### Corregido (el chat, la parada, la creación y la búsqueda)

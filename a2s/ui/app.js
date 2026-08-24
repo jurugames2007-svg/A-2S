@@ -139,6 +139,7 @@ function switchView(name) {
 const EVENT_META = {
   job_start: ["✎", "Trabajo en paralelo", "step_start"],
   job_done: ["■", "Trabajo terminado", "success"],
+  studio_progress: ["✎", "Proceso en vivo", "step_start"],
   artifact_ready: ["⬚", "Artefacto listo", "success"],
   run_start: ["▶", "Misión iniciada", "step_start"],
   capability_protocol: ["◉", "Capacidades adaptativas", "replan"],
@@ -172,6 +173,7 @@ function eventDetail(event) {
   if (event.event === "run_end" || event.event === "operator_stop") return event.note || "";
   if (event.event === "ecosystem_scan") return `${event.added || 0} nuevos · ${event.total || 0} totales`;
   if (event.event === "step_done") return event.reason || event.status || "";
+  if (event.event === "studio_progress") return `${event.percent || 0}% · ${event.note || ""}`;
   return event.note || event.status || event.goal || event.event || "evento";
 }
 
@@ -234,8 +236,18 @@ function addEvent(event, scroll = true) {
       appendAssistantBubble(`El trabajo se detuvo: ${event.error}`);
     }
   }
+  if (event.event === "studio_progress") {
+    updateStudioProcess(event);
+    setChatState(`Creando ${event.percent || 0}%`, "busy");
+  }
   if (event.event === "artifact_ready") {
-    loadArtifacts(true).catch(() => {});
+    loadArtifacts(true).then(() => {
+      const arts = event.artifacts || [];
+      const pdf = arts.find((p) => String(p).toLowerCase().endsWith(".pdf"));
+      const html = arts.find((p) => String(p).toLowerCase().endsWith(".html"));
+      if (pdf) selectArtifact(pdf);
+      else if (html) selectArtifact(html);
+    }).catch(() => {});
     switchView("results");
   }
   if (event.event === "operator_stop") {
@@ -572,8 +584,23 @@ function renderAudit(report) {
 /* Resultados / artefactos                                             */
 /* ------------------------------------------------------------------ */
 
+function updateStudioProcess(event) {
+  const percent = Math.max(0, Math.min(100, Number(event.percent) || 0));
+  text($("#studio-percent"), `${percent}%`);
+  const bar = $("#studio-bar");
+  if (bar) bar.className = widthClass(percent);
+  text($("#studio-note"), event.note || "en curso");
+  const log = $("#studio-log");
+  if (!log) return;
+  const item = el("li");
+  item.textContent = `${percent}% · ${event.note || ""}`;
+  log.appendChild(item);
+  while (log.children.length > 40) log.firstElementChild.remove();
+  log.scrollTop = log.scrollHeight;
+}
+
 const ARTIFACT_ICONS = {
-  image: "IMG", pdf: "PDF", text: "TXT", audio: "AUD",
+  image: "IMG", pdf: "PDF", html: "WEB", text: "TXT", audio: "AUD",
   video: "VID", archive: "ZIP", binary: "BIN",
 };
 
@@ -654,10 +681,26 @@ function renderViewer(data) {
     viewer.appendChild(img);
     return;
   }
-  if (data.kind === "pdf" && data.raw_url) {
-    const iframe = el("iframe");
-    iframe.src = data.raw_url;
-    viewer.appendChild(iframe);
+  if ((data.kind === "pdf" || data.kind === "html") && data.raw_url) {
+    const frame = el("div", "pdf-frame");
+    const object = el(data.kind === "pdf" ? "object" : "iframe");
+    if (data.kind === "pdf") {
+      object.setAttribute("data", data.raw_url);
+      object.setAttribute("type", "application/pdf");
+      const iframe = el("iframe");
+      iframe.src = data.raw_url;
+      object.appendChild(iframe);
+    } else {
+      object.src = data.raw_url;
+      object.title = data.name || "HTML";
+    }
+    const actions = el("div", "viewer-actions");
+    const full = el("button", "btn btn-secondary");
+    full.textContent = "Pantalla completa";
+    full.addEventListener("click", () => openMediaModal(data.raw_url, data.kind));
+    actions.appendChild(full);
+    frame.append(object, actions);
+    viewer.appendChild(frame);
     return;
   }
   if (data.kind === "audio" && data.raw_url) {

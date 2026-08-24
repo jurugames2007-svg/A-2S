@@ -3,7 +3,8 @@
 > Documento de transparencia técnica. Aquí no hay maquillaje: esto es lo que
 > el sistema **no puede hacer**, lo que hace **a medias**, los **errores que
 > tiene**, y cómo usarlo para **obtener beneficio real** sin engañarte.
-> Actualizado a v1.16.0 (chat paralelo + parada real + creación/búsqueda; base
+> Actualizado a v1.17.0 (estudio: libros completos, visor PDF, PPT en vivo;
+> base v1.16 chat paralelo + parada real + creación/búsqueda; base
 > v1.15 Protocolo Adaptativo Aegis: clasificación y composición
 > omnimodal auditable, sin promesas de omnipotencia ni razonamiento privado).
 
@@ -74,6 +75,7 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 22 | **Investigación/libros (v1.14)**: estrellas, citas y actualidad son señales, no prueba de verdad; OpenAlex/arXiv o GitHub pueden estar inaccesibles o devolver metadatos incompletos. Un PDF público puede conservar restricciones propias aunque viva en un repo abierto. El PDF puro-stdlib prioriza portabilidad, no maquetación editorial avanzada. Un `quality_score=100` mide gates estructurales, no perfección factual o literaria. | Media | 🟡 mitigado: manifiesto fechado, candidatos separados de fuentes OA, descarga solo HTTPS público + PDF válido ≤20 MB, citas validadas, `publication_ready`, errores y limitaciones explícitos. Revisión humana obligatoria antes de publicar. |
 | 23 | **Protocolo adaptativo (v1.15)**: la clasificación se basa en palabras y señales deterministas; puede omitir una capacidad útil o activar una innecesaria. Declarar «investigación» no garantiza que la red o una fuente respondan. El fallback heurístico conserva estructura y ejecución acotada, pero no obtiene comprensión general equivalente a un LLM. | Media | 🟡 mitigado: perfil visible/inspeccionable con `a2s protocol`, criterios y supuestos en ledger, respuesta con límites, investigación actual convertida en misión y tests de selección negativa. El operador puede reformular o especificar el criterio de éxito. |
 | 24 | **Chat/creación/búsqueda (v1.16)**: el clasificador de intención es léxico (puede lanzar una búsqueda cuando querías charlar, o al revés). Un `python_exec`/`shell` ya lanzado no se mata a la fuerza: espera su timeout. El companion de El Principito es original, no la novela. La búsqueda por palabra clave no aplica el filtro LLMOps, pero sí exige licencia SPDX abierta. | Media | 🟡 mitigado: inbox que nunca rechaza por ocupado, `StopToken` compartido, creación local-first, `/api/find` + `a2s search --repos`, tests de parada/libro/chat encolado. |
+| 25 | **Estudio Jarvis (v1.17)**: no hay margen de error cero — hay gates (PDF `%PDF-`, longitud, proceso persistido). Gutenberg solo cubre el catálogo OA; un texto enorme se maqueta recortado (el `.txt` guarda más). El PPTX es OOXML mínimo, no un diseñador gráfico. El crecimiento autónomo sigue dependiendo de cuota GitHub. | Media | 🟡 mitigado: companion vs novela, allowlist HTTPS, progreso SSE, visor `raw=1`, tests de deck/OA/libros largos. |
 
 ---
 
@@ -218,7 +220,7 @@ expansivo" es renunciable: el tope real siempre es `--max-time`.
 
 ## 8. Qué está probado y qué no
 
-**Probado (290 tests, `python -m unittest discover -s tests`):**
+**Probado (291 tests, `python -m unittest discover -s tests`):**
 hash chain + detección de modificación/truncación; modelo de permisos básico;
 clasificación adaptativa y selección negativa de capacidades; contrato de
 respuesta sin bloques privados; trazabilidad del perfil en misión; proveedores

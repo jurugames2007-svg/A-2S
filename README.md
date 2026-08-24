@@ -212,7 +212,7 @@ completo sin publicarlo:
 npm run release:local
 
 # Instala el tarball verificado como comando global; OmniRoute viene incluido
-npm install -g ./artifacts/a2s-agent-control-plane-1.16.0.tgz
+npm install -g ./artifacts/a2s-agent-control-plane-1.17.0.tgz
 
 a2s --version
 a2s doctor                         # levanta/verifica OmniRoute automáticamente
@@ -681,7 +681,7 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-290 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
+291 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
 permisos, proveedores, cuotas y ruta explicable, escalera de recuperación,
 división fractal, misión demo completa, red de gobernanza, consenso, memoria,
 shell sin procesos huérfanos, sandbox, firmas HMAC, auth, plugins, zipapp,

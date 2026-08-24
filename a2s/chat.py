@@ -102,8 +102,9 @@ class HeuristicAssistant:
         if any(w in text for w in self.HELP_WORDS):
             return ("Puedo: (1) conversar en paralelo a una misión, (2) buscar "
                     "repositorios por palabra clave en español o inglés, "
-                    "(3) crear libros e informes de verdad, (4) detener procesos "
-                    "y (5) lanzar una misión larga si el encargo lo pide. "
+                    "(3) crear libros completos e informes, (4) diseñar PPT "
+                    "mostrando el proceso, (5) obtener obras de dominio público, "
+                    "(6) detener procesos y (7) lanzar una misión larga. "
                     "Escríbeme en lenguaje natural; yo elijo la ruta automáticamente.")
         if any(w in text for w in self.STATUS_WORDS):
             return ("Revisa el panel de telemetría para el detalle en vivo. "
@@ -284,11 +285,19 @@ class ChatManager:
                 from .finder import format_search
                 reply = format_search(report)
             elif intent.kind == "create" and self._run_create is not None:
-                ok, msg = self._run_create(intent.topic or user_text,
-                                           {"book": intent.wants_book})
-                reply = (f"Empiezo a crear en segundo plano ({msg}). "
-                         "Puedes seguir hablando o decir «para» si quieres cortar. "
-                         "El archivo aparecerá en Resultados.")
+                ok, msg = self._run_create(intent.topic or user_text, {
+                    "book": intent.wants_book,
+                    "slides": intent.wants_slides,
+                    "obtain": intent.wants_obtain,
+                })
+                if intent.wants_slides:
+                    reply = (f"Diseño la presentación en vivo ({msg}). "
+                             "Verás el proceso en Operaciones y el PPT/HTML/PDF "
+                             "en Resultados. Puedes hablar o decir «para».")
+                else:
+                    reply = (f"Empiezo a crear en segundo plano ({msg}). "
+                             "Puedes seguir hablando o decir «para» si quieres cortar. "
+                             "El PDF se podrá visualizar en Resultados.")
                 if not ok:
                     reply = f"No pude encolar la creación: {msg}."
             else:

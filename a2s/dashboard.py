@@ -247,15 +247,26 @@ class MissionManager:
         options = options or {}
 
         def job(token: StopToken) -> dict[str, Any]:
-            from .creator import create_document
-            kind = "book" if options.get("book") else "auto"
-            result = create_document(self.workspace, topic, kind=kind, stop=token)
+            from .studio import produce
+
+            def progress(percent: int, note: str, extra=None) -> None:
+                payload = {"event": "studio_progress", "at": now_iso(),
+                           "percent": percent, "note": note,
+                           "title": topic}
+                if extra:
+                    payload.update(extra)
+                self.hub.publish(payload)
+
+            result = produce(self.workspace, topic, options, stop=token,
+                             progress=progress)
             self.hub.publish({"event": "artifact_ready", "at": now_iso(),
                               "artifacts": result.get("artifacts", []),
-                              "title": result.get("title", topic)})
+                              "title": result.get("title", topic),
+                              "kind": result.get("status")})
             return result
 
-        return self.jobs.submit("create", job, {"topic": topic})
+        kind = "slides" if options.get("slides") else "create"
+        return self.jobs.submit(kind, job, {"topic": topic})
 
     def start_in_background(self, goal: str, options: Optional[dict[str, Any]] = None
                             ) -> tuple[bool, str]:
@@ -526,27 +537,24 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
     def _serve_artifact(self, query: dict[str, list[str]]) -> None:
         """Sirve un archivo del workspace.
 
+        * ``?path=...`` → metadata JSON (el visor necesita ``raw_url``).
+        * ``?path=...&raw=1`` → bytes en línea (``<img>``, ``<iframe>``, PDF).
         * ``?path=...&download=1`` → bytes con ``Content-Disposition: attachment``.
-        * ``?path=...`` sobre medios/PDF → bytes en línea (para ``<img>``,
-          ``<audio>``, ``<video>`` o ``<iframe>``).
-        * Resto (texto, binario) → metadata JSON (el visor pinta el texto).
         """
         rel = (query.get("path") or [""])[0]
         if not rel:
             self._json({"error": "falta 'path'"}, 400)
             return
         download = (query.get("download") or ["0"])[0] == "1"
+        raw = (query.get("raw") or ["0"])[0] == "1"
 
         meta = get_artifact(self.control_plane.workspace, rel)
         if meta is None:
             self._json({"error": "archivo no encontrado"}, 404)
             return
 
-        # Los formatos previsualizables nativos del navegador se sirven como
-        # bytes (in-line) para que el visor los pueda embeber; el resto va
-        # como JSON (texto) o como descarga.
-        inline_kinds = {"image", "audio", "video", "pdf"}
-        if download or meta["kind"] in inline_kinds:
+        inline_kinds = {"image", "audio", "video", "pdf", "html"}
+        if download or (raw and meta["kind"] in inline_kinds):
             result = read_artifact_bytes(self.control_plane.workspace, rel)
             if result is None:
                 self._json({"error": "archivo no encontrado"}, 404)
@@ -642,6 +650,12 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
         elif path == "/api/find":
             query = str(payload.get("query") or payload.get("q") or "")
             self._json(self.control_plane.missions.run_search(query))
+        elif path == "/api/studio":
+            topic = str(payload.get("topic") or payload.get("goal") or "")
+            options = payload.get("options") if isinstance(
+                payload.get("options"), dict) else {}
+            ok, message = self.control_plane.missions.run_create(topic, options)
+            self._json({"status": message}, 202 if ok else 409)
         else:
             self._json({"error": "endpoint no encontrado"}, 404)
 

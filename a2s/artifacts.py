@@ -22,11 +22,12 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico"}
 AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".opus", ".flac", ".m4a", ".aac"}
 VIDEO_EXTS = {".mp4", ".webm", ".mov", ".mkv", ".ogv"}
 PDF_EXTS = {".pdf"}
+HTML_EXTS = {".html", ".htm"}
 TEXT_EXTS = {".txt", ".md", ".markdown", ".json", ".csv", ".log", ".py", ".js",
-             ".css", ".html", ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg",
+             ".css", ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg",
              ".sh", ".sql", ".ts", ".tsx", ".jsx", ".go", ".rs", ".c", ".h",
              ".java", ".rb", ".php", ".env", ".gitignore", ".editorconfig"}
-ARCHIVE_EXTS = {".zip", ".tar", ".gz", ".bz2", ".7z", ".xz"}
+ARCHIVE_EXTS = {".zip", ".tar", ".gz", ".bz2", ".7z", ".xz", ".pptx", ".docx"}
 
 
 def classify_kind(filename: str) -> str:
@@ -39,6 +40,8 @@ def classify_kind(filename: str) -> str:
         return "video"
     if ext in PDF_EXTS:
         return "pdf"
+    if ext in HTML_EXTS:
+        return "html"
     if ext in ARCHIVE_EXTS:
         return "archive"
     if ext in TEXT_EXTS:
@@ -85,7 +88,7 @@ def list_artifacts(workspace: str) -> list[dict[str, Any]]:
                 "mtime": int(st.st_mtime),
                 "kind": classify_kind(name),
                 "previewable": classify_kind(name) in (
-                    "image", "audio", "video", "pdf", "text"),
+                    "image", "audio", "video", "pdf", "html", "text"),
             })
     out.sort(key=lambda a: a["mtime"], reverse=True)
     return out
@@ -104,7 +107,7 @@ def get_artifact(workspace: str, relpath: str) -> Optional[dict[str, Any]]:
     data: dict[str, Any] = {
         "path": relpath, "name": os.path.basename(full),
         "size": st.st_size, "mtime": int(st.st_mtime), "kind": kind,
-        "previewable": kind in ("image", "audio", "video", "pdf", "text"),
+        "previewable": kind in ("image", "audio", "video", "pdf", "html", "text"),
     }
     if kind == "text" and st.st_size <= MAX_PREVIEW_BYTES:
         try:
@@ -114,7 +117,7 @@ def get_artifact(workspace: str, relpath: str) -> Optional[dict[str, Any]]:
             data["text"] = ""
     data["download_url"] = f"/api/artifact?path={_quote(relpath)}&download=1"
     if kind in ("image", "audio", "video", "pdf"):
-        data["raw_url"] = f"/api/artifact?path={_quote(relpath)}"
+        data["raw_url"] = f"/api/artifact?path={_quote(relpath)}&raw=1"
     mime, _ = mimetypes.guess_type(full)
     if not mime:
         mime = {"image": "application/octet-stream", "audio": "audio/mpeg",

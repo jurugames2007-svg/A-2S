@@ -223,8 +223,12 @@ class TestDashboardHTTP(unittest.TestCase):
         png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
         with open(os.path.join(ws, "x.png"), "wb") as fh:
             fh.write(png)
-        # la imagen se sirve en línea como bytes para embeber en <img>
-        code, headers, body = request(self.base + "/api/artifact?path=x.png")
+        code, _, meta_body = request(self.base + "/api/artifact?path=x.png")
+        self.assertEqual(code, 200)
+        meta = json.loads(meta_body)
+        self.assertEqual(meta["kind"], "image")
+        self.assertIn("raw=1", meta["raw_url"])
+        code, headers, body = request(self.base + "/api/artifact?path=x.png&raw=1")
         self.assertEqual(code, 200)
         self.assertEqual(headers.get("Content-Type"), "image/png")
         self.assertEqual(body, png)

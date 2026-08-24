@@ -12,6 +12,7 @@ import re
 from typing import Optional
 
 from .finder import fold
+from .prose import lengthen
 
 
 def is_literary(topic: str) -> bool:
@@ -35,9 +36,13 @@ def is_principito(topic: str) -> bool:
 def compose_book(topic: str, title: str = "") -> list[tuple[str, str]]:
     """Devuelve capítulos (título, prosa) de un libro original usable."""
     if is_principito(topic):
-        return principito_companion()
-    clean = re.sub(r"\s+", " ", (title or topic or "el tema pedido").strip())
-    return generic_companion(clean)
+        raw = principito_companion()
+        topic_label = "El Principito (lectura, no la novela)"
+    else:
+        clean = re.sub(r"\s+", " ", (title or topic or "el tema pedido").strip())
+        raw = generic_companion(clean)
+        topic_label = clean
+    return [(heading, lengthen(body, topic_label, heading)) for heading, body in raw]
 
 
 def principito_companion() -> list[tuple[str, str]]:
@@ -182,6 +187,48 @@ def principito_companion() -> list[tuple[str, str]]:
          "ediciones pirateadas. Volver a este companion después, no antes, "
          "si se busca discutir y no sustituir. Este libro de A²S es un "
          "artefacto original, fechado, y no pretende ser la obra."),
+        ("Cómo no piratear un clásico",
+         "Hay quien pide «el libro» y espera el texto íntegro de 1943. "
+         "Esa petición choca con un mapa legal desigual. En Chile y en "
+         "buena parte de vida+70 el francés original es de dominio público "
+         "desde 2015. En Estados Unidos la protección llega a 2039. Cada "
+         "traducción española tiene derecho propio. Descargar un PDF "
+         "anónimo no es estudiar: es borrar al traductor y al editor. "
+         "A²S se niega a esa ruta. Entrega un companion, una ficha y una "
+         "guía. El lector que quiera las palabras exactas del aviador debe "
+         "abrir una edición legal. Esa negativa no es un fallo técnico. "
+         "Es el único modo de no convertir un clásico en contrabando."),
+        ("Vocabulario mínimo para leer mejor",
+         "Algunas palabras del libro se han vuelto eslóganes y han perdido "
+         "peso. Domesticar no es adiestrar: es crear lazos mediante el "
+         "tiempo. Esencial no es «importante»: es lo que no se ve y aun "
+         "así obliga. Baobab no es un árbol decorativo: es lo que crece "
+         "si se aplaza la mirada. Rosa no es «la amada perfecta»: es lo "
+         "frágil, caprichoso e irreemplazable porque se ha cuidado. "
+         "Cordero no es fauna: es la prueba de que alguien toma en serio "
+         "una necesidad invisible. Quien lea con este glosario evita "
+         "repetir las frases célebres como si fueran merchandising."),
+        ("Preguntas para un club de lectura",
+         "1) ¿Qué semilla —vicio, mentira, vanidad— estoy dejando crecer "
+         "por no mirarla? 2) ¿Qué dije demasiado tarde, como la rosa en "
+         "el umbral? 3) ¿A cuál de los seis planetas se parece mi semana "
+         "laboral? 4) ¿A quién he domesticado de verdad y de quién soy "
+         "responsable? 5) ¿Qué agua he bebido sin haber caminado hasta "
+         "ella? 6) Si el cordero se come la rosa, ¿qué haré yo, que no "
+         "estoy en B-612? Un club que no se hace estas preguntas solo "
+         "intercambia admiración. Un club que se las hace lee de nuevo."),
+        ("Línea de tiempo del aviador",
+         "1900: nace en Lyon. 1921-26: servicio militar y primeros vuelos. "
+         "1926-31: correo aéreo, Sahara, Andes; de ahí salen Correo del "
+         "sur y Vuelo nocturno. 1935: aterrizaje forzoso entre Libia y "
+         "Egipto; la sed real alimentará más tarde el pozo del cuento. "
+         "1939-40: guerra y derrota. 1940-43: exilio en Estados Unidos; "
+         "escribe El principito en Nueva York y Long Island, lo ilustra "
+         "él mismo, lo publica en 1943 en francés e inglés. 31 de julio "
+         "de 1944: desaparece en el Mediterráneo. 1998: se identifica el "
+         "caza. 2004: se recuperan restos. La fábula no es un adorno de "
+         "ese itinerario: es lo que un piloto en guerra todavía podía "
+         "decirle a un adulto sin gritar."),
     ]
 
 
@@ -274,6 +321,45 @@ def generic_companion(topic: str) -> list[tuple[str, str]]:
          f"marcarlo y usarlo. Si no sirve, tíralo y pide otro con un "
          f"encargo más preciso. Un libro debe poder fallar. Si no puede "
          f"fallar, no era un libro: era un formulario."),
+        (f"Una historia breve de {t}",
+         f"Toda materia tiene una cronología, aunque sea tosca. {t} no "
+         f"apareció ayer ni se agota hoy. Hubo un momento en que nadie "
+         f"usaba ese nombre, otro en que se convirtió en moda y otro en "
+         f"que empezó a cansar. Este capítulo no finge un tratado "
+         f"histórico. Señala tres capas: origen, abuso y uso presente. "
+         f"El origen explica por qué alguien lo necesitó. El abuso explica "
+         f"por qué ahora desconfías. El uso presente es lo único que "
+         f"puedes verificar esta semana. Si no puedes datar una afirmación "
+         f"sobre {t}, trátala como opinión."),
+        ("Contraste de enfoques",
+         f"Hay al menos tres modos de acercarse a {t}. El primero es el "
+         f"devoto: lo defiende como identidad. El segundo es el cínico: lo "
+         f"reduce a un truco de mercado. El tercero es el artesano: lo "
+         f"usa, lo mide y lo corrige. Este libro elige el tercero. No "
+         f"porque sea más virtuoso, sino porque produce evidencia. El "
+         f"devoto no admite fallo. El cínico no admite valor. El artesano "
+         f"admite ambos y por eso puede mejorar. Si al leer te descubres "
+         f"en el primer o el segundo bando, anótalo: es un dato sobre ti, "
+         f"no sobre {t}."),
+        (f"Un caso imaginado alrededor de {t}",
+         f"Imagina a dos personas en una mesa. Una afirma que entiende "
+         f"{t}. La otra pide una prueba que quepa en diez minutos. La "
+         f"primera habla veinte. No hay prueba. Esa escena se repite en "
+         f"oficinas, aulas y chats. El caso imaginado sirve para "
+         f"entrenar la pregunta correcta: ¿qué tendría que ocurrir para "
+         f"que yo cambiara de opinión? Si no puedes responderla, no "
+         f"estás estudiando {t}: estás defendiendo una preferencia. El "
+         f"resto de este capítulo es un ensayo de esa pregunta, no una "
+         f"anécdota decorativa."),
+        (f"Cómo enseñar {t} sin humillar",
+         f"Enseñar {t} no es recitar. Es poner al otro en situación de "
+         f"equivocarse barato. Una buena lección tiene un objeto, una "
+         f"restricción y un criterio de éxito. «Explícalo sin mirar.» "
+         f"«Señala un límite.» «Haz una sola cosa el lunes.» Quien enseña "
+         f"para lucirse produce alumnos mudos. Quien enseña para que el "
+         f"otro pueda seguir solo produce independencia. Este volumen "
+         f"quiere lo segundo. Si lo usas en un aula o en un equipo, "
+         f"empieza por el capítulo de método y termina por el del lunes."),
     ]
 
 

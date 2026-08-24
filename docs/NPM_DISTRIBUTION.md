@@ -1,6 +1,6 @@
 # Distribución ejecutable con npm
 
-A²S 1.16.0 se puede instalar como paquete npm sin reescribir ni duplicar el
+A²S 1.17.0 se puede instalar como paquete npm sin reescribir ni duplicar el
 núcleo Python. Node aporta el launcher, instala y supervisa OmniRoute; el
 runtime del agente sigue siendo Python stdlib auditable.
 
@@ -46,7 +46,7 @@ artifacts/a2s-agent-control-plane-1.15.0.tgz
 ## Instalación del tarball
 
 ```bash
-npm install -g ./artifacts/a2s-agent-control-plane-1.16.0.tgz
+npm install -g ./artifacts/a2s-agent-control-plane-1.17.0.tgz
 
 a2s --version
 a2s doctor                         # arranca/verifica OmniRoute incluido
