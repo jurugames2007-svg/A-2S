@@ -131,14 +131,44 @@ print("(fin del registro de custodia)")
 
 _HEURISTIC_PLANS: list[tuple[tuple[str, ...], str, list[tuple[str, str, dict[str, Any], list[str]]]]] = [
     # (palabras clave, nombre de plantilla, pasos (nombre, tool, params, criterios))
+    (("ordenar", "escritorio", "limpiar workspace"), "steward_files", [
+        ("ordenar_workspace", "organize_workspace",
+         {"topic": "{goal}"},
+         ["archivos movidos o informe del mayordomo"]),
+    ]),
+    (("programa python", "genera un programa"), "local_program", [
+        ("escribir_programa", "generate_program",
+         {"topic": "{goal}"},
+         ["programs/*/main.py creado"]),
+    ]),
+    (("abogado", "médico", "medico", "presupuesto personal"), "counsel", [
+        ("nota_de_orientacion", "counsel_note",
+         {"topic": "{goal}"},
+         ["counsel/*.md con descargo"]),
+    ]),
+    (("ppt", "pptx", "powerpoint", "presentación", "presentacion",
+      "diapositiva", "slides"), "verified_deck", [
+        ("disenar_presentacion", "create_slides",
+         {"topic": "{goal}"},
+         ["slides/deck.pptx, HTML, PDF y process.json creados"]),
+        ("verificar_deck", "read_file", {"path": "slides/quality.json"},
+         ["calidad y número de láminas disponibles"]),
+    ]),
     (("libro", "ebook", "manual", "capítulos", "capitulos"), "verified_book", [
         ("investigar_y_crear_libro", "create_book",
-         {"topic": "{goal}", "chapters": 6, "target_words": 3000},
+         {"topic": "{goal}", "chapters": 12, "target_words": 5000},
          ["book/book.md, HTML, PDF y quality.json creados"]),
         ("verificar_manuscrito", "read_file", {"path": "book/quality.json"},
          ["quality gate y limitaciones disponibles"]),
     ]),
-    (("repositorio", "repositorios", "github", "pdf", "papers", "recientes",
+    (("github.com", "search_repos", "palabra clave"), "repo_keyword_search", [
+        ("buscar_repositorios", "search_repos",
+         {"query": "{goal}", "limit": 8},
+         ["resultados de repositorios guardados"]),
+        ("guardar_busqueda", "read_file", {"path": "research/search.md"},
+         ["informe de búsqueda disponible"]),
+    ]),
+    (("pdf", "papers", "recientes",
       "reciente", "actual", "noticias", "precio", "destacables"), "verified_research", [
         ("investigar_fuentes_y_repositorio", "research_topic",
          {"topic": "{goal}", "repo_limit": 8, "pdf_limit": 8},

@@ -116,6 +116,11 @@
 > «perfección»: si faltan fuentes, extensión o canales de búsqueda, queda
 > explícitamente marcado para revisión.
 
+> **v1.20 — Modo sencillo, sin terminal:** el Control Plane abre en **Inicio**
+> con botones grandes (ordenar, libro, PPT, buscar, seguir donde quedó,
+> detener, ver archivos). No hace falta saber programar ni escribir
+> `a2s pcb`. El chat y **Archivos** siguen al lado.
+
 > **v1.15 — Protocolo Adaptativo Aegis:** antes de responder o planificar,
 > clasifica la necesidad (informativa, creativa, analítica, práctica, emocional,
 > técnica) y activa solo lo pertinente: investigación actual, contraste,
@@ -212,7 +217,7 @@ completo sin publicarlo:
 npm run release:local
 
 # Instala el tarball verificado como comando global; OmniRoute viene incluido
-npm install -g ./artifacts/a2s-agent-control-plane-1.15.0.tgz
+npm install -g ./artifacts/a2s-agent-control-plane-1.18.0.tgz
 
 a2s --version
 a2s doctor                         # levanta/verifica OmniRoute automáticamente
@@ -299,6 +304,8 @@ conocimiento que usan todas las misiones:
 npm start                      # dashboard + crecimiento cada 30 min
 a2s grow --cycles 3            # estudiar ahora, en primer plano
 a2s grow --forever             # crecer sin parar (Ctrl+C para parar)
+a2s pcb                        # colas PCB (ready/parked) + 1000 mejoras
+a2s pcb resume                 # reanudar trabajos si se cortó el proceso
 A2S_AUTO_LEARN=0 npm start     # apagarlo
 ```
 
@@ -385,7 +392,7 @@ python -m a2s run "Investiga el proyecto y escribe un resumen con datos reales"
 # Varios objetivos con sub-agentes fractales en paralelo
 python -m a2s run "Objetivo A;Objetivo B" --parallel
 
-# Agent Control Plane industrial (chat a la izquierda, SSE, resultados, ruta, radar, assurance)
+# Agent Control Plane: pulsa un botón (Inicio) o habla en el chat
 python -m a2s dashboard --port 8000
 # Al exponerlo en red, autenticación obligatoria recomendada
 python -m a2s dashboard --public --auth --port 8000
@@ -613,6 +620,7 @@ a2s/
 ├── goals.py        biblioteca de objetivos con verificadores (misión demo)
 ├── models.py       tipos de datos (Step, Observation, Evaluation, RunReport…)
 ├── report.py       informes de ejecución (texto/Markdown/JSON)
+├── actions.py      botones de un clic (sin CLI) → /api/action
 ├── dashboard.py    API del Agent Control Plane (SSE, chat, artefactos, auth, seguridad web)
 ├── aegis_protocol.py  clasificación adaptativa, capacidades y contrato auditable
 ├── chat.py         Aegis conversacional en paralelo (prosa + lanzador automático de misiones)
@@ -681,7 +689,7 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-274 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
+Más de 310 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
 permisos, proveedores, cuotas y ruta explicable, escalera de recuperación,
 división fractal, misión demo completa, red de gobernanza, consenso, memoria,
 shell sin procesos huérfanos, sandbox, firmas HMAC, auth, plugins, zipapp,

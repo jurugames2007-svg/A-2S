@@ -115,10 +115,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     config = _config_from_args(args)
     if args.resume:
         from .ledger import Ledger
+        from .kernel import Kernel
         led = Ledger(os.path.join(os.path.abspath(config.workspace), ".a2s"))
         ok, msg, n = led.verify()
-        print(f"[A²S] Reanudando sobre estado previo: {msg} ({n} entradas) — "
-              "el workspace y la memoria se conservan.\n")
+        kernel = Kernel.open(config.workspace)
+        restored = kernel.resume_all()
+        print(f"[A²S] Reanudando PCB: {len(restored)} trabajo(s) → ready · "
+              f"ledger {msg} ({n} entradas) · {kernel.applied} mejoras.\n")
     print(scope_note())
     print()
     reports = []
@@ -481,6 +484,52 @@ def cmd_grow(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def cmd_pcb(args: argparse.Namespace) -> int:
+    """Colas de planificación persistentes: estado, apply, resume, enqueue."""
+    from .catalog import CATALOG_SIZE, apply_all, build_catalog
+    from .kernel import Kernel
+    kernel = Kernel.open(args.workspace)
+    action = getattr(args, "accion", "status") or "status"
+    if action == "apply":
+        manifest = apply_all(args.workspace, force=True)
+        print(f"[A²S] aplicadas {manifest['applied']}/{CATALOG_SIZE} mejoras")
+        return 0 if manifest["applied"] == CATALOG_SIZE else 1
+    if action == "catalog":
+        items = build_catalog()
+        print(f"[A²S] catálogo {len(items)} entradas")
+        for item in items[:12]:
+            print(f"  {item['id']}  {item['title']}")
+        print(f"  … {max(0, len(items) - 12)} más (workspace/.a2s/pcb/CATALOG.md)")
+        return 0 if len(items) == CATALOG_SIZE else 1
+    if action == "enqueue":
+        goal = (args.goal or "").strip()
+        if not goal:
+            print("✗ falta el objetivo a encolar")
+            return 1
+        pcb = kernel.admit(goal, kind=args.kind or "mission")
+        print(f"[A²S] admitido pid={pcb.pid} cola={pcb.queue} kind={pcb.kind}")
+        return 0
+    if action == "resume":
+        got = kernel.resume_all()
+        print(f"[A²S] reanudados {len(got)} PCB")
+        for pcb in got:
+            print(f"  pid={pcb.pid} pc={pcb.pc} {pcb.goal[:70]}")
+        return 0
+    snap = kernel.snapshot()
+    print(f"A²S PCB · pid_last={snap['last_pid']} · aplicados={snap['applied']}")
+    print(f"  ready={snap['ready']} running={snap['running']} "
+          f"parked={snap['parked']} blocked={snap['blocked']} "
+          f"done={snap['completed']} fail={snap['failed']}")
+    print(f"  colas: {snap['queues']}")
+    if snap.get("deadlocks"):
+        print(f"  deadlock: {snap['deadlocks']}")
+    for pcb in snap["procs"][-8:]:
+        print(f"  #{pcb['pid']:<5} {pcb['state']:<10} pc={pcb['pc']:<4} "
+              f"{pcb['kind']:<8} {pcb['goal'][:56]}")
+    return 0
+
+
 def cmd_learn(args: argparse.Namespace) -> int:
     """Ciclo de Enriquecimiento: estudiar repos públicos hasta ser capaz
     (verificación objetiva) de resolver el objetivo."""
@@ -585,21 +634,31 @@ def cmd_research(args: argparse.Namespace) -> int:
 
 
 def cmd_book(args: argparse.Namespace) -> int:
-    """Construye un libro con fuentes, consistencia estructural y quality gate."""
-    from .publishing import BookBuilder
-    result = BookBuilder(args.workspace).build(
-        args.topic, title=args.title, chapters=args.chapters,
-        target_words=args.words, output_dir=args.output,
-        repo_limit=args.repos, pdf_limit=args.pdfs)
+    """Construye un libro: literario local-first o de investigación."""
+    from .literary import is_literary
+    if is_literary(args.topic) or getattr(args, "local", False):
+        from .creator import create_document
+        result = create_document(args.workspace, args.topic, title=args.title,
+                                 kind="book")
+    else:
+        from .publishing import BookBuilder
+        result = BookBuilder(args.workspace).build(
+            args.topic, title=args.title, chapters=args.chapters,
+            target_words=args.words, output_dir=args.output,
+            repo_limit=args.repos, pdf_limit=args.pdfs)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        mark = "✔" if result["status"] == "verified_draft" else "◐"
-        print(f"[A²S] {mark} libro {result['status']} · calidad {result['quality_score']}/100 · "
-              f"{result['word_count']} palabras · {result['sources']} fuentes")
+        mark = "✔" if result.get("status") in ("verified_draft", "original_volume") else "◐"
+        score = result.get("quality_score", result.get("quality", {}).get("score", 0))
+        print(f"[A²S] {mark} libro {result['status']} · calidad {score}/100 · "
+              f"{result.get('word_count', 0)} palabras · "
+              f"{result.get('sources', result.get('chapters', 0))} "
+              f"{'fuentes' if 'sources' in result else 'capítulos'}")
         print("  artefactos: " + ", ".join(result["artifacts"]))
-        if result["quality"]["limitations"]:
-            print("  pendiente: " + ", ".join(result["quality"]["limitations"]))
+        limits = (result.get("quality") or {}).get("limitations") or []
+        if limits:
+            print("  pendiente: " + ", ".join(limits))
     return 0
 
 
@@ -627,14 +686,19 @@ def cmd_pool_preview(args: argparse.Namespace) -> int:
 
 
 def cmd_search(args: argparse.Namespace) -> int:
-    """Memoria semántica: búsqueda BM25 sobre episodios, fichas y pool."""
+    """Memoria semántica + repos por palabra clave (cualquier idioma)."""
+    from .finder import RepoFinder, format_search
     from .search import workspace_search
+    if getattr(args, "repos", False):
+        report = RepoFinder(args.workspace).search(args.query, limit=args.top)
+        print(format_search(report))
+        return 0 if report.get("repositories") or report.get("memory") else 1
     hits = workspace_search(args.workspace, args.query, top=args.top,
                             origenes=set(args.origen) if args.origen else None)
     if not hits:
-        print(f"[A²S] sin resultados para «{args.query}» en {args.workspace} "
-              "(ejecuta misiones/learn primero para acumular memoria)")
-        return 1
+        report = RepoFinder(args.workspace).search(args.query, limit=args.top)
+        print(format_search(report))
+        return 0 if report.get("repositories") or report.get("memory") else 1
     print(f"[A²S] BM25 · {args.query!r} · {len(hits)} resultado(s):")
     for doc, score in hits:
         print(f"  {score:>6.3f}  [{doc.origen:<8}] {doc.meta[:90]}")
@@ -973,6 +1037,8 @@ def main(argv: list[str] | None = None) -> int:
     p_book.add_argument("--pdfs", type=int, default=8)
     p_book.add_argument("--output", default="book")
     p_book.add_argument("--json", action="store_true")
+    p_book.add_argument("--local", action="store_true",
+                        help="forzar companion original sin investigación de red")
     p_book.set_defaults(func=cmd_book)
 
     p_bus = sub.add_parser("search", help="memoria semántica: búsqueda BM25 sobre "
@@ -982,6 +1048,8 @@ def main(argv: list[str] | None = None) -> int:
     p_bus.add_argument("--top", type=int, default=5)
     p_bus.add_argument("--origen", action="append", default=None,
                        help="filtrar por origen (episodio|ficha|pool, repetible)")
+    p_bus.add_argument("--repos", action="store_true",
+                       help="buscar también repositorios públicos por palabra clave")
     p_bus.set_defaults(func=cmd_search)
 
     p_srv = sub.add_parser("serve", help="modo SERVICIO experimental: API REST con "
@@ -1147,6 +1215,15 @@ def main(argv: list[str] | None = None) -> int:
     p_grow.add_argument("--forever", action="store_true",
                         help="crecer sin parar en segundo plano (Ctrl+C para parar)")
     p_grow.set_defaults(func=cmd_grow)
+
+    p_pcb = sub.add_parser(
+        "pcb", help="colas de planificación persistentes (PCB): estado y reanudación")
+    p_pcb.add_argument("accion", nargs="?", default="status",
+                       choices=["status", "resume", "enqueue", "apply", "catalog"])
+    p_pcb.add_argument("goal", nargs="?", default="")
+    p_pcb.add_argument("--workspace", default="workspace")
+    p_pcb.add_argument("--kind", default="mission")
+    p_pcb.set_defaults(func=cmd_pcb)
 
     args = parser.parse_args(argv)
     if getattr(args, "seed", None) is not None:

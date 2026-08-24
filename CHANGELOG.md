@@ -3,6 +3,93 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.20.0] — 2026-08-24
+
+### Añadido (modo sencillo, sin terminal)
+
+- **Botones de un clic** en Inicio: revisar, ordenar, limpiar, deshacer,
+  libro, presentación, programa, buscar, investigar, oportunidades,
+  seguir donde quedó, detener, ver archivos y estado.
+- API `GET /api/actions` y `POST /api/action` para que un operador sin
+  conocimientos de programación no use `a2s pcb` ni ningún comando.
+- Coach «Pulsa un botón. El agente hace el resto.» Chat y pestañas en
+  español llano (Inicio / Archivos). Opciones de motor escondidas.
+
+## [1.19.0] — 2026-08-24
+
+### Añadido (PCB + 1000 mejoras aplicadas)
+
+- **PCB persistente** (`.a2s/pcb/`): pid, estado, PC, registros, journal
+  con fsync. Si se interrumpe, `a2s pcb resume` o «reanuda las colas»
+  recupera parked/blocked.
+- **Colas MLFQ** Q0 chat / Q1 misión / Q2 estudio / Q3 batch: aging,
+  quantum, dedup, backpressure, watchdog, ruptura de deadlock.
+- **1000 mejoras** (`IMP-0001`…`IMP-1000`) instaladas al abrir el
+  kernel. Manifiesto en `.a2s/pcb/improvements.json` y
+  `docs/IMPROVEMENTS.md`.
+- CLI `a2s pcb`, API `/api/pcb`, herramientas `pcb_status`/`resume_jobs`,
+  métrica COLAS PCB en el Control Plane.
+
+## [1.18.0] — 2026-08-24
+
+### Añadido (mayordomo, macros, consejo, horizonte)
+
+- **Mayordomo de workspace**: ordenar, renombrar, mover, limpieza de basura
+  y escritorio *virtual* (HTML). Diario de deshacer. No toca el SO ni
+  archivos importantes (libros, claves, contratos, `.a2s`).
+- **Macros** y **generador de programas** stdlib con test y README.
+- **Orientación** legal/médica/financiera con descargo: no es ejercicio
+  profesional.
+- **Horizonte** de empleo/finanzas públicas: briefs de días, sin postular
+  ni crear cuentas.
+- **Hardware**: snapshot de solo lectura y lista BIOS. Rechaza flash y
+  overclock.
+- **Bóveda**: rechaza wallets, seed phrases y altas en terceros.
+
+## [1.17.0] — 2026-08-24
+
+### Añadido (estudio continuo: libros, PDF, PPT)
+
+- **Libros completos**: el compositor literario entrega volúmenes originales
+  de miles de palabras (El Principito: companion, no la novela). Quality gate
+  honesto a 4000 palabras.
+- **Obtención OA**: catálogo Gutenberg (Quijote, Odisea, Hamlet…) por HTTPS
+  allowlist. El Principito se rechaza y se escribe companion.
+- **PPT con proceso en vivo**: `create_slides` produce PPTX (OOXML stdlib),
+  HTML con log y PDF. SSE `studio_progress` y panel STUDIO LIVE.
+- **Visor PDF/HTML real**: `GET /api/artifact` devuelve JSON con `raw_url`;
+  los bytes van en `?raw=1`. El visor usa `<object>` + pantalla completa.
+- Módulos `studio`, `slides`, `acquire`, `prose`.
+
+## [1.16.0] — 2026-08-24
+
+### Corregido (el chat, la parada, la creación y la búsqueda)
+
+- **Inbox que nunca rechaza por ocupado**: el chat encola peticiones y un
+  worker único las procesa. Se puede hablar mientras una misión corre y
+  mientras el asistente todavía está escribiendo.
+- **Parada real**: `StopToken` compartido. `stop` ya no deja un deadline
+  congelado al inicio de `run()`; corta el bucle externo, no relanza rondas
+  y cancela trabajos laterales. El botón ■ del chat y la palabra «para»
+  interrumpen.
+- **Crear de verdad, sin red**: `create_book` ya no exige GitHub. Un
+  encargo literario (p. ej. El Principito) produce un companion original
+  de miles de palabras, Markdown+HTML+PDF con MiniPDF, no una plantilla de
+  «Panorama, propósito y alcance».
+- **Búsqueda por palabra clave en cualquier idioma**: `RepoFinder` expande
+  ES/EN, busca en GitHub, catálogo y memoria BM25, **sin** el filtro LLMOps
+  del radar. `a2s search`, `GET/POST /api/find` y el chat «busca X».
+- **Anti-deadlock**: chat y misión ya no comparten instancia de proveedor;
+  los candados tienen timeout; el hub SSE sigue con `put_nowait`.
+- El Control Plane acepta orígenes de preview (e2b/arena) y `A2S_PUBLIC=1`
+  para escuchar en `0.0.0.0`.
+
+### Añadido
+
+- Módulos `control`, `intent`, `finder`, `creator`, `literary`, `pdf`.
+- Trabajos laterales (`JobSupervisor`) en paralelo a la misión exclusiva.
+- Tests de inbox, parada, libro del Principito, chat encolado y `/api/find`.
+
 ## [1.15.0] — 2026-08-24
 
 ### Añadido

@@ -137,6 +137,10 @@ function switchView(name) {
 /* ------------------------------------------------------------------ */
 
 const EVENT_META = {
+  job_start: ["✎", "Trabajo en paralelo", "step_start"],
+  job_done: ["■", "Trabajo terminado", "success"],
+  studio_progress: ["✎", "Proceso en vivo", "step_start"],
+  artifact_ready: ["⬚", "Artefacto listo", "success"],
   run_start: ["▶", "Misión iniciada", "step_start"],
   capability_protocol: ["◉", "Capacidades adaptativas", "replan"],
   plan_created: ["◇", "Plan construido", "replan"],
@@ -153,6 +157,8 @@ const EVENT_META = {
   ecosystem_scan: ["+", "Radar actualizado", "success"],
   step_done: ["✓", "Paso completado", "success"],
   growth_cycle: ["🌱", "Crecimiento: estudio autónomo", "success"],
+  pcb_admit: ["#", "PCB admitido", "step_start"],
+  pcb_resume: ["↻", "Colas reanudadas", "replan"],
 };
 
 function eventDetail(event) {
@@ -169,6 +175,7 @@ function eventDetail(event) {
   if (event.event === "run_end" || event.event === "operator_stop") return event.note || "";
   if (event.event === "ecosystem_scan") return `${event.added || 0} nuevos · ${event.total || 0} totales`;
   if (event.event === "step_done") return event.reason || event.status || "";
+  if (event.event === "studio_progress") return `${event.percent || 0}% · ${event.note || ""}`;
   return event.note || event.status || event.goal || event.event || "evento";
 }
 
@@ -220,6 +227,35 @@ function addEvent(event, scroll = true) {
   }
   if (event.event === "chat_idle") { removeTyping(); state.chatBusy = false; setChatState("Listo", ""); }
   if (event.event === "chat_cleared") { renderChatHistory([]); renderProtocol({}); }
+  if (event.event === "job_start") {
+    setChatState("Creando/buscando…", "busy");
+  }
+  if (event.event === "job_done") {
+    loadArtifacts(true).catch(() => {});
+    if (event.ok) {
+      appendAssistantBubble("Listo. Ya tienes archivos nuevos en **Resultados**.");
+    } else if (event.error) {
+      appendAssistantBubble(`El trabajo se detuvo: ${event.error}`);
+    }
+  }
+  if (event.event === "studio_progress") {
+    updateStudioProcess(event);
+    setChatState(`Creando ${event.percent || 0}%`, "busy");
+  }
+  if (event.event === "artifact_ready") {
+    loadArtifacts(true).then(() => {
+      const arts = event.artifacts || [];
+      const pdf = arts.find((p) => String(p).toLowerCase().endsWith(".pdf"));
+      const html = arts.find((p) => String(p).toLowerCase().endsWith(".html"));
+      if (pdf) selectArtifact(pdf);
+      else if (html) selectArtifact(html);
+    }).catch(() => {});
+    switchView("results");
+  }
+  if (event.event === "operator_stop") {
+    updateMissionControls(false);
+    setChatState("Listo", "");
+  }
 }
 
 function connectEvents() {
@@ -235,6 +271,61 @@ function connectEvents() {
     source.close();
     window.setTimeout(connectEvents, 2500);
   };
+}
+
+async function fireAction(id, topic) {
+  const spec = (state.actions || []).find((item) => item.id === id) || {};
+  let chosen = topic || "";
+  if (!chosen && spec.ask) {
+    chosen = window.prompt(spec.ask, spec.topic || "") || "";
+    if (!chosen.trim()) return;
+  }
+  try {
+    const result = await api("/api/action", {
+      method: "POST",
+      body: JSON.stringify({ id, topic: chosen }),
+    });
+    toast(result.message || "Hecho");
+    if (result.view === "results") {
+      switchView("results");
+      loadArtifacts(true).catch(() => {});
+    }
+    if (result.pcb) {
+      text($("#metric-pcb"), String((result.pcb.ready || 0) + (result.pcb.running || 0)));
+      text($("#metric-pcb-note"),
+        `${result.pcb.ready || 0} en espera · ${result.pcb.parked || 0} pausados`);
+    }
+    appendAssistantBubble(result.message || spec.title || id);
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+function renderActions(actions) {
+  const board = $("#action-board");
+  if (!board) return;
+  state.actions = actions || [];
+  board.replaceChildren();
+  state.actions.forEach((item) => {
+    const btn = el("button", "action-card");
+    btn.type = "button";
+    btn.dataset.action = item.id;
+    const title = el("b"); title.textContent = item.title;
+    const blurb = el("small"); blurb.textContent = item.blurb;
+    const go = el("span", "go"); go.textContent = "PULSAR";
+    btn.append(title, blurb, go);
+    btn.addEventListener("click", () => fireAction(item.id));
+    board.appendChild(btn);
+  });
+}
+
+async function loadActions() {
+  try {
+    const data = await api("/api/actions");
+    renderActions(data.actions || []);
+  } catch (_) {
+    renderActions([]);
+  }
 }
 
 async function loadState() {
@@ -253,6 +344,11 @@ async function loadState() {
   if (data.report) {
     text($("#metric-state"), data.report.success ? "VERIFIED" : "PARTIAL");
     text($("#metric-state-note"), `${data.report.iterations} iteraciones · ${data.report.wall_seconds}s`);
+  }
+  if (data.pcb) {
+    text($("#metric-pcb"), String((data.pcb.ready || 0) + (data.pcb.running || 0)));
+    text($("#metric-pcb-note"),
+      `${data.pcb.ready || 0} ready · ${data.pcb.parked || 0} parked · ${data.pcb.applied || 0} mejoras`);
   }
 }
 
@@ -282,7 +378,7 @@ function renderChat(history) {
   const thread = $("#chat-thread");
   thread.replaceChildren();
   // Mensaje de bienvenida siempre.
-  appendAssistantBubble("Hola. Soy **Aegis**, el asistente autónomo de A²S. Pídeme directamente que investigue, analice o cree algo; elegiré la ruta y lo ejecutaré por ti.");
+  appendAssistantBubble("Hola. Soy **Aegis**. Pulsa un botón o escríbeme como se lo dirías a una persona. No hace falta terminal ni saber programar.");
   (history || []).forEach((m) => appendBubble(m.role, m.content, { error: m.error, mission: m.mission_id, at: m.at }));
   scrollChat();
 }
@@ -347,15 +443,16 @@ function scrollChat() {
 
 async function sendChat(message) {
   message = (message || "").trim();
-  if (!message || state.chatBusy) return;
-  state.chatBusy = true;
+  if (!message) return;
   appendBubble("user", message);
   $("#chat-input").value = "";
   autoGrowChat();
   showTyping();
-  setChatState("Pensando…", "busy");
+  setChatState("En bandeja…", "busy");
   try {
     await api("/api/chat", { method: "POST", body: JSON.stringify({ message }) });
+    // No bloqueamos el compositor: se puede seguir hablando.
+    state.chatBusy = false;
   } catch (e) {
     removeTyping();
     appendBubble("assistant", `No pude enviar el mensaje: ${e.message}`, { error: true });
@@ -549,8 +646,23 @@ function renderAudit(report) {
 /* Resultados / artefactos                                             */
 /* ------------------------------------------------------------------ */
 
+function updateStudioProcess(event) {
+  const percent = Math.max(0, Math.min(100, Number(event.percent) || 0));
+  text($("#studio-percent"), `${percent}%`);
+  const bar = $("#studio-bar");
+  if (bar) bar.className = widthClass(percent);
+  text($("#studio-note"), event.note || "en curso");
+  const log = $("#studio-log");
+  if (!log) return;
+  const item = el("li");
+  item.textContent = `${percent}% · ${event.note || ""}`;
+  log.appendChild(item);
+  while (log.children.length > 40) log.firstElementChild.remove();
+  log.scrollTop = log.scrollHeight;
+}
+
 const ARTIFACT_ICONS = {
-  image: "IMG", pdf: "PDF", text: "TXT", audio: "AUD",
+  image: "IMG", pdf: "PDF", html: "WEB", text: "TXT", audio: "AUD",
   video: "VID", archive: "ZIP", binary: "BIN",
 };
 
@@ -631,10 +743,26 @@ function renderViewer(data) {
     viewer.appendChild(img);
     return;
   }
-  if (data.kind === "pdf" && data.raw_url) {
-    const iframe = el("iframe");
-    iframe.src = data.raw_url;
-    viewer.appendChild(iframe);
+  if ((data.kind === "pdf" || data.kind === "html") && data.raw_url) {
+    const frame = el("div", "pdf-frame");
+    const object = el(data.kind === "pdf" ? "object" : "iframe");
+    if (data.kind === "pdf") {
+      object.setAttribute("data", data.raw_url);
+      object.setAttribute("type", "application/pdf");
+      const iframe = el("iframe");
+      iframe.src = data.raw_url;
+      object.appendChild(iframe);
+    } else {
+      object.src = data.raw_url;
+      object.title = data.name || "HTML";
+    }
+    const actions = el("div", "viewer-actions");
+    const full = el("button", "btn btn-secondary");
+    full.textContent = "Pantalla completa";
+    full.addEventListener("click", () => openMediaModal(data.raw_url, data.kind));
+    actions.appendChild(full);
+    frame.append(object, actions);
+    viewer.appendChild(frame);
     return;
   }
   if (data.kind === "audio" && data.raw_url) {
@@ -696,7 +824,13 @@ function closeMediaModal() {
 async function refreshAll() {
   $("#refresh-all").disabled = true;
   try {
-    await Promise.all([loadState(), loadPool().catch(() => {}), loadKnowledge().catch(() => {}), loadArtifacts(true)]);
+    await Promise.all([
+      loadState(),
+      loadActions().catch(() => {}),
+      loadPool().catch(() => {}),
+      loadKnowledge().catch(() => {}),
+      loadArtifacts(true),
+    ]);
   } catch (error) {
     setConnection(false, "DEGRADED"); toast(error.message, true);
   } finally { $("#refresh-all").disabled = false; }
@@ -724,11 +858,27 @@ function wireActions() {
   $("#chat-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat($("#chat-input").value); }
   });
+  const stopBtn = $("#chat-stop");
+  if (stopBtn) {
+    stopBtn.addEventListener("click", async () => {
+      try {
+        const result = await api("/api/stop", { method: "POST", body: "{}" });
+        toast(result.status);
+      } catch (error) { toast(error.message, true); }
+    });
+  }
   $("#chat-clear").addEventListener("click", async () => {
     if (!window.confirm("¿Reiniciar la conversación? Se borrará el historial del chat.")) return;
     try { await api("/api/chat/clear", { method: "POST" }); } catch (e) { toast(e.message, true); }
   });
-  $$(".quick").forEach((b) => b.addEventListener("click", () => sendChat(b.dataset.text)));
+  $$(".quick").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.action) fireAction(b.dataset.action);
+    else sendChat(b.dataset.text);
+  }));
+  const hideCoach = $("#coach-hide");
+  if (hideCoach) {
+    hideCoach.addEventListener("click", () => $("#coach")?.classList.add("hidden"));
+  }
 
   // Navegación por pestañas
   $$(".pill").forEach((p) => p.addEventListener("click", () => switchView(p.dataset.view)));

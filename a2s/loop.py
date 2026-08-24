@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional
 
 from .aegis_protocol import ProtocolDecision, analyze_request
 from .config import Config
+from .control import StopToken
 from .consensus import ConsensusChecker
 from .memory import MemoryHub
 from .models import (Evaluation, Observation, RunReport, Step, StepStatus,
@@ -58,6 +59,8 @@ class AgentLoop:
     neural: Optional[GovernanceNet] = None
     consensus: Optional[ConsensusChecker] = None
     protocol: Optional[ProtocolDecision] = None
+    stop_token: Optional[StopToken] = None
+    _stop_reason: str = ""
 
     # -- fábrica -----------------------------------------------------------
     @classmethod
@@ -88,7 +91,27 @@ class AgentLoop:
         loop.plugins_active = loader.activate(
             registry, goal, max_plugins=config.max_plugins,
             signer=loop.signer, ledger=memory.ledger)
+        loop.stop_token = StopToken()
+        registry.stop_token = loop.stop_token
         return loop
+
+    def request_stop(self, reason: str = "operator") -> None:
+        """Corta el plazo y avisa a herramientas largas. No espera."""
+        self._stop_reason = reason or "operator"
+        self.config.max_wall_seconds = 0
+        if self.stop_token is None:
+            self.stop_token = StopToken()
+        self.stop_token.set(self._stop_reason)
+        if getattr(self, "registry", None) is not None:
+            self.registry.stop_token = self.stop_token
+
+    def _stopped(self) -> bool:
+        if self.stop_token is not None and self.stop_token.is_set():
+            return True
+        return time.time() >= self._started_at + max(0, int(self.config.max_wall_seconds))
+
+    def _live_deadline(self) -> float:
+        return self._started_at + max(0, int(self.config.max_wall_seconds))
 
     # -- eventos -------------------------------------------------------------
     def _emit(self, event: str, data: Optional[dict[str, Any]] = None) -> None:
@@ -128,6 +151,7 @@ class AgentLoop:
         self.config.log(f"[A²S] ⚙ proveedor de razonamiento: {self.provider.name}")
         self.config.log(f"[A²S] ⛨ sandbox: {self.registry.sandbox.level_name} "
                         f"| plugins activos: {getattr(self, 'plugins_active', []) or 'ninguno'}")
+        self._bind_pcb(goal)
 
         schemas = self.registry.schemas()
         context = self.planner.context_for(goal, extra=self.protocol.planner_context())
@@ -147,31 +171,37 @@ class AgentLoop:
                 self._plan = self.planner.decompose(goal, context, schemas, variant=0)
             self._emit("plan_created", {"round": 0, "steps": [s.goal for s in self._plan]})
 
-        deadline = self._started_at + self.config.max_wall_seconds
         achieved, reason = False, ""
         round_idx = 0
 
-        while time.time() < deadline:
+        while not self._stopped():
             round_idx += 1
             self.config.log(f"[A²S] ⬢ Ronda de plan {round_idx}/{self.config.max_rounds}")
             self._execute_plan(self._plan)
+            if self._stopped() and not achieved:
+                reason = f"parada cooperativa ({self._stop_reason or 'operator'})"
+                self._emit("operator_stop", {"note": reason})
+                break
 
             achieved, reason = self._goal_check(goal)
             self._emit("goal_check", {"achieved": achieved, "reason": reason})
             if achieved:
+                break
+            if self._stopped():
+                reason = f"parada cooperativa ({self._stop_reason or 'operator'})"
                 break
 
             if self._iterations >= self.config.max_iterations * self.config.max_rounds:
                 self._emit("budget_renewal", {"note": "presupuesto acumulado expandido vía replanificación"})
 
             blocked = [s for s in self._plan if s.status in (StepStatus.BLOCKED, StepStatus.FAILED)]
-            if blocked and round_idx < self.config.max_rounds:
+            if blocked and round_idx < self.config.max_rounds and not self._stopped():
                 self.config.log(f"[A²S] ◈ re-descomposición fractal de {len(blocked)} paso(s) bloqueado(s)")
                 self._plan = self._redecompose(blocked)
                 self._emit("replan", {"kind": "fractal", "round": round_idx,
                                       "steps": [s.goal for s in self._plan]})
                 continue
-            if round_idx < self.config.max_rounds:
+            if round_idx < self.config.max_rounds and not self._stopped():
                 self.config.log("[A²S] ◈ replanificación con enfoque distinto (variante "
                                 f"{round_idx})")
                 protocol_context = (self.protocol.planner_context()
@@ -186,21 +216,20 @@ class AgentLoop:
             break  # rondas agotadas → cierre con informe y plan de reanudación
 
         # Última pasada de verificación y cierre forense.
-        if not achieved:
+        if not achieved and not self._stopped():
             achieved, reason = self._goal_check(goal)
-        report = self._finalize(goal, achieved, reason, deadline)
+        report = self._finalize(goal, achieved, reason, self._live_deadline())
         return report
 
     # -- ejecución de un plan ------------------------------------------------
     def _execute_plan(self, plan: list[Step]) -> None:
-        deadline = self._started_at + self.config.max_wall_seconds
-        while time.time() < deadline:
+        while not self._stopped():
             pending = [s for s in plan if s.status == StepStatus.PENDING]
             if not pending:
                 return
             progressed = False
             for step in pending:
-                if time.time() >= deadline:
+                if self._stopped():
                     return
                 if self._deps_ready(step, plan):
                     self.execute_step(step, plan)
@@ -232,11 +261,15 @@ class AgentLoop:
             if call is None:
                 step.mark(StepStatus.SKIPPED)
                 return
+            if self._stopped():
+                step.mark(StepStatus.SKIPPED)
+                return
             obs = self.registry.invoke(call)
             obs.step_id = step.id
             self._iterations += 1
             ev = self._evaluate(step, obs)
             self.memory.record(step, obs, ev)
+            self._pcb_checkpoint(step, ev)
             # Entrenamiento en línea de la red de gobernanza (metaprendizaje).
             if self.neural is not None:
                 win = self._active_win_rate()
@@ -438,10 +471,14 @@ class AgentLoop:
         note_parts.append(f"Iteraciones de herramienta: {self._iterations}. "
                           f"Estancamientos superados: {len(self.planner.stagnation_events)}. "
                           f"Tiempo: {wall:.1f}s.")
-        if not achieved and time.time() >= deadline:
-            note_parts.append("Límite duro de tiempo alcanzado (seguridad operativa).")
+        if not achieved and (self._stopped() or time.time() >= deadline):
+            if self._stop_reason:
+                note_parts.append(f"Parada cooperativa: {self._stop_reason}.")
+            else:
+                note_parts.append("Límite duro de tiempo alcanzado (seguridad operativa).")
 
         self.memory.finish(achieved, " | ".join(note_parts))
+        self._pcb_close(achieved, reason)
         if self.neural is not None:
             self.neural.save()
         report = RunReport(
@@ -494,6 +531,49 @@ class AgentLoop:
         if not hasattr(self, "_planner"):
             self._planner = Planner(self.provider, self.memory, self.config)
         return self._planner
+
+    def _bind_pcb(self, goal: str) -> None:
+        try:
+            from .kernel import Kernel
+            self._kernel = Kernel.open(self.config.workspace)
+            self._pcb = self._kernel.bind_mission(goal)
+            self._emit("pcb_admit", {"pid": self._pcb.pid,
+                                    "pc": self._pcb.pc,
+                                    "applied": self._kernel.applied})
+            self.config.log(f"[A²S] ⊞ PCB pid={self._pcb.pid} pc={self._pcb.pc} "
+                            f"· {self._kernel.applied} mejoras aplicadas")
+        except Exception as exc:  # noqa: BLE001 — el loop no depende del PCB
+            self._kernel = None
+            self._pcb = None
+            self.config.log(f"[A²S] ◐ PCB no disponible: {type(exc).__name__}")
+
+    def _pcb_checkpoint(self, step: Step, ev: Evaluation) -> None:
+        kernel = getattr(self, "_kernel", None)
+        pcb = getattr(self, "_pcb", None)
+        if kernel is None or pcb is None:
+            return
+        try:
+            kernel.checkpoint(
+                pcb.pid, pc=self._iterations,
+                registers={"step": step.id, "verdict": ev.verdict,
+                           "goal": step.goal[:160]},
+                cpu_ms=1)
+            kernel.heartbeat(pcb.pid)
+        except Exception:
+            pass
+
+    def _pcb_close(self, achieved: bool, reason: str) -> None:
+        kernel = getattr(self, "_kernel", None)
+        pcb = getattr(self, "_pcb", None)
+        if kernel is None or pcb is None:
+            return
+        try:
+            if achieved:
+                kernel.complete(pcb.pid, {"success": True, "reason": reason})
+            else:
+                kernel.park(pcb.pid, self._stop_reason or reason or "pending")
+        except Exception:
+            pass
 
     def _active_win_rate(self) -> float:
         try:

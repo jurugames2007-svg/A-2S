@@ -99,6 +99,7 @@ class ToolRegistry:
         self._tools: dict[str, Tool] = {}
         self.sandbox_enabled = sandbox
         self.sandbox = Sandbox(self.workspace, allow_network=allow_network)
+        self.stop_token = None
         self._register_builtins()
 
     # -- descubrimiento -----------------------------------------------------
@@ -133,16 +134,49 @@ class ToolRegistry:
             self.research_topic, network=True, destructive=True))
         self.register(Tool(
             "create_book",
-            "Crea un libro coherente con investigación, citas, Markdown, HTML, PDF y quality gate.",
+            "Crea un libro real (Markdown, HTML, PDF). Funciona sin red; si hay red, puede enriquecer.",
             {"topic": "str", "title": "str opcional", "chapters": "int opcional",
              "target_words": "int opcional"},
-            self.create_book, network=True, destructive=True))
+            self.create_book, network=False, destructive=True))
+        self.register(Tool(
+            "create_slides",
+            "Crea una presentación PPTX+HTML+PDF y deja el proceso visible.",
+            {"topic": "str", "title": "str opcional"},
+            self.create_slides, network=False, destructive=True))
+        self.register(Tool(
+            "organize_workspace",
+            "Ordena, limpia o personaliza el workspace (no el SO). Respeta archivos importantes.",
+            {"topic": "str"},
+            self.organize_workspace, network=False, destructive=True))
+        self.register(Tool(
+            "generate_program",
+            "Escribe un programa local stdlib con README y test.",
+            {"topic": "str"},
+            self.generate_program, network=False, destructive=True))
+        self.register(Tool(
+            "counsel_note",
+            "Nota de orientación legal/médica/financiera con descargo (no es ejercicio profesional).",
+            {"topic": "str"},
+            self.counsel_note, network=False, destructive=True))
+        self.register(Tool(
+            "search_repos",
+            "Busca repositorios públicos por palabra clave (es/en/cualquier idioma).",
+            {"query": "str", "limit": "int opcional"},
+            self.search_repos, network=True))
         self.register(Tool("python_exec", "Ejecuta un fragmento Python aislado (subproceso).",
                             {"code": "str"},
                             self.python_exec, destructive=True))
         self.register(Tool("save_artifact", "Guarda un artefacto inmutable (hash) en la bitácora forense.",
                             {"name": "str", "content": "str", "kind": "str opcional"},
                             self.save_artifact, destructive=True))
+        self.register(Tool(
+            "pcb_status",
+            "Estado de las colas PCB (ready/running/parked) y mejoras aplicadas.",
+            {}, self.pcb_status))
+        self.register(Tool(
+            "resume_jobs",
+            "Reanuda trabajos parked/blocked del PCB persistente.",
+            {}, self.resume_jobs, destructive=True))
 
     def schemas(self) -> str:
         """Descripción legible por el planificador (introspección)."""
@@ -453,14 +487,53 @@ class ToolRegistry:
         }, ensure_ascii=False)
 
     def create_book(self, topic: str, title: str = "", chapters: int = 6,
-                    target_words: int = 3000) -> str:
-        if not self.allow_network:
-            raise PermissionError("red deshabilitada")
-        from .publishing import BookBuilder
-        result = BookBuilder(self.workspace).build(
-            topic, title=title, chapters=chapters, target_words=target_words,
-            output_dir="book")
+                    target_words: int = 5000) -> str:
+        from .studio import produce
+        result = produce(self.workspace, topic,
+                         {"title": title, "kind": "book"},
+                         stop=self.stop_token)
         return json.dumps(result, ensure_ascii=False)
+
+    def organize_workspace(self, topic: str = "ordena el workspace") -> str:
+        from .studio import produce
+        return json.dumps(produce(self.workspace, topic, {"kind": "steward"},
+                                  stop=self.stop_token), ensure_ascii=False)
+
+    def generate_program(self, topic: str) -> str:
+        from .studio import produce
+        return json.dumps(produce(self.workspace, topic, {"kind": "codegen"},
+                                  stop=self.stop_token), ensure_ascii=False)
+
+    def counsel_note(self, topic: str) -> str:
+        from .studio import produce
+        return json.dumps(produce(self.workspace, topic, {"kind": "counsel"},
+                                  stop=self.stop_token), ensure_ascii=False)
+
+    def create_slides(self, topic: str, title: str = "") -> str:
+        from .studio import produce
+        result = produce(self.workspace, topic,
+                         {"title": title, "kind": "slides"},
+                         stop=self.stop_token)
+        return json.dumps(result, ensure_ascii=False)
+
+    def search_repos(self, query: str, limit: int = 8) -> str:
+        from .finder import RepoFinder, format_search
+        report = RepoFinder(self.workspace).search(
+            query, limit=limit, allow_network=self.allow_network)
+        out_dir = os.path.join(self.workspace, "research")
+        os.makedirs(out_dir, exist_ok=True)
+        md = format_search(report)
+        with open(os.path.join(out_dir, "search.md"), "w", encoding="utf-8") as fh:
+            fh.write(md)
+        with open(os.path.join(out_dir, "search.json"), "w", encoding="utf-8") as fh:
+            json.dump(report, fh, ensure_ascii=False, indent=2)
+        return json.dumps({
+            "status": "search_complete",
+            "query": query,
+            "found": len(report.get("repositories") or []),
+            "artifacts": ["research/search.md", "research/search.json"],
+            "errors": report.get("errors") or [],
+        }, ensure_ascii=False)
 
     def python_exec(self, code: str) -> str:
         if reason := classify_forbidden(code):
@@ -477,6 +550,18 @@ class ToolRegistry:
         out = proc.stdout + proc.stderr
         return out if out.strip() else "(sin salida)"
 
+    def pcb_status(self) -> str:
+        from .kernel import Kernel
+        return json.dumps(Kernel.open(self.workspace).snapshot(),
+                          ensure_ascii=False)
+
+    def resume_jobs(self) -> str:
+        from .kernel import Kernel
+        kernel = Kernel.open(self.workspace)
+        got = kernel.resume_all()
+        return json.dumps({"restored": [p.pid for p in got],
+                           "pcb": kernel.snapshot()}, ensure_ascii=False)
+
     def save_artifact(self, name: str, content: str, kind: str = "artifact") -> str:
         # La persistencia real la hace MemoryHub/ledger; aquí se normaliza.
         return json.dumps({"name": name, "kind": kind, "size": len(content)})
@@ -486,6 +571,9 @@ class ToolRegistry:
         """Ejecuta un ToolCall devolviendo una Observation (nunca lanza excepción)."""
         import time
         t0 = time.time()
+        if self.stop_token is not None and self.stop_token.is_set():
+            return Observation(step_id="", ok=False,
+                               error="interrumpido: parada cooperativa")
         tool = self._tools.get(call.tool)
         if tool is None:
             return Observation(step_id="", ok=False,
