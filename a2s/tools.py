@@ -144,6 +144,21 @@ class ToolRegistry:
             {"topic": "str", "title": "str opcional"},
             self.create_slides, network=False, destructive=True))
         self.register(Tool(
+            "organize_workspace",
+            "Ordena, limpia o personaliza el workspace (no el SO). Respeta archivos importantes.",
+            {"topic": "str"},
+            self.organize_workspace, network=False, destructive=True))
+        self.register(Tool(
+            "generate_program",
+            "Escribe un programa local stdlib con README y test.",
+            {"topic": "str"},
+            self.generate_program, network=False, destructive=True))
+        self.register(Tool(
+            "counsel_note",
+            "Nota de orientación legal/médica/financiera con descargo (no es ejercicio profesional).",
+            {"topic": "str"},
+            self.counsel_note, network=False, destructive=True))
+        self.register(Tool(
             "search_repos",
             "Busca repositorios públicos por palabra clave (es/en/cualquier idioma).",
             {"query": "str", "limit": "int opcional"},
@@ -470,6 +485,21 @@ class ToolRegistry:
                          {"title": title, "kind": "book"},
                          stop=self.stop_token)
         return json.dumps(result, ensure_ascii=False)
+
+    def organize_workspace(self, topic: str = "ordena el workspace") -> str:
+        from .studio import produce
+        return json.dumps(produce(self.workspace, topic, {"kind": "steward"},
+                                  stop=self.stop_token), ensure_ascii=False)
+
+    def generate_program(self, topic: str) -> str:
+        from .studio import produce
+        return json.dumps(produce(self.workspace, topic, {"kind": "codegen"},
+                                  stop=self.stop_token), ensure_ascii=False)
+
+    def counsel_note(self, topic: str) -> str:
+        from .studio import produce
+        return json.dumps(produce(self.workspace, topic, {"kind": "counsel"},
+                                  stop=self.stop_token), ensure_ascii=False)
 
     def create_slides(self, topic: str, title: str = "") -> str:
         from .studio import produce

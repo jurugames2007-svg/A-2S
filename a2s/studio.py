@@ -8,9 +8,12 @@ from typing import Any, Callable, Optional
 
 from .control import StopToken
 from .finder import fold
-from .intent import wants_obtain, wants_slides
+from .intent import wants_obtain, wants_slides, wants_steward
 from .literary import is_literary, is_principito
 from .models import now_iso
+
+_SPECIAL = ("slides", "book", "report", "obtain", "steward", "macro",
+            "codegen", "counsel", "hardware", "horizon", "vault")
 
 Progress = Callable[..., None]
 
@@ -18,12 +21,26 @@ Progress = Callable[..., None]
 def classify_job(topic: str, options: Optional[dict[str, Any]] = None) -> str:
     options = options or {}
     kind = str(options.get("kind") or "")
-    if kind in {"slides", "book", "report", "obtain"}:
+    if kind in _SPECIAL:
         return kind
     if options.get("slides") or wants_slides(topic):
         return "slides"
     if options.get("obtain") or wants_obtain(topic):
         return "obtain"
+    if options.get("steward") or wants_steward(topic):
+        return "steward"
+    if options.get("vault") or kind == "vault":
+        return "vault"
+    if options.get("hardware"):
+        return "hardware"
+    if options.get("counsel"):
+        return "counsel"
+    if options.get("horizon"):
+        return "horizon"
+    if options.get("codegen"):
+        return "codegen"
+    if options.get("macro"):
+        return "macro"
     if options.get("book") or is_literary(topic) or "libro" in fold(topic):
         return "book"
     if "informe" in fold(topic) and "libro" not in fold(topic):
@@ -52,10 +69,42 @@ def produce(workspace: str, topic: str,
                            stop=stop, progress=log.forward)
     if job == "obtain":
         return _obtain_or_write(workspace, topic, options, stop, log, transport)
+    if job in {"steward", "macro", "codegen", "counsel", "hardware",
+               "horizon", "vault"}:
+        return _dispatch(job, workspace, topic, options, stop, log)
     from .creator import create_document
     kind = "report" if job == "report" else "book"
     return create_document(workspace, topic, title=str(options.get("title") or ""),
                            kind=kind, stop=stop, progress=log.forward)
+
+
+def _dispatch(job: str, workspace: str, topic: str, options: dict[str, Any],
+              stop: Optional[StopToken], log: "_ProcessLog") -> dict[str, Any]:
+    log.emit(20, f"ejecutando {job}")
+    if job == "steward":
+        from .steward import run_steward
+        result = run_steward(workspace, topic, stop=stop)
+    elif job == "macro":
+        from .macros import run_macro
+        result = run_macro(workspace, str(options.get("macro") or "ordenar_workspace"),
+                           stop=stop)
+    elif job == "codegen":
+        from .codegen import generate_program
+        result = generate_program(workspace, topic, stop=stop)
+    elif job == "counsel":
+        from .counsel import advise
+        result = advise(workspace, topic, stop=stop)
+    elif job == "hardware":
+        from .hardware import diagnose
+        result = diagnose(workspace, topic, stop=stop)
+    elif job == "horizon":
+        from .horizon import brief
+        result = brief(workspace, topic, stop=stop)
+    else:
+        from .vault import handle
+        result = handle(workspace, topic, stop=stop)
+    log.emit(100, f"{job} listo")
+    return result
 
 
 def _obtain_or_write(workspace: str, topic: str, options: dict[str, Any],

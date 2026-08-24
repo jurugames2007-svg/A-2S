@@ -1,6 +1,6 @@
 # Distribución ejecutable con npm
 
-A²S 1.17.0 se puede instalar como paquete npm sin reescribir ni duplicar el
+A²S 1.18.0 se puede instalar como paquete npm sin reescribir ni duplicar el
 núcleo Python. Node aporta el launcher, instala y supervisa OmniRoute; el
 runtime del agente sigue siendo Python stdlib auditable.
 

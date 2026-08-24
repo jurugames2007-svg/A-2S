@@ -3,6 +3,22 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.18.0] — 2026-08-24
+
+### Añadido (mayordomo, macros, consejo, horizonte)
+
+- **Mayordomo de workspace**: ordenar, renombrar, mover, limpieza de basura
+  y escritorio *virtual* (HTML). Diario de deshacer. No toca el SO ni
+  archivos importantes (libros, claves, contratos, `.a2s`).
+- **Macros** y **generador de programas** stdlib con test y README.
+- **Orientación** legal/médica/financiera con descargo: no es ejercicio
+  profesional.
+- **Horizonte** de empleo/finanzas públicas: briefs de días, sin postular
+  ni crear cuentas.
+- **Hardware**: snapshot de solo lectura y lista BIOS. Rechaza flash y
+  overclock.
+- **Bóveda**: rechaza wallets, seed phrases y altas en terceros.
+
 ## [1.17.0] — 2026-08-24
 
 ### Añadido (estudio continuo: libros, PDF, PPT)

@@ -39,6 +39,9 @@ DEFAULT_CURRICULUM: tuple[str, ...] = (
     "rate limiter",
     "presentation slide design",
     "book typesetting pdf",
+    "personal finance literacy",
+    "first aid emergency signs",
+    "file organization taxonomy",
 )
 
 _QUEUE_FILE = os.path.join(".a2s", "growth_queue.txt")

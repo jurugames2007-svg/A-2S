@@ -131,6 +131,21 @@ print("(fin del registro de custodia)")
 
 _HEURISTIC_PLANS: list[tuple[tuple[str, ...], str, list[tuple[str, str, dict[str, Any], list[str]]]]] = [
     # (palabras clave, nombre de plantilla, pasos (nombre, tool, params, criterios))
+    (("ordenar", "escritorio", "limpiar workspace"), "steward_files", [
+        ("ordenar_workspace", "organize_workspace",
+         {"topic": "{goal}"},
+         ["archivos movidos o informe del mayordomo"]),
+    ]),
+    (("programa python", "genera un programa"), "local_program", [
+        ("escribir_programa", "generate_program",
+         {"topic": "{goal}"},
+         ["programs/*/main.py creado"]),
+    ]),
+    (("abogado", "médico", "medico", "presupuesto personal"), "counsel", [
+        ("nota_de_orientacion", "counsel_note",
+         {"topic": "{goal}"},
+         ["counsel/*.md con descargo"]),
+    ]),
     (("ppt", "pptx", "powerpoint", "presentación", "presentacion",
       "diapositiva", "slides"), "verified_deck", [
         ("disenar_presentacion", "create_slides",

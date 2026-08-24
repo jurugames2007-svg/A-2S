@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from typing import Optional
 
 
 def _fold(text: str) -> str:
@@ -62,9 +63,34 @@ def wants_obtain(text: str) -> bool:
     return any(w in folded for w in _OBTAIN)
 
 
+_STEWARD = (
+    "escritorio", "ordenar", "ordena", "renombrar", "renombra", "mover archivo",
+    "limpia", "limpiar", "icono", "iconos", "personalizar", "animar",
+    "mayordomo",
+)
+_MACRO = ("macro", "macros")
+_CODEGEN = ("programa", "programas", "script python", "genera un programa",
+            "generar un programa", "codigo fuente")
+_HARDWARE = ("bios", "overclock", "gpu", "tarjeta de video", "tarjeta grafica",
+             "optimizar cpu", "optimiza la cpu", "flashear")
+_VAULT = ("wallet", "billetera", "seed phrase", "semilla", "clave privada",
+          "crear cuenta", "crea una cuenta")
+_COUNSEL_L = ("abogado", "legal", "demanda", "contrato", "juicio")
+_COUNSEL_M = ("medico", "médico", "sintoma", "síntoma", "diagnostico",
+              "receta", "fiebre", "dolor")
+_HORIZON = ("oportunidad de trabajo", "oportunidades de trabajo",
+            "busca empleo", "buscar empleo", "trabaja por mi",
+            "trabajar por el usuario", "oportunidad financiera")
+
+
+def wants_steward(text: str) -> bool:
+    folded = _fold(text)
+    return any(w in folded for w in _STEWARD)
+
+
 @dataclass(frozen=True)
 class Intent:
-    kind: str          # chat | stop | status | search | create | mission
+    kind: str          # chat | stop | status | search | create | mission | ...
     topic: str
     wants_book: bool = False
     wants_slides: bool = False
@@ -77,41 +103,66 @@ def classify_intent(text: str) -> Intent:
     if not raw:
         return Intent("chat", "")
     folded = _fold(raw)
+    early = _early_intent(raw, folded)
+    if early:
+        return early
+    special = _special_intent(raw, folded)
+    if special:
+        return special
+    return _make_intent(raw, folded)
+
+
+def _early_intent(raw: str, folded: str) -> Optional[Intent]:
     padded = f" {folded} "
-
-    if any(f" {w} " in padded or folded == w for w in _STOP):
-        if len(raw) < 80:
-            return Intent("stop", raw, confidence=0.95)
-
+    if folded in _STOP or folded.rstrip("!.") in _STOP:
+        return Intent("stop", raw, confidence=0.95)
+    if any(f" {w} " in padded for w in _STOP) and len(raw.split()) <= 4:
+        return Intent("stop", raw, confidence=0.95)
     if any(w in folded for w in _STATUS) and len(raw) < 80:
         return Intent("status", raw, confidence=0.9)
-
-    if any(w in folded for w in _CHAT_ONLY) and len(raw) < 60:
+    if len(raw) < 60 and any(re.search(rf"\b{re.escape(_fold(w))}\b", folded)
+                             for w in _CHAT_ONLY):
         return Intent("chat", raw, confidence=0.85)
+    return None
 
+
+def _special_intent(raw: str, folded: str) -> Optional[Intent]:
+    table = (
+        (_VAULT, "vault", 0.93),
+        (_HARDWARE, "hardware", 0.9),
+        (_MACRO, "macro", 0.88),
+        (_COUNSEL_L + _COUNSEL_M, "counsel", 0.88),
+        (_HORIZON, "horizon", 0.86),
+        (_CODEGEN, "codegen", 0.86),
+    )
+    for keys, kind, conf in table:
+        if any(w in folded for w in keys):
+            return Intent(kind, raw, confidence=conf)
+    if wants_steward(raw):
+        return Intent("steward", raw, confidence=0.88)
+    return None
+
+
+def _make_intent(raw: str, folded: str) -> Intent:
     slides = wants_slides(raw)
     obtain = wants_obtain(raw)
     wants_book = any(w in folded for w in _BOOK) or obtain
     if any(re.search(rf"\b{re.escape(w)}\b", folded) for w in _SEARCH):
         topic = _strip_verbs(raw, _SEARCH)
         return Intent("search", topic or raw, confidence=0.9)
-
     if any(re.search(rf"\b{re.escape(w)}\b", folded) for w in _CREATE):
         topic = _strip_verbs(raw, _CREATE + _SLIDES + _OBTAIN)
         return Intent("create", topic or raw, wants_book=wants_book,
                       wants_slides=slides, wants_obtain=obtain,
                       confidence=0.88)
-
     if slides or obtain or wants_book:
         return Intent("create", raw, wants_book=wants_book or obtain,
                       wants_slides=slides, wants_obtain=obtain,
                       confidence=0.8)
-
     if len(raw) > 24 and any(w in folded for w in (
             "analiza", "audita", "investiga", "ejecuta", "lanza",
             "repara", "optimiza", "implementa")):
         return Intent("mission", raw, confidence=0.75)
-
     return Intent("chat", raw, confidence=0.6)
 
 

@@ -212,7 +212,7 @@ completo sin publicarlo:
 npm run release:local
 
 # Instala el tarball verificado como comando global; OmniRoute viene incluido
-npm install -g ./artifacts/a2s-agent-control-plane-1.17.0.tgz
+npm install -g ./artifacts/a2s-agent-control-plane-1.18.0.tgz
 
 a2s --version
 a2s doctor                         # levanta/verifica OmniRoute automáticamente

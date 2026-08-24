@@ -62,6 +62,31 @@ def _prose_chat(provider: BaseProvider, messages: list[dict[str, str]],
     return finish(HeuristicAssistant().reply(messages))
 
 
+def _create_reply(kind: str, ok: bool, msg: str, slides: bool) -> str:
+    if not ok:
+        return f"No pude encolar el trabajo: {msg}."
+    if kind == "vault":
+        return (f"No genero wallets ni cuentas ajenas ({msg}). "
+                "Dejé la política en Resultados. La semilla la creas tú, offline.")
+    if kind == "hardware":
+        return (f"Diagnóstico de solo lectura encolado ({msg}). "
+                "No flasheo BIOS ni overclockeo.")
+    if kind == "counsel":
+        return (f"Preparo una nota de orientación ({msg}). "
+                "No soy médico ni abogado: es información para tu cita.")
+    if kind == "steward":
+        return (f"Ordeno el workspace A²S ({msg}), no el escritorio del sistema. "
+                "Hay deshacer. Puedes decir «para».")
+    if kind == "horizon":
+        return (f"Armo un brief de oportunidades públicas ({msg}). "
+                "No postulo en tu nombre.")
+    if slides:
+        return (f"Diseño la presentación en vivo ({msg}). "
+                "Verás el proceso en Operaciones.")
+    return (f"Empiezo en segundo plano ({msg}). "
+            "Puedes hablar o decir «para». El resultado sale en Resultados.")
+
+
 def _messages_to_prompt(messages: list[dict[str, str]]) -> str:
     lines = []
     for message in messages[-12:]:
@@ -102,9 +127,11 @@ class HeuristicAssistant:
         if any(w in text for w in self.HELP_WORDS):
             return ("Puedo: (1) conversar en paralelo a una misión, (2) buscar "
                     "repositorios por palabra clave en español o inglés, "
-                    "(3) crear libros completos e informes, (4) diseñar PPT "
-                    "mostrando el proceso, (5) obtener obras de dominio público, "
-                    "(6) detener procesos y (7) lanzar una misión larga. "
+                    "(3) crear libros, PPT y programas locales, (4) ordenar el "
+                    "workspace con macros y limpieza segura, (5) orientar en "
+                    "legal/salud/finanzas sin sustituir a un profesional, "
+                    "(6) briefs de empleo públicos (sin crear cuentas ni wallets) "
+                    "y (7) detener o lanzar una misión larga. "
                     "Escríbeme en lenguaje natural; yo elijo la ruta automáticamente.")
         if any(w in text for w in self.STATUS_WORDS):
             return ("Revisa el panel de telemetría para el detalle en vivo. "
@@ -284,22 +311,18 @@ class ChatManager:
                 report = self._run_search(intent.topic or user_text)
                 from .finder import format_search
                 reply = format_search(report)
-            elif intent.kind == "create" and self._run_create is not None:
-                ok, msg = self._run_create(intent.topic or user_text, {
+            elif intent.kind in {"create", "steward", "counsel", "horizon",
+                                 "hardware", "vault", "macro", "codegen"} \
+                    and self._run_create is not None:
+                options = {
                     "book": intent.wants_book,
                     "slides": intent.wants_slides,
                     "obtain": intent.wants_obtain,
-                })
-                if intent.wants_slides:
-                    reply = (f"Diseño la presentación en vivo ({msg}). "
-                             "Verás el proceso en Operaciones y el PPT/HTML/PDF "
-                             "en Resultados. Puedes hablar o decir «para».")
-                else:
-                    reply = (f"Empiezo a crear en segundo plano ({msg}). "
-                             "Puedes seguir hablando o decir «para» si quieres cortar. "
-                             "El PDF se podrá visualizar en Resultados.")
-                if not ok:
-                    reply = f"No pude encolar la creación: {msg}."
+                }
+                if intent.kind != "create":
+                    options["kind"] = intent.kind
+                ok, msg = self._run_create(intent.topic or user_text, options)
+                reply = _create_reply(intent.kind, ok, msg, intent.wants_slides)
             else:
                 provider = self._get_provider()
                 context = self._context_block()

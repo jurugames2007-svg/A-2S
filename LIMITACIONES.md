@@ -3,7 +3,8 @@
 > Documento de transparencia técnica. Aquí no hay maquillaje: esto es lo que
 > el sistema **no puede hacer**, lo que hace **a medias**, los **errores que
 > tiene**, y cómo usarlo para **obtener beneficio real** sin engañarte.
-> Actualizado a v1.17.0 (estudio: libros completos, visor PDF, PPT en vivo;
+> Actualizado a v1.18.0 (mayordomo/macros/consejo/horizonte; no omnisciencia;
+> base v1.17 estudio: libros completos, visor PDF, PPT en vivo;
 > base v1.16 chat paralelo + parada real + creación/búsqueda; base
 > v1.15 Protocolo Adaptativo Aegis: clasificación y composición
 > omnimodal auditable, sin promesas de omnipotencia ni razonamiento privado).
@@ -76,6 +77,7 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 23 | **Protocolo adaptativo (v1.15)**: la clasificación se basa en palabras y señales deterministas; puede omitir una capacidad útil o activar una innecesaria. Declarar «investigación» no garantiza que la red o una fuente respondan. El fallback heurístico conserva estructura y ejecución acotada, pero no obtiene comprensión general equivalente a un LLM. | Media | 🟡 mitigado: perfil visible/inspeccionable con `a2s protocol`, criterios y supuestos en ledger, respuesta con límites, investigación actual convertida en misión y tests de selección negativa. El operador puede reformular o especificar el criterio de éxito. |
 | 24 | **Chat/creación/búsqueda (v1.16)**: el clasificador de intención es léxico (puede lanzar una búsqueda cuando querías charlar, o al revés). Un `python_exec`/`shell` ya lanzado no se mata a la fuerza: espera su timeout. El companion de El Principito es original, no la novela. La búsqueda por palabra clave no aplica el filtro LLMOps, pero sí exige licencia SPDX abierta. | Media | 🟡 mitigado: inbox que nunca rechaza por ocupado, `StopToken` compartido, creación local-first, `/api/find` + `a2s search --repos`, tests de parada/libro/chat encolado. |
 | 25 | **Estudio Jarvis (v1.17)**: no hay margen de error cero — hay gates (PDF `%PDF-`, longitud, proceso persistido). Gutenberg solo cubre el catálogo OA; un texto enorme se maqueta recortado (el `.txt` guarda más). El PPTX es OOXML mínimo, no un diseñador gráfico. El crecimiento autónomo sigue dependiendo de cuota GitHub. | Media | 🟡 mitigado: companion vs novela, allowlist HTTPS, progreso SSE, visor `raw=1`, tests de deck/OA/libros largos. |
+| 26 | **Mayordomo / consejo / horizonte (v1.18)**: A²S no controla el escritorio del SO, no flashea BIOS, no overclockea, no es médico ni abogado, no genera wallets ni crea cuentas ajenas, no se acerca a la omnisciencia. Un brief de 7 días no es un empleado invisible. | Alta | 🟡 mitigado: workspace-only + undo, descargos, rechazos explícitos, tests de protección y de negativa a firmware/wallets. |
 
 ---
 
@@ -220,7 +222,7 @@ expansivo" es renunciable: el tope real siempre es `--max-time`.
 
 ## 8. Qué está probado y qué no
 
-**Probado (291 tests, `python -m unittest discover -s tests`):**
+**Probado (suite `python -m unittest discover -s tests`):**
 hash chain + detección de modificación/truncación; modelo de permisos básico;
 clasificación adaptativa y selección negativa de capacidades; contrato de
 respuesta sin bloques privados; trazabilidad del perfil en misión; proveedores
