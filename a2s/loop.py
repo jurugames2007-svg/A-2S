@@ -151,6 +151,7 @@ class AgentLoop:
         self.config.log(f"[A²S] ⚙ proveedor de razonamiento: {self.provider.name}")
         self.config.log(f"[A²S] ⛨ sandbox: {self.registry.sandbox.level_name} "
                         f"| plugins activos: {getattr(self, 'plugins_active', []) or 'ninguno'}")
+        self._bind_pcb(goal)
 
         schemas = self.registry.schemas()
         context = self.planner.context_for(goal, extra=self.protocol.planner_context())
@@ -268,6 +269,7 @@ class AgentLoop:
             self._iterations += 1
             ev = self._evaluate(step, obs)
             self.memory.record(step, obs, ev)
+            self._pcb_checkpoint(step, ev)
             # Entrenamiento en línea de la red de gobernanza (metaprendizaje).
             if self.neural is not None:
                 win = self._active_win_rate()
@@ -476,6 +478,7 @@ class AgentLoop:
                 note_parts.append("Límite duro de tiempo alcanzado (seguridad operativa).")
 
         self.memory.finish(achieved, " | ".join(note_parts))
+        self._pcb_close(achieved, reason)
         if self.neural is not None:
             self.neural.save()
         report = RunReport(
@@ -528,6 +531,49 @@ class AgentLoop:
         if not hasattr(self, "_planner"):
             self._planner = Planner(self.provider, self.memory, self.config)
         return self._planner
+
+    def _bind_pcb(self, goal: str) -> None:
+        try:
+            from .kernel import Kernel
+            self._kernel = Kernel.open(self.config.workspace)
+            self._pcb = self._kernel.bind_mission(goal)
+            self._emit("pcb_admit", {"pid": self._pcb.pid,
+                                    "pc": self._pcb.pc,
+                                    "applied": self._kernel.applied})
+            self.config.log(f"[A²S] ⊞ PCB pid={self._pcb.pid} pc={self._pcb.pc} "
+                            f"· {self._kernel.applied} mejoras aplicadas")
+        except Exception as exc:  # noqa: BLE001 — el loop no depende del PCB
+            self._kernel = None
+            self._pcb = None
+            self.config.log(f"[A²S] ◐ PCB no disponible: {type(exc).__name__}")
+
+    def _pcb_checkpoint(self, step: Step, ev: Evaluation) -> None:
+        kernel = getattr(self, "_kernel", None)
+        pcb = getattr(self, "_pcb", None)
+        if kernel is None or pcb is None:
+            return
+        try:
+            kernel.checkpoint(
+                pcb.pid, pc=self._iterations,
+                registers={"step": step.id, "verdict": ev.verdict,
+                           "goal": step.goal[:160]},
+                cpu_ms=1)
+            kernel.heartbeat(pcb.pid)
+        except Exception:
+            pass
+
+    def _pcb_close(self, achieved: bool, reason: str) -> None:
+        kernel = getattr(self, "_kernel", None)
+        pcb = getattr(self, "_pcb", None)
+        if kernel is None or pcb is None:
+            return
+        try:
+            if achieved:
+                kernel.complete(pcb.pid, {"success": True, "reason": reason})
+            else:
+                kernel.park(pcb.pid, self._stop_reason or reason or "pending")
+        except Exception:
+            pass
 
     def _active_win_rate(self) -> float:
         try:

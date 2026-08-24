@@ -157,6 +157,8 @@ const EVENT_META = {
   ecosystem_scan: ["+", "Radar actualizado", "success"],
   step_done: ["✓", "Paso completado", "success"],
   growth_cycle: ["🌱", "Crecimiento: estudio autónomo", "success"],
+  pcb_admit: ["#", "PCB admitido", "step_start"],
+  pcb_resume: ["↻", "Colas reanudadas", "replan"],
 };
 
 function eventDetail(event) {
@@ -287,6 +289,11 @@ async function loadState() {
   if (data.report) {
     text($("#metric-state"), data.report.success ? "VERIFIED" : "PARTIAL");
     text($("#metric-state-note"), `${data.report.iterations} iteraciones · ${data.report.wall_seconds}s`);
+  }
+  if (data.pcb) {
+    text($("#metric-pcb"), String((data.pcb.ready || 0) + (data.pcb.running || 0)));
+    text($("#metric-pcb-note"),
+      `${data.pcb.ready || 0} ready · ${data.pcb.parked || 0} parked · ${data.pcb.applied || 0} mejoras`);
   }
 }
 

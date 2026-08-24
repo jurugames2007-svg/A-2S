@@ -3,6 +3,21 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.19.0] — 2026-08-24
+
+### Añadido (PCB + 1000 mejoras aplicadas)
+
+- **PCB persistente** (`.a2s/pcb/`): pid, estado, PC, registros, journal
+  con fsync. Si se interrumpe, `a2s pcb resume` o «reanuda las colas»
+  recupera parked/blocked.
+- **Colas MLFQ** Q0 chat / Q1 misión / Q2 estudio / Q3 batch: aging,
+  quantum, dedup, backpressure, watchdog, ruptura de deadlock.
+- **1000 mejoras** (`IMP-0001`…`IMP-1000`) instaladas al abrir el
+  kernel. Manifiesto en `.a2s/pcb/improvements.json` y
+  `docs/IMPROVEMENTS.md`.
+- CLI `a2s pcb`, API `/api/pcb`, herramientas `pcb_status`/`resume_jobs`,
+  métrica COLAS PCB en el Control Plane.
+
 ## [1.18.0] — 2026-08-24
 
 ### Añadido (mayordomo, macros, consejo, horizonte)

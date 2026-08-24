@@ -502,10 +502,13 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             self._events()
         elif path == "/api/state":
             growth = self.control_plane.growth
+            from .kernel import Kernel
+            pcb = Kernel.open(self.control_plane.workspace).snapshot()
             self._json({**self.control_plane.missions.snapshot(),
                         "system": self.control_plane._system_snapshot(),
                         "growth": growth.snapshot() if growth
-                        else {"active": False}})
+                        else {"active": False},
+                        "pcb": pcb})
         elif path == "/api/growth":
             growth = self.control_plane.growth
             self._json(growth.snapshot() if growth else {"active": False})
@@ -521,6 +524,9 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             self._json(run_audit())
         elif path == "/api/chat":
             self._json(self.control_plane.chat.snapshot())
+        elif path == "/api/pcb":
+            from .kernel import Kernel
+            self._json(Kernel.open(self.control_plane.workspace).snapshot())
         elif path == "/api/jobs":
             self._json({"jobs": self.control_plane.missions.jobs.snapshot()})
         elif path == "/api/find":
@@ -650,6 +656,15 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
         elif path == "/api/find":
             query = str(payload.get("query") or payload.get("q") or "")
             self._json(self.control_plane.missions.run_search(query))
+        elif path == "/api/pcb/resume":
+            from .kernel import Kernel
+            kernel = Kernel.open(self.control_plane.workspace)
+            restored = kernel.resume_all()
+            self.control_plane.hub.publish(
+                {"event": "pcb_resume", "at": now_iso(),
+                 "restored": len(restored)})
+            self._json({"status": "ok", "restored": len(restored),
+                        "pcb": kernel.snapshot()})
         elif path == "/api/studio":
             topic = str(payload.get("topic") or payload.get("goal") or "")
             options = payload.get("options") if isinstance(

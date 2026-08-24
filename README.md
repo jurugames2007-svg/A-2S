@@ -299,6 +299,8 @@ conocimiento que usan todas las misiones:
 npm start                      # dashboard + crecimiento cada 30 min
 a2s grow --cycles 3            # estudiar ahora, en primer plano
 a2s grow --forever             # crecer sin parar (Ctrl+C para parar)
+a2s pcb                        # colas PCB (ready/parked) + 1000 mejoras
+a2s pcb resume                 # reanudar trabajos si se cortó el proceso
 A2S_AUTO_LEARN=0 npm start     # apagarlo
 ```
 
@@ -681,7 +683,7 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-291 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
+311 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
 permisos, proveedores, cuotas y ruta explicable, escalera de recuperación,
 división fractal, misión demo completa, red de gobernanza, consenso, memoria,
 shell sin procesos huérfanos, sandbox, firmas HMAC, auth, plugins, zipapp,

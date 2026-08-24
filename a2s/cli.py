@@ -115,10 +115,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     config = _config_from_args(args)
     if args.resume:
         from .ledger import Ledger
+        from .kernel import Kernel
         led = Ledger(os.path.join(os.path.abspath(config.workspace), ".a2s"))
         ok, msg, n = led.verify()
-        print(f"[A²S] Reanudando sobre estado previo: {msg} ({n} entradas) — "
-              "el workspace y la memoria se conservan.\n")
+        kernel = Kernel.open(config.workspace)
+        restored = kernel.resume_all()
+        print(f"[A²S] Reanudando PCB: {len(restored)} trabajo(s) → ready · "
+              f"ledger {msg} ({n} entradas) · {kernel.applied} mejoras.\n")
     print(scope_note())
     print()
     reports = []
@@ -478,6 +481,52 @@ def cmd_grow(args: argparse.Namespace) -> int:
             print(f"    · {repo}")
     print(f"[A²S] conocimiento persistido en {os.path.abspath(args.workspace)} "
           "(las misiones lo usan automáticamente al planificar)")
+    return 0
+
+
+
+def cmd_pcb(args: argparse.Namespace) -> int:
+    """Colas de planificación persistentes: estado, apply, resume, enqueue."""
+    from .catalog import CATALOG_SIZE, apply_all, build_catalog
+    from .kernel import Kernel
+    kernel = Kernel.open(args.workspace)
+    action = getattr(args, "accion", "status") or "status"
+    if action == "apply":
+        manifest = apply_all(args.workspace, force=True)
+        print(f"[A²S] aplicadas {manifest['applied']}/{CATALOG_SIZE} mejoras")
+        return 0 if manifest["applied"] == CATALOG_SIZE else 1
+    if action == "catalog":
+        items = build_catalog()
+        print(f"[A²S] catálogo {len(items)} entradas")
+        for item in items[:12]:
+            print(f"  {item['id']}  {item['title']}")
+        print(f"  … {max(0, len(items) - 12)} más (workspace/.a2s/pcb/CATALOG.md)")
+        return 0 if len(items) == CATALOG_SIZE else 1
+    if action == "enqueue":
+        goal = (args.goal or "").strip()
+        if not goal:
+            print("✗ falta el objetivo a encolar")
+            return 1
+        pcb = kernel.admit(goal, kind=args.kind or "mission")
+        print(f"[A²S] admitido pid={pcb.pid} cola={pcb.queue} kind={pcb.kind}")
+        return 0
+    if action == "resume":
+        got = kernel.resume_all()
+        print(f"[A²S] reanudados {len(got)} PCB")
+        for pcb in got:
+            print(f"  pid={pcb.pid} pc={pcb.pc} {pcb.goal[:70]}")
+        return 0
+    snap = kernel.snapshot()
+    print(f"A²S PCB · pid_last={snap['last_pid']} · aplicados={snap['applied']}")
+    print(f"  ready={snap['ready']} running={snap['running']} "
+          f"parked={snap['parked']} blocked={snap['blocked']} "
+          f"done={snap['completed']} fail={snap['failed']}")
+    print(f"  colas: {snap['queues']}")
+    if snap.get("deadlocks"):
+        print(f"  deadlock: {snap['deadlocks']}")
+    for pcb in snap["procs"][-8:]:
+        print(f"  #{pcb['pid']:<5} {pcb['state']:<10} pc={pcb['pc']:<4} "
+              f"{pcb['kind']:<8} {pcb['goal'][:56]}")
     return 0
 
 
@@ -1166,6 +1215,15 @@ def main(argv: list[str] | None = None) -> int:
     p_grow.add_argument("--forever", action="store_true",
                         help="crecer sin parar en segundo plano (Ctrl+C para parar)")
     p_grow.set_defaults(func=cmd_grow)
+
+    p_pcb = sub.add_parser(
+        "pcb", help="colas de planificación persistentes (PCB): estado y reanudación")
+    p_pcb.add_argument("accion", nargs="?", default="status",
+                       choices=["status", "resume", "enqueue", "apply", "catalog"])
+    p_pcb.add_argument("goal", nargs="?", default="")
+    p_pcb.add_argument("--workspace", default="workspace")
+    p_pcb.add_argument("--kind", default="mission")
+    p_pcb.set_defaults(func=cmd_pcb)
 
     args = parser.parse_args(argv)
     if getattr(args, "seed", None) is not None:

@@ -305,6 +305,8 @@ class ChatManager:
                 reply = (f"Parada solicitada: {msg}." if ok
                          else f"No había nada que cortar ({msg}). "
                               "Sigo escuchando.")
+            elif intent.kind == "resume":
+                reply = self._resume_reply()
             elif intent.kind == "status":
                 reply = self._status_reply()
             elif intent.kind == "search" and self._run_search is not None:
@@ -371,6 +373,20 @@ class ChatManager:
                 finally:
                     self._lock.release()
             self._publish("chat_idle")
+
+    def _resume_reply(self) -> str:
+        try:
+            from .kernel import Kernel
+            kernel = Kernel.open(self.workspace)
+            restored = kernel.resume_all()
+            snap = kernel.snapshot()
+            return (f"PCB activo: {snap['applied']} mejoras aplicadas. "
+                    f"Reanudé {len(restored)} trabajo(s). "
+                    f"ready={snap['ready']} running={snap['running']} "
+                    f"parked={snap['parked']} blocked={snap['blocked']}. "
+                    "Si se corta, el journal queda en .a2s/pcb/.")
+        except Exception as exc:
+            return f"No pude leer el PCB ({type(exc).__name__}: {exc})."
 
     def _status_reply(self) -> str:
         if self._get_state is None:

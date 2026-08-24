@@ -118,6 +118,12 @@ def _early_intent(raw: str, folded: str) -> Optional[Intent]:
         return Intent("stop", raw, confidence=0.95)
     if any(f" {w} " in padded for w in _STOP) and len(raw.split()) <= 4:
         return Intent("stop", raw, confidence=0.95)
+    if any(w in folded for w in (
+            "reanuda", "reanudar", "resume", "retoma", "retomar",
+            "continua donde", "continúa donde")):
+        return Intent("resume", raw, confidence=0.92)
+    if folded in {"pcb", "colas"} or "colas de plan" in folded:
+        return Intent("resume", raw, confidence=0.9)
     if any(w in folded for w in _STATUS) and len(raw) < 80:
         return Intent("status", raw, confidence=0.9)
     if len(raw) < 60 and any(re.search(rf"\b{re.escape(_fold(w))}\b", folded)

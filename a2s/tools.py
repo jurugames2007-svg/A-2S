@@ -169,6 +169,14 @@ class ToolRegistry:
         self.register(Tool("save_artifact", "Guarda un artefacto inmutable (hash) en la bitácora forense.",
                             {"name": "str", "content": "str", "kind": "str opcional"},
                             self.save_artifact, destructive=True))
+        self.register(Tool(
+            "pcb_status",
+            "Estado de las colas PCB (ready/running/parked) y mejoras aplicadas.",
+            {}, self.pcb_status))
+        self.register(Tool(
+            "resume_jobs",
+            "Reanuda trabajos parked/blocked del PCB persistente.",
+            {}, self.resume_jobs, destructive=True))
 
     def schemas(self) -> str:
         """Descripción legible por el planificador (introspección)."""
@@ -541,6 +549,18 @@ class ToolRegistry:
             timeout=60, cwd=self.workspace, stdin=subprocess.DEVNULL)
         out = proc.stdout + proc.stderr
         return out if out.strip() else "(sin salida)"
+
+    def pcb_status(self) -> str:
+        from .kernel import Kernel
+        return json.dumps(Kernel.open(self.workspace).snapshot(),
+                          ensure_ascii=False)
+
+    def resume_jobs(self) -> str:
+        from .kernel import Kernel
+        kernel = Kernel.open(self.workspace)
+        got = kernel.resume_all()
+        return json.dumps({"restored": [p.pid for p in got],
+                           "pcb": kernel.snapshot()}, ensure_ascii=False)
 
     def save_artifact(self, name: str, content: str, kind: str = "artifact") -> str:
         # La persistencia real la hace MemoryHub/ledger; aquí se normaliza.

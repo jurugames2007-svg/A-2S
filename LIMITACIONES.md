@@ -3,7 +3,7 @@
 > Documento de transparencia técnica. Aquí no hay maquillaje: esto es lo que
 > el sistema **no puede hacer**, lo que hace **a medias**, los **errores que
 > tiene**, y cómo usarlo para **obtener beneficio real** sin engañarte.
-> Actualizado a v1.18.0 (mayordomo/macros/consejo/horizonte; no omnisciencia;
+> Actualizado a v1.19.0 (PCB + 1000 mejoras aplicadas; no omnisciencia;
 > base v1.17 estudio: libros completos, visor PDF, PPT en vivo;
 > base v1.16 chat paralelo + parada real + creación/búsqueda; base
 > v1.15 Protocolo Adaptativo Aegis: clasificación y composición
@@ -78,6 +78,7 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 24 | **Chat/creación/búsqueda (v1.16)**: el clasificador de intención es léxico (puede lanzar una búsqueda cuando querías charlar, o al revés). Un `python_exec`/`shell` ya lanzado no se mata a la fuerza: espera su timeout. El companion de El Principito es original, no la novela. La búsqueda por palabra clave no aplica el filtro LLMOps, pero sí exige licencia SPDX abierta. | Media | 🟡 mitigado: inbox que nunca rechaza por ocupado, `StopToken` compartido, creación local-first, `/api/find` + `a2s search --repos`, tests de parada/libro/chat encolado. |
 | 25 | **Estudio Jarvis (v1.17)**: no hay margen de error cero — hay gates (PDF `%PDF-`, longitud, proceso persistido). Gutenberg solo cubre el catálogo OA; un texto enorme se maqueta recortado (el `.txt` guarda más). El PPTX es OOXML mínimo, no un diseñador gráfico. El crecimiento autónomo sigue dependiendo de cuota GitHub. | Media | 🟡 mitigado: companion vs novela, allowlist HTTPS, progreso SSE, visor `raw=1`, tests de deck/OA/libros largos. |
 | 26 | **Mayordomo / consejo / horizonte (v1.18)**: A²S no controla el escritorio del SO, no flashea BIOS, no overclockea, no es médico ni abogado, no genera wallets ni crea cuentas ajenas, no se acerca a la omnisciencia. Un brief de 7 días no es un empleado invisible. | Alta | 🟡 mitigado: workspace-only + undo, descargos, rechazos explícitos, tests de protección y de negativa a firmware/wallets. |
+| 27 | **PCB 1.19**: 1000 políticas aplicadas no equivalen a 1000 módulos nuevos. El scheduler, journal y reanudación sí son reales; el resto son knobs/políticas del mismo núcleo. Un kill -9 a mitad de fsync puede dejar el `.tmp`. No hay preemption de hilos del SO. | Media | 🟡 journal + replace atómico; watchdog solo al `tick`; tests de park/resume/deadlock. |
 
 ---
 
