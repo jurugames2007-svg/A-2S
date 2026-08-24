@@ -273,6 +273,61 @@ function connectEvents() {
   };
 }
 
+async function fireAction(id, topic) {
+  const spec = (state.actions || []).find((item) => item.id === id) || {};
+  let chosen = topic || "";
+  if (!chosen && spec.ask) {
+    chosen = window.prompt(spec.ask, spec.topic || "") || "";
+    if (!chosen.trim()) return;
+  }
+  try {
+    const result = await api("/api/action", {
+      method: "POST",
+      body: JSON.stringify({ id, topic: chosen }),
+    });
+    toast(result.message || "Hecho");
+    if (result.view === "results") {
+      switchView("results");
+      loadArtifacts(true).catch(() => {});
+    }
+    if (result.pcb) {
+      text($("#metric-pcb"), String((result.pcb.ready || 0) + (result.pcb.running || 0)));
+      text($("#metric-pcb-note"),
+        `${result.pcb.ready || 0} en espera · ${result.pcb.parked || 0} pausados`);
+    }
+    appendAssistantBubble(result.message || spec.title || id);
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+function renderActions(actions) {
+  const board = $("#action-board");
+  if (!board) return;
+  state.actions = actions || [];
+  board.replaceChildren();
+  state.actions.forEach((item) => {
+    const btn = el("button", "action-card");
+    btn.type = "button";
+    btn.dataset.action = item.id;
+    const title = el("b"); title.textContent = item.title;
+    const blurb = el("small"); blurb.textContent = item.blurb;
+    const go = el("span", "go"); go.textContent = "PULSAR";
+    btn.append(title, blurb, go);
+    btn.addEventListener("click", () => fireAction(item.id));
+    board.appendChild(btn);
+  });
+}
+
+async function loadActions() {
+  try {
+    const data = await api("/api/actions");
+    renderActions(data.actions || []);
+  } catch (_) {
+    renderActions([]);
+  }
+}
+
 async function loadState() {
   const data = await api("/api/state");
   setConnection(true);
@@ -323,7 +378,7 @@ function renderChat(history) {
   const thread = $("#chat-thread");
   thread.replaceChildren();
   // Mensaje de bienvenida siempre.
-  appendAssistantBubble("Hola. Soy **Aegis**, el asistente autónomo de A²S. Pídeme directamente que investigue, analice o cree algo; elegiré la ruta y lo ejecutaré por ti.");
+  appendAssistantBubble("Hola. Soy **Aegis**. Pulsa un botón o escríbeme como se lo dirías a una persona. No hace falta terminal ni saber programar.");
   (history || []).forEach((m) => appendBubble(m.role, m.content, { error: m.error, mission: m.mission_id, at: m.at }));
   scrollChat();
 }
@@ -769,7 +824,13 @@ function closeMediaModal() {
 async function refreshAll() {
   $("#refresh-all").disabled = true;
   try {
-    await Promise.all([loadState(), loadPool().catch(() => {}), loadKnowledge().catch(() => {}), loadArtifacts(true)]);
+    await Promise.all([
+      loadState(),
+      loadActions().catch(() => {}),
+      loadPool().catch(() => {}),
+      loadKnowledge().catch(() => {}),
+      loadArtifacts(true),
+    ]);
   } catch (error) {
     setConnection(false, "DEGRADED"); toast(error.message, true);
   } finally { $("#refresh-all").disabled = false; }
@@ -810,7 +871,14 @@ function wireActions() {
     if (!window.confirm("¿Reiniciar la conversación? Se borrará el historial del chat.")) return;
     try { await api("/api/chat/clear", { method: "POST" }); } catch (e) { toast(e.message, true); }
   });
-  $$(".quick").forEach((b) => b.addEventListener("click", () => sendChat(b.dataset.text)));
+  $$(".quick").forEach((b) => b.addEventListener("click", () => {
+    if (b.dataset.action) fireAction(b.dataset.action);
+    else sendChat(b.dataset.text);
+  }));
+  const hideCoach = $("#coach-hide");
+  if (hideCoach) {
+    hideCoach.addEventListener("click", () => $("#coach")?.classList.add("hidden"));
+  }
 
   // Navegación por pestañas
   $$(".pill").forEach((p) => p.addEventListener("click", () => switchView(p.dataset.view)));

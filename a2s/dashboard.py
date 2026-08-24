@@ -268,6 +268,41 @@ class MissionManager:
         kind = "slides" if options.get("slides") else "create"
         return self.jobs.submit(kind, job, {"topic": topic})
 
+    def run_action(self, action_id: str, topic: str = "") -> dict[str, Any]:
+        from .actions import run_local
+        local = run_local(self.workspace, action_id, topic)
+        if not local.get("ok"):
+            return local
+        mode = local.get("mode")
+        if mode == "stop":
+            ok, message = self.stop()
+            local["message"] = message
+            local["ok"] = ok
+            return local
+        if mode == "search":
+            query = local.get("topic") or "agentes autónomos"
+            report = self.run_search(query)
+            local["result"] = report
+            local["view"] = "results"
+            local["queued"] = False
+            local["message"] = f"Búsqueda lista: {query}"
+            return local
+        if mode == "mission":
+            ok, message = self.start_in_background(local.get("topic") or topic)
+            local["queued"] = ok
+            local["message"] = message
+            return local
+        if mode == "studio":
+            options = {}
+            if local.get("kind"):
+                options["kind"] = local["kind"]
+            ok, message = self.run_create(local.get("topic") or topic, options)
+            local["queued"] = ok
+            local["message"] = message
+            local["view"] = "results"
+            return local
+        return local
+
     def start_in_background(self, goal: str, options: Optional[dict[str, Any]] = None
                             ) -> tuple[bool, str]:
         """Lanzamiento desde el chat con opciones por defecto seguras."""
@@ -527,6 +562,9 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
         elif path == "/api/pcb":
             from .kernel import Kernel
             self._json(Kernel.open(self.control_plane.workspace).snapshot())
+        elif path == "/api/actions":
+            from .actions import catalog
+            self._json({"actions": catalog()})
         elif path == "/api/jobs":
             self._json({"jobs": self.control_plane.missions.jobs.snapshot()})
         elif path == "/api/find":
@@ -671,6 +709,14 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
                 payload.get("options"), dict) else {}
             ok, message = self.control_plane.missions.run_create(topic, options)
             self._json({"status": message}, 202 if ok else 409)
+        elif path == "/api/action":
+            action_id = str(payload.get("id") or payload.get("action") or "")
+            topic = str(payload.get("topic") or "")
+            result = self.control_plane.missions.run_action(action_id, topic)
+            code = 200 if result.get("ok") else 400
+            if result.get("ok") and result.get("queued"):
+                code = 202
+            self._json(result, code)
         else:
             self._json({"error": "endpoint no encontrado"}, 404)
 

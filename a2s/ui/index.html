@@ -34,24 +34,16 @@
         <div class="chat-msg assistant">
           <div class="bubble">
             <p><b>Hola.</b> Soy Aegis, tu asistente autónomo A²S.</p>
-            <p>Dime el objetivo: elijo la ruta, ejecuto la misión en segundo plano y
-            publico el avance y los resultados a la derecha. No necesitas configurar
-            un proveedor ni iniciar sesión.</p>
+            <p>No hace falta saber programar. Pulsa un botón a la derecha
+            o escríbeme aquí en lenguaje normal: «ordena mis archivos»,
+            «hazme un libro», «sigue donde quedamos».</p>
             <div class="quick-row">
-              <button class="quick" data-text="Analiza el workspace y dame un informe de mejoras.">Analizar workspace</button>
-              <button class="quick" data-text="¿Qué estás haciendo ahora mismo?">¿Qué haces?</button>
-              <button class="quick" data-text="Investiga repositorios recientes y PDF abiertos sobre agentes autónomos; aprende de las mejores fuentes.">Investigar fuentes</button>
-              <button class="quick" data-text="Crea un libro sobre El Principito.">Libro El Principito</button>
-              <button class="quick" data-text="Diseña una presentación sobre A²S y muéstrame el proceso.">Crear PPT</button>
-              <button class="quick" data-text="Obtén Don Quijote de dominio público.">Obtener Quijote</button>
-              <button class="quick" data-text="Ordena el escritorio del workspace y anima el escritorio virtual.">Ordenar workspace</button>
-              <button class="quick" data-text="Genera un programa que numere líneas.">Generar programa</button>
-              <button class="quick" data-text="Busca empleo: brief de oportunidades públicas.">Oportunidades</button>
-              <button class="quick" data-text="Busca repositorios sobre agentes autónomos">Buscar repos</button>
-              <button class="quick" data-text="Reanuda las colas PCB">Reanudar PCB</button>
-              <button class="quick" data-text="para">Detener</button>
-              <button class="quick" data-text="Analiza críticamente tres estrategias para mejorar este proyecto, incluye abogado del diablo, escenarios y próximos pasos.">Comparar estrategias</button>
-              <button class="quick" data-text="Muéstrame los archivos que has producido.">Ver resultados</button>
+              <button class="quick" data-action="organize">Ordenar archivos</button>
+              <button class="quick" data-action="book">Escribir un libro</button>
+              <button class="quick" data-action="slides">Hacer PPT</button>
+              <button class="quick" data-action="resume">Seguir donde quedó</button>
+              <button class="quick" data-action="results">Ver lo creado</button>
+              <button class="quick" data-action="stop">Detener</button>
             </div>
           </div>
         </div>
@@ -60,12 +52,12 @@
       <form id="chat-form" class="chat-composer">
         <button type="button" id="chat-clear" class="icon-btn icon-btn-sm" title="Reiniciar conversación" aria-label="Reiniciar conversación">⟲</button>
         <textarea id="chat-input" rows="1" maxlength="8000"
-          placeholder="Pide algo a Aegis… (Enter para enviar, Shift+Enter nueva línea)"></textarea>
+          placeholder="Escríbelo como se lo dirías a una persona…"></textarea>
         <button type="button" id="chat-stop" class="icon-btn icon-btn-sm" title="Detener misión y trabajos" aria-label="Detener">■</button>
         <button type="submit" id="chat-send" class="btn btn-primary" title="Enviar">➤</button>
       </form>
       <div class="chat-foot">
-        <small>Omnimodal adaptativo · SORL/OmniRoute · local-first · auditable</small>
+        <small>Pulsa un botón o habla. El agente elige la ruta.</small>
       </div>
     </aside>
 
@@ -73,11 +65,11 @@
     <div class="workspace workspace--assistant">
       <header class="topbar">
         <nav class="pills" aria-label="Vistas">
-          <button class="pill active" data-view="overview">◉ Operaciones</button>
-          <button class="pill" data-view="results">⬚ Resultados</button>
-          <button class="pill" data-view="routing">⌖ Ruta SORL</button>
-          <button class="pill" data-view="ecosystem">◎ Radar</button>
-          <button class="pill" data-view="assurance">⚖ Assurance</button>
+          <button class="pill active" data-view="overview">Inicio</button>
+          <button class="pill" data-view="results">Archivos</button>
+          <button class="pill" data-view="routing">Ruta</button>
+          <button class="pill" data-view="ecosystem">Radar</button>
+          <button class="pill" data-view="assurance">Calidad</button>
         </nav>
         <div class="top-actions">
           <time id="clock">--:--:-- UTC</time>
@@ -89,6 +81,18 @@
       <main class="view-main">
         <!-- ---------- Operaciones ---------- -->
         <section id="overview" class="view-panel active">
+          <article class="coach" id="coach">
+            <div>
+              <p class="kicker">MODO SENCILLO</p>
+              <h2>Pulsa un botón. El agente hace el resto.</h2>
+              <p>No uses la terminal. Elige qué quieres y Aegis lo ejecuta,
+              te muestra el avance y deja el resultado en <b>Archivos</b>.</p>
+            </div>
+            <button type="button" class="text-btn" id="coach-hide">Entendido</button>
+          </article>
+
+          <div id="action-board" class="action-board" aria-label="Acciones de un clic"></div>
+
           <div class="metric-grid" aria-label="Indicadores operativos">
             <article class="metric primary">
               <div class="metric-head"><span>ESTADO DE MISIÓN</span><i class="pulse"></i></div>
@@ -132,12 +136,14 @@
           <div class="ops-grid">
             <article class="panel mission-panel">
               <header class="panel-head">
-                <div><p class="kicker">MISSION CONTROL</p><h2>Nueva directiva</h2></div>
-                <span class="tag safe">POLICY ENFORCED</span>
+                <div><p class="kicker">SI PREFIERES ESCRIBIR</p><h2>Dilo con tus palabras</h2></div>
+                <span class="tag safe">SIN TERMINAL</span>
               </header>
               <form id="mission-form">
-                <label for="goal">Objetivo verificable</label>
-                <textarea id="goal" maxlength="8000" required placeholder="Describe el resultado, su evidencia y el criterio de aceptación…">Analiza el workspace y produce un informe verificable de mejoras, riesgos y próximos pasos.</textarea>
+                <label for="goal">¿Qué quieres que haga?</label>
+                <textarea id="goal" maxlength="8000" required placeholder="Ejemplos: ordena mis archivos · escribe un libro sobre el mar · sigue donde quedamos">Analiza el workspace y produce un informe verificable de mejoras, riesgos y próximos pasos.</textarea>
+                <details class="advanced">
+                  <summary>Opciones avanzadas (opcional)</summary>
                 <div class="form-row">
                   <label>Motor (opcional)
                     <select id="provider">
@@ -156,8 +162,6 @@
                     </select>
                   </label>
                 </div>
-                <details class="advanced">
-                  <summary>Parámetros operativos</summary>
                   <div class="form-row triple">
                     <label>Tiempo máx. (s)<input id="max-time" type="number" min="10" max="3600" value="600"></label>
                     <label>Rondas<input id="max-rounds" type="number" min="1" max="20" value="6"></label>
@@ -169,8 +173,8 @@
                   </div>
                 </details>
                 <div class="button-row">
-                  <button class="btn btn-primary" id="start" type="submit"><span>▶</span> Ejecutar misión</button>
-                  <button class="btn btn-secondary" id="demo" type="button">Diagnóstico demo</button>
+                  <button class="btn btn-primary" id="start" type="submit">Hacerlo ahora</button>
+                  <button class="btn btn-secondary" id="demo" type="button">Probar con un ejemplo</button>
                   <button class="btn btn-danger" id="stop" type="button" disabled>Detener</button>
                 </div>
                 <p class="form-status" id="form-status" role="status"></p>
@@ -192,8 +196,8 @@
         <!-- ---------- Resultados / artefactos ---------- -->
         <section id="results" class="view-panel">
           <header class="section-head">
-            <div><p class="eyebrow">RESULTADOS</p><h2>Lo que he producido</h2>
-              <p class="section-copy">Archivos, imágenes, informes y medios en tu workspace. Ábrelos, previsualízalos o descárgalos. Se actualiza en vivo.</p></div>
+            <div><p class="eyebrow">ARCHIVOS</p><h2>Lo que el agente ya hizo</h2>
+              <p class="section-copy">Toca un archivo para verlo. Los PDF, fotos y presentaciones se abren aquí. No hace falta descargar nada para revisar.</p></div>
             <div class="inline-control">
               <button id="refresh-artifacts" class="btn btn-secondary">↻ Actualizar</button>
             </div>

@@ -3,6 +3,18 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.20.0] — 2026-08-24
+
+### Añadido (modo sencillo, sin terminal)
+
+- **Botones de un clic** en Inicio: revisar, ordenar, limpiar, deshacer,
+  libro, presentación, programa, buscar, investigar, oportunidades,
+  seguir donde quedó, detener, ver archivos y estado.
+- API `GET /api/actions` y `POST /api/action` para que un operador sin
+  conocimientos de programación no use `a2s pcb` ni ningún comando.
+- Coach «Pulsa un botón. El agente hace el resto.» Chat y pestañas en
+  español llano (Inicio / Archivos). Opciones de motor escondidas.
+
 ## [1.19.0] — 2026-08-24
 
 ### Añadido (PCB + 1000 mejoras aplicadas)
