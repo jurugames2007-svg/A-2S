@@ -34,7 +34,7 @@ from .providers import BaseProvider, HeuristicProvider, OpenAICompatProvider
 
 # Prompt del asistente: prosa, en español, orientado a ayudar.
 ASSISTANT_SYSTEM_PROMPT = (
-    "Eres A²S, el asistente autónomo del operador. Dialogas en español de forma "
+    "Eres Aegis, el asistente autónomo de A²S. Dialogas en español de forma "
     "clara, técnica pero cercana. Puedes explicar qué está haciendo el agente, "
     "resumir resultados, proponer próximos pasos y, cuando el operador lo pide, "
     "lanzar misiones de fondo (un planificador separado las ejecuta). No inventes "
@@ -89,7 +89,7 @@ def _prose_chat(provider: BaseProvider, messages: list[dict[str, str]],
 def _messages_to_prompt(messages: list[dict[str, str]]) -> str:
     lines = []
     for m in messages[-10:]:
-        role = "Operador" if m["role"] == "user" else "A²S"
+        role = "Operador" if m["role"] == "user" else "Aegis"
         lines.append(f"{role}: {m['content']}")
     return "\n".join(lines)
 
@@ -109,19 +109,25 @@ class HeuristicAssistant:
     HELP_WORDS = ("ayuda", "qué puedes", "que puedes", "comandos", "help",
                   "cómo funcionas", "como funcionas")
     THANKS = ("gracias", "thanks", "te agradezco", "perfecto", "genial", "ok")
+    WELLBEING = ("cómo estás", "como estas", "cómo te encuentras",
+                 "como te encuentras", "todo bien")
 
     def reply(self, messages: list[dict[str, str]]) -> str:
         text = (messages[-1]["content"] if messages else "").lower().strip()
         if any(g in text for g in self.GREETINGS):
-            return ("Hola. Soy A²S, tu asistente. Puedo lanzar misiones de fondo, "
-                    "explicarte qué está pasando y mostrarte los resultados. "
-                    "Dime qué objetivo quieres perseguir.")
+            return ("Hola. Soy Aegis, el asistente autónomo de A²S. Puedo ejecutar "
+                    "misiones en segundo plano, explicarte qué está pasando y "
+                    "mostrarte los resultados. Dime qué objetivo quieres perseguir.")
+        if any(w in text for w in self.WELLBEING):
+            return ("Estoy operativo y listo para trabajar. El núcleo local sigue "
+                    "activo incluso si una ruta externa falla, y OmniRoute se "
+                    "supervisa y recupera automáticamente. ¿Qué hacemos?")
         if any(w in text for w in self.HELP_WORDS):
-            return ("Puedo: (1) lanzar una misión con un objetivo verificable, "
-                    "(2) contarte el estado de la misión en curso, "
-                    "(3) mostrarte los artefactos que haya producido, "
-                    "(4) charlar sobre el proyecto mientras trabajo. "
-                    "Escríbeme en lenguaje natural qué necesitas.")
+            return ("Puedo: (1) lanzar automáticamente una misión con un objetivo "
+                    "verificable, (2) contarte el estado de la misión en curso, "
+                    "(3) mostrarte los artefactos que haya producido y (4) charlar "
+                    "sobre el proyecto mientras trabajo. Escríbeme en lenguaje "
+                    "natural qué necesitas; yo elijo la ruta y me ocupo del resto.")
         if any(w in text for w in self.STATUS_WORDS):
             return ("Para ver el estado en vivo revisa el panel de telemetría: "
                     "ahí aparece cada paso, evaluación y replanificación. "
@@ -131,19 +137,17 @@ class HeuristicAssistant:
             return "A ti. ¿Algo más en lo que pueda ayudarte?"
         if any(w in text for w in ("lanza", "ejecuta", "genera", "crea", "haz",
                                     "analiza", "produce", "construye", "escribe")):
-            return ("Entendido. Voy a preparar una misión para eso. Pulsa "
-                    "\"Ejecutar misión\" en el panel de Operaciones (o dime el "
-                    "objetivo exacto y lo dejo listo). Te avisaré cuando tenga "
-                    "resultados que mostrarte.")
-        if text.endswith("?") or text.endswith("?"):
-            return ("Buena pregunta. No tengo un LLM conectado ahora mismo para "
-                    "responder con profundidad (estoy en modo núcleo heurístico). "
-                    "Conecta un proveedor en el pool SORL —por ejemplo OmniRoute— "
-                    "y te daré una respuesta completa. ¿Quieres que te guíe?")
-        return ("Te he entendido. Para que pueda razonar con todo el contexto, "
-                "conecta un proveedor (OmniRoute, OpenAI o un endpoint "
-                "OpenAI-compatible) en el panel de ruta. Mientras tanto puedo "
-                "lanzar misiones y mostrarte resultados.")
+            return ("Entendido. Lo ejecutaré como una misión autónoma en segundo "
+                    "plano y publicaré aquí el avance y los resultados. No necesitas "
+                    "elegir proveedor ni pulsar otro botón.")
+        if text.endswith("?"):
+            return ("Buena pregunta. Estoy operativo con el núcleo local y usaré "
+                    "OmniRoute automáticamente cuando esté disponible. Si necesitas "
+                    "una respuesta basada en evidencia del workspace o de la web, "
+                    "pídeme que la investigue y lanzaré la misión por ti.")
+        return ("Te he entendido. Aegis selecciona la mejor ruta disponible de forma "
+                "automática; si una ruta falla, continúa con el núcleo local. Puedes "
+                "pedirme directamente que investigue, analice, cree o ejecute algo.")
 
 
 class ChatManager:
@@ -173,7 +177,17 @@ class ChatManager:
         try:
             with open(self._path, encoding="utf-8") as fh:
                 data = json.load(fh)
-            self.history = data.get("history", [])[-self.MAX_HISTORY:]
+            loaded = data.get("history", [])[-self.MAX_HISTORY:]
+            # Migración de UX: no revivir tras una actualización el antiguo
+            # fallback que delegaba al operador «conecta un proveedor».
+            legacy = ("No tengo un LLM conectado", "Conecta un proveedor",
+                      "conecta un proveedor")
+            self.history = [message for message in loaded
+                            if not (message.get("role") == "assistant" and
+                                    any(marker in message.get("content", "")
+                                        for marker in legacy))]
+            if len(self.history) != len(loaded):
+                self._save()
         except (OSError, json.JSONDecodeError):
             self.history = []
 

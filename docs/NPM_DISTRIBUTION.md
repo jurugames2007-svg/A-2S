@@ -1,17 +1,21 @@
 # Distribución ejecutable con npm
 
-A²S 1.10.0 se puede instalar como paquete npm sin reescribir ni duplicar el
-núcleo Python. Node aporta el launcher y npm aporta instalación/versionado; el
-runtime real sigue siendo Python stdlib auditable.
+A²S 1.13.0 se puede instalar como paquete npm sin reescribir ni duplicar el
+núcleo Python. Node aporta el launcher, instala y supervisa OmniRoute; el
+runtime del agente sigue siendo Python stdlib auditable.
 
 ## Requisitos
 
-- Node.js 18 o superior;
-- npm 9 o superior recomendado;
+- Node.js `>=22.22.2 <23` o Node.js 24–26 (contrato del OmniRoute incluido);
+- npm 10 o superior recomendado;
 - Python 3.9 o superior en `PATH`, o `A2S_PYTHON=/ruta/python`.
 
-No hay dependencias npm ni Python de runtime. La instalación no define hooks
-`install`, `postinstall` o `prepare`.
+No hay dependencias **Python** de runtime. npm instala exactamente OmniRoute
+`3.8.49`; en el checkout, `package-lock.json` fija también la resolución
+transitiva. A²S no define hooks de instalación propios; npm sí ejecuta el
+`postinstall` publicado por OmniRoute,
+necesario para ajustar sus módulos nativos a la plataforma. Por eso una
+instalación operativa no debe usar `--ignore-scripts`.
 
 ## Release local completa
 
@@ -25,29 +29,43 @@ npm run release:local
 1. sintaxis de todos los scripts Node/GUI/Electron;
 2. compilación Python;
 3. pureza stdlib y complejidad;
-4. 198 pruebas Python, incluidas misiones, fuzz y contrato Python 3.9;
+4. suite Python completa, incluidas misiones, fuzz y contrato Python 3.9;
 5. auditoría viva;
 6. creación de zipapp y tarball;
 7. instalación del tarball en un prefijo temporal;
-8. smoke de los tres comandos npm;
+8. smoke de los tres comandos npm y de OmniRoute incluido;
 9. `doctor`, `/healthz` y GUI HTTP del paquete instalado.
 
 Artefactos:
 
 ```text
 artifacts/a2s.pyz
-artifacts/a2s-agent-control-plane-1.10.0.tgz
+artifacts/a2s-agent-control-plane-1.13.0.tgz
 ```
 
 ## Instalación del tarball
 
 ```bash
-npm install -g ./artifacts/a2s-agent-control-plane-1.10.0.tgz
+npm install -g ./artifacts/a2s-agent-control-plane-1.13.0.tgz
 
 a2s --version
-a2s doctor
+a2s doctor                         # arranca/verifica OmniRoute incluido
+a2s run "objetivo verificable"     # no requiere --provider
 a2s dashboard
 ```
+
+El launcher arranca OmniRoute como sidecar local cuando un comando necesita
+razonamiento. No utiliza el CLI que importa `src`/tsx: ejecuta directamente
+`dist/server-ws.mjs` (o `dist/server.js`), prepara el directorio de datos y su
+clave de cifrado, y espera un catálogo válido. Si ya escucha en
+`127.0.0.1:20128`, lo reutiliza. En procesos largos lo comprueba cada 15 s y lo
+recupera si cae. La ruta `auto` siempre entra por SORL y conserva el fallback
+heurístico si el gateway o sus upstreams no pueden responder.
+
+El sidecar que A²S inicia queda ligado a loopback y con login desactivado; el
+Control Plane A²S también abre sin login en localhost. `--auth` sigue
+existiendo como opción explícita para quien decida exponer el dashboard en
+red. No se crea ni se solicita contraseña.
 
 Alias equivalentes:
 
@@ -116,6 +134,26 @@ En Windows PowerShell:
 $env:A2S_PYTHON = "C:\Python312\python.exe"
 a2s --version
 ```
+
+### OmniRoute no arranca
+
+Comprueba primero que la versión de Node satisface el rango requerido y que la
+instalación se hizo sin `--ignore-scripts`:
+
+```bash
+node --version
+npm rebuild omniroute
+npm run gateway
+npm run gateway:status
+npm run gateway:stop       # detener el daemon en un checkout
+```
+
+A²S administra su sidecar sin login ni intervención. `a2s doctor` informa si
+un gateway externo reutilizado pide clave; solo en ese caso, y si el operador
+eligió mantener esa autenticación, puede definir `A2S_OMNIROUTE_KEY`. Para
+omitir totalmente el gateway: `A2S_OMNIROUTE=off a2s run "objetivo"`; el agente
+seguirá con su fallback heurístico. Para conservar deliberadamente el login de
+un sidecar administrado, el escape avanzado es `A2S_OMNIROUTE_LOGIN=on`.
 
 ### El dashboard no debe ser público
 

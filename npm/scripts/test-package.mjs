@@ -15,7 +15,8 @@ const temp = mkdtempSync(join(tmpdir(), "a2s-npm-e2e-"));
 function command(label, executable, args, options = {}) {
   const result = spawnSync(executable, args, {
     cwd: options.cwd || root,
-    env: { ...process.env, PYTHONUNBUFFERED: "1", ...(options.env || {}) },
+    env: { ...process.env, PYTHONUNBUFFERED: "1", A2S_OMNIROUTE: "off",
+      ...(options.env || {}) },
     encoding: "utf8",
     stdio: options.stdio || "pipe",
     timeout: options.timeout || 120_000,
@@ -24,7 +25,9 @@ function command(label, executable, args, options = {}) {
   if (result.status !== 0) {
     process.stderr.write(result.stdout || "");
     process.stderr.write(result.stderr || "");
-    throw new Error(`${label} falló (exit ${result.status ?? "?"})`);
+    if (result.error) process.stderr.write(`${result.error.message}\n`);
+    throw new Error(`${label} falló (exit ${result.status ?? "?"}, ` +
+      `signal ${result.signal || "—"})`);
   }
   return `${result.stdout || ""}${result.stderr || ""}`;
 }
@@ -67,15 +70,25 @@ try {
   if (!tarball) throw new Error("build no produjo un tarball npm");
 
   console.log("[A²S npm e2e] instalando tarball en prefijo aislado…");
-  command("npm install", npmCommand, ["install", "--ignore-scripts", "--no-audit",
-    "--no-fund", "--prefix", temp, join(root, "artifacts", tarball)],
-  { timeout: 180_000 });
+  // El E2E valida el tarball, bins y dependencia declarada; omite únicamente
+  // aceleradores nativos opcionales de OmniRoute para no duplicar varios GB
+  // por plataforma dentro del prefijo efímero.
+  command("npm install", npmCommand, ["install", "--ignore-scripts", "--omit=optional",
+    "--no-audit", "--no-fund", "--prefix", temp,
+    join(root, "artifacts", tarball)],
+  { timeout: 600_000 });
 
   const bin = join(temp, "node_modules", ".bin",
     process.platform === "win32" ? "a2s.cmd" : "a2s");
   const version = command("a2s --version", bin, ["--version"], { cwd: temp });
   if (!version.includes(metadata.version)) {
     throw new Error(`versión inesperada: ${version.trim()}`);
+  }
+  const omniBin = join(temp, "node_modules", ".bin",
+    process.platform === "win32" ? "omniroute.cmd" : "omniroute");
+  const omniVersion = command("omniroute --version", omniBin, ["--version"], { cwd: temp });
+  if (!omniVersion.includes(metadata.dependencies.omniroute)) {
+    throw new Error(`OmniRoute incluido inesperado: ${omniVersion.trim()}`);
   }
   for (const commandName of ["a2s-control-plane", "a2s-agent-control-plane"]) {
     const alias = join(temp, "node_modules", ".bin",
@@ -97,7 +110,7 @@ try {
   dashboard = spawn(bin, ["dashboard", "--port", String(port), "--workspace",
     join(temp, "workspace")], {
     cwd: temp,
-    env: { ...process.env, PYTHONUNBUFFERED: "1" },
+    env: { ...process.env, PYTHONUNBUFFERED: "1", A2S_OMNIROUTE: "off" },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });

@@ -360,19 +360,21 @@ class OpenAICompatProvider(BaseProvider):
 
 def get_provider(kind: str, fallback_ok: bool = True,
                  config: Any = None) -> BaseProvider:
-    """auto → OpenAI si hay clave, si no heurístico. Sin excepciones posibles.
+    """Resuelve el motor sin obligar al operador a escoger un proveedor.
 
-    ``pool`` → SORL: meta-proveedor que orquesta todos los recursos legítimos
-    del operador (ver ``provider_pool.py``).
+    ``auto`` y ``pool`` usan SORL: descubren OmniRoute y cualquier otro recurso
+    legítimo disponible, y conservan el núcleo heurístico como último fallback.
+    Así, la ruta por defecto del CLI y del agente es el OmniRoute incluido por
+    la distribución npm cuando está vivo, sin ``--provider`` ni clave externa.
+    ``heuristic`` y ``openai`` permanecen como overrides explícitos.
     """
     fallback = HeuristicProvider()
     if kind == "heuristic":
         return fallback
-    if kind == "pool":
+    if kind in ("auto", "pool"):
         from .provider_pool import build_pool_provider
         return build_pool_provider(config=config)
     if kind == "openai":
         return OpenAICompatProvider(fallback=fallback)
-    if os.environ.get("OPENAI_API_KEY"):
-        return OpenAICompatProvider(fallback=fallback)
+    # Una entrada desconocida nunca debe saltarse la degradación segura.
     return fallback

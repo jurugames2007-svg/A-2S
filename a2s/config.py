@@ -26,7 +26,7 @@ class Config:
     # Detección de estancamiento.
     stagnation_window: int = 4        # intentos fallidos seguidos
     # Proveedor de razonamiento.
-    provider: str = "auto"            # auto | heuristic | openai | pool (SORL)
+    provider: str = "auto"            # auto = pool SORL/OmniRoute + fallback heurístico
     llm_model: str = field(default_factory=lambda: os.environ.get("A2S_LLM_MODEL", "gpt-4o-mini"))
     llm_base_url: Optional[str] = field(default_factory=lambda: os.environ.get("A2S_LLM_BASE_URL"))
     temperature: float = 0.2

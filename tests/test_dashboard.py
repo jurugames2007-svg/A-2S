@@ -1,6 +1,7 @@
 """Control Plane industrial: activos, API, seguridad y parámetros de misión."""
 
 import json
+import os
 import tempfile
 from tests._winutil import temp_dir
 import threading
@@ -8,6 +9,7 @@ import unittest
 import urllib.error
 import urllib.request
 
+from a2s.chat import HeuristicAssistant
 from a2s.dashboard import DashboardServer, EventHub, MissionManager, _asset
 
 
@@ -68,6 +70,37 @@ class TestMissionManager(unittest.TestCase):
         self.assertFalse(self.manager.stop()[0])
 
 
+class TestAegisFallback(unittest.TestCase):
+    def test_no_delega_configuracion_al_operador(self):
+        answer = HeuristicAssistant().reply([
+            {"role": "user", "content": "¿Qué puedes hacer?"}])
+        self.assertNotIn("conecta", answer.lower())
+        self.assertNotIn("proveedor", answer.lower())
+        self.assertIn("automáticamente", answer)
+
+    def test_bienestar_informa_recuperacion_y_nucleo_local(self):
+        answer = HeuristicAssistant().reply([
+            {"role": "user", "content": "¿Cómo estás?"}])
+        self.assertIn("núcleo local", answer)
+        self.assertIn("recupera automáticamente", answer)
+
+    def test_historial_descarta_fallback_obsoleto(self):
+        tmp = temp_dir()
+        self.addCleanup(tmp.cleanup)
+        state = os.path.join(tmp.name, ".a2s")
+        os.makedirs(state)
+        with open(os.path.join(state, "chat_history.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump({"history": [
+                {"role": "user", "content": "hola"},
+                {"role": "assistant",
+                 "content": "No tengo un LLM conectado. Conecta un proveedor."},
+            ]}, fh)
+        dashboard = DashboardServer(port=0, workspace=tmp.name)
+        history = dashboard.chat.snapshot()["history"]
+        self.assertEqual([message["role"] for message in history], ["user"])
+
+
 class TestDashboardHTTP(unittest.TestCase):
     def setUp(self):
         self.tmp = temp_dir()
@@ -90,10 +123,13 @@ class TestDashboardHTTP(unittest.TestCase):
         self.assertIn(b"MISSION CONTROL", html)
         self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
         self.assertEqual(headers["X-Frame-Options"], "DENY")
-        code, _, js = request(self.base + "/app.js")
+        code, asset_headers, js = request(self.base + "/app.js")
         self.assertEqual(code, 200)
+        self.assertEqual(asset_headers["Cache-Control"], "no-cache")
         self.assertNotIn(b"127.0.0.1", js)
         self.assertNotIn(b"localhost", js)
+        self.assertNotIn(b"Conecta un proveedor", js)
+        self.assertIn("gateway online".encode(), js)
         self.assertIn(b'EventSource("/api/events")', js)
 
     def test_health_y_state(self):

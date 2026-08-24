@@ -258,7 +258,7 @@ function renderChat(history) {
   const thread = $("#chat-thread");
   thread.replaceChildren();
   // Mensaje de bienvenida siempre.
-  appendAssistantBubble("Hola. Soy tu asistente A²S. Conversa conmigo mientras trabajo; lo que produzca aparecerá en **Resultados**.");
+  appendAssistantBubble("Hola. Soy **Aegis**, el asistente autónomo de A²S. Pídeme directamente que investigue, analice o cree algo; elegiré la ruta y lo ejecutaré por ti.");
   (history || []).forEach((m) => appendBubble(m.role, m.content, { error: m.error, mission: m.mission_id, at: m.at }));
   scrollChat();
 }
@@ -392,20 +392,26 @@ function renderPool(data) {
   const status = data.status || {};
   const preview = data.preview || {};
   text($("#metric-endpoints"), status.totals?.endpoints_active || 0);
-  text($("#metric-pool-note"), `${status.totals?.total_calls || 0} llamadas registradas`);
+  const omni = (status.endpoints || []).find((endpoint) => endpoint.name === "omniroute");
+  text($("#metric-pool-note"), omni
+    ? `OmniRoute ${omni.active && !omni.circuit_open ? "supervisado · gateway online" : "recuperándose"}`
+    : `${status.totals?.total_calls || 0} llamadas · núcleo local activo`);
   text($("#routing-strategy"), status.strategy || "—");
   const list = $("#provider-list");
   list.replaceChildren();
   (status.endpoints || []).forEach((endpoint) => {
     const row = el("div", "provider");
+    const isOmni = endpoint.name === "omniroute";
     const name = el("div", "provider-name");
     const dot = el("i"); if (!endpoint.active || endpoint.circuit_open) dot.className = "down";
-    const nameText = el("b"); nameText.textContent = endpoint.name;
+    const nameText = el("b"); nameText.textContent = isOmni ? "OmniRoute · supervisado" : endpoint.name;
     name.append(dot, nameText);
     const model = el("div", "provider-model");
-    model.textContent = endpoint.model || (endpoint.role === "fallback_only" ? "núcleo determinista" : "sin modelo");
+    model.textContent = isOmni ? `${endpoint.model || "auto"} · gateway local`
+      : (endpoint.model || (endpoint.role === "fallback_only" ? "núcleo determinista" : "sin modelo"));
     const tier = el("small");
-    tier.textContent = endpoint.role === "fallback_only" ? "FALLBACK" : String(endpoint.cost_tier || "—").toUpperCase();
+    tier.textContent = isOmni ? (endpoint.active && !endpoint.circuit_open ? "AUTO · GATEWAY ONLINE" : "RECUPERANDO")
+      : (endpoint.role === "fallback_only" ? "FALLBACK" : String(endpoint.cost_tier || "—").toUpperCase());
     const quota = el("div");
     const usage = endpoint.rpm_effective > 0 ? Math.min(100, (endpoint.window_used / endpoint.rpm_effective) * 100) : 0;
     const quotaText = el("small");

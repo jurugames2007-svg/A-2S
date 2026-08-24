@@ -13,6 +13,7 @@ import json
 import os
 import platform
 import queue
+import sys
 import threading
 import time
 import urllib.parse
@@ -207,18 +208,29 @@ class MissionManager:
             if self.current is not None:
                 return self.current.provider
         cfg = Config(workspace=self.workspace, quiet=True,
-                     provider=os.environ.get("A2S_CHAT_PROVIDER", "pool"))
+                     provider=os.environ.get("A2S_CHAT_PROVIDER", "auto"))
         return get_provider(cfg.provider, config=cfg)
 
     def start_in_background(self, goal: str, options: Optional[dict[str, Any]] = None
                             ) -> tuple[bool, str]:
         """Lanzamiento desde el chat con opciones por defecto seguras."""
-        defaults = {"provider": "pool", "pool_strategy": "multi_objective",
+        defaults = {"provider": "auto", "pool_strategy": "multi_objective",
                     "max_time": 600, "max_rounds": 6, "speculative": 0,
                     "allow_network": True, "allow_shell": True}
         if options:
             defaults.update(options)
         return self.start(goal, False, defaults)
+
+
+class _DashboardHTTPServer(ThreadingHTTPServer):
+    """Servidor que no imprime trazas por desconexiones normales del navegador."""
+
+    daemon_threads = True
+
+    def handle_error(self, request, client_address) -> None:
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
+            return
+        super().handle_error(request, client_address)
 
 
 class DashboardServer:
@@ -245,7 +257,7 @@ class DashboardServer:
             self.token_manager = workspace_token_manager(self.workspace)
 
     def make_http_server(self) -> ThreadingHTTPServer:
-        return ThreadingHTTPServer((self.host, self.port), self._handler())
+        return _DashboardHTTPServer((self.host, self.port), self._handler())
 
     def serve_forever(self) -> None:
         server = self.make_http_server()
@@ -372,8 +384,9 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             self._json({"error": "activo no disponible"}, 500)
             return
         self.send_response(200)
-        cache = "public, max-age=3600" if name != "index.html" else "no-cache"
-        self._headers(content_type, len(body), cache=cache)
+        # Los activos cambian junto al agente; revalidarlos evita que una UI
+        # antigua siga mostrando «conecta un proveedor» tras actualizar.
+        self._headers(content_type, len(body), cache="no-cache")
         self.end_headers()
         self.wfile.write(body)
 
@@ -387,8 +400,7 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
                 self.send_error(500)
                 return
             self.send_response(200)
-            cache = "public, max-age=3600" if name != "index.html" else "no-cache"
-            self._headers(content_type, length, cache=cache)
+            self._headers(content_type, length, cache="no-cache")
             self.end_headers()
         elif path == "/healthz":
             self.send_response(200)

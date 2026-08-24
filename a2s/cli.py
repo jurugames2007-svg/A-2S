@@ -192,6 +192,23 @@ def cmd_swarm(args: argparse.Namespace) -> int:
 
 def cmd_dashboard(args: argparse.Namespace) -> int:
     from .dashboard import DashboardServer
+    from .omniroute import OmniRouteWatchdog
+
+    # También cubre ``python -m a2s dashboard``: usa el bundle dist incluido y
+    # evita por completo la ruta src/tsx que puede bloquearse.
+    gateway_watchdog = OmniRouteWatchdog()
+    gateway = gateway_watchdog.ensure_now()
+    if gateway.get("usable"):
+        print(f"[A²S] ◉ OmniRoute portable: {gateway.get('url')} "
+              f"({gateway.get('mode', gateway.get('state', 'conectado'))})")
+    elif gateway.get("state") == "disabled":
+        print("[A²S] OmniRoute desactivado; Aegis continúa con el núcleo local")
+    else:
+        print(f"[A²S] ◐ OmniRoute no disponible aún: "
+              f"{gateway.get('detail', gateway.get('state', 'desconocido'))}; "
+              "Aegis continúa localmente y reintentará")
+    gateway_watchdog.start()
+
     server = DashboardServer(port=args.port, workspace=args.workspace,
                              auto_demo=args.autodemo, public=args.public,
                              require_auth=args.auth)
@@ -208,6 +225,7 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
     try:
         server.serve_forever()
     finally:
+        gateway_watchdog.stop()
         if server.growth:
             server.growth.stop()
     return 0
@@ -356,20 +374,17 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"  Ledger:        {msg} ({n} entradas)")
     if os.path.exists(os.path.join(ws, ".a2s", "secret")):
         print("  Firma HMAC:    secreto del workspace presente (a2s verify)")
+    print("  Motor auto:    pool SORL (OmniRoute primero; fallback heurístico siempre disponible)")
     if os.environ.get("OPENAI_API_KEY"):
-        print("  LLM externo:   OPENAI_API_KEY detectada → se usará API externa")
         base = os.environ.get("A2S_LLM_BASE_URL", "https://api.openai.com/v1")
-        print(f"                base_url: {base}")
-    else:
-        print("  LLM externo:   sin OPENAI_API_KEY → núcleo heurístico determinista")
+        print(f"  OpenAI extra:  clave detectada · base_url: {base}")
     from .provider_pool import discover_endpoints_from_env
     pool_eps = discover_endpoints_from_env()
     if pool_eps:
         print(f"  Pool SORL:     {len(pool_eps)} endpoint(s) legítimo(s) detectado(s): "
-              f"{', '.join(e.name for e in pool_eps)} (a2s pool-status / --provider pool)")
+              f"{', '.join(e.name for e in pool_eps)} (selección automática)")
     else:
-        print("  Pool SORL:     sin claves propias detectadas (GROQ/GEMINI/GITHUB/… "
-              "o workspace/.a2s/pool.json) → solo fallback heurístico")
+        print("  Pool SORL:     sin gateway ni claves detectados → fallback heurístico")
     from .provider_pool import OMNIROUTE_DETECTED
     if OMNIROUTE_DETECTED:
         activo = any(e.name == "omniroute" for e in pool_eps)
@@ -381,6 +396,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             n = len(OMNIROUTE_DETECTED.get("models", []))
             print(f"  OmniRoute:     ✔ conectado en {OMNIROUTE_DETECTED.get('base_url')} "
                   f"({n} modelos visibles; el modelo 'auto' enruta solo, cero-config)")
+    elif os.environ.get("A2S_OMNIROUTE_MANAGED") == "1":
+        omni = next((e for e in pool_eps if e.name == "omniroute"), None)
+        if omni is not None:
+            print(f"  OmniRoute:     ✔ incluido por npm y conectado en {omni.base_url} "
+                  "(modelo 'auto'; sin selección manual)")
     try:
         socket.create_connection(("duckduckgo.com", 443), timeout=5).close()
         print("  Red externa:   disponible (búsqueda web y fetch habilitados)")
@@ -1028,8 +1048,8 @@ def main(argv: list[str] | None = None) -> int:
 def _add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--workspace", default="workspace", help="espacio de trabajo (default: workspace)")
     p.add_argument("--provider", choices=["auto", "heuristic", "openai", "pool"], default="auto",
-                   help="motor de razonamiento (auto: OpenAI si hay clave, si no heurístico; "
-                        "pool: SORL, orquesta todos los recursos legítimos del operador)")
+                   help="override opcional (default auto: OmniRoute/pool SORL con fallback "
+                        "heurístico; normalmente no hace falta indicar proveedor)")
     p.add_argument("--max-iterations", type=int, default=60,
                    help="iteraciones por rebanada de presupuesto (se renueva al replanificar)")
     p.add_argument("--max-rounds", type=int, default=6, help="rondas máximas de replanificación")

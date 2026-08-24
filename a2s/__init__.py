@@ -10,11 +10,11 @@ Opera con dos motores de razonamiento intercambiables (más el pool SORL):
 * ``OpenAICompatProvider`` — LLM vía API externa compatible con OpenAI
   (``OPENAI_API_KEY`` + ``A2S_LLM_BASE_URL`` opcional), sin consumo de recursos
   locales de cómputo.
-* ``ProviderPool`` (SORL) — meta-proveedor que orquesta **los recursos
-  legítimos del operador** (claves propias, free tiers dentro de sus términos,
-  modelos locales) con cuotas por endpoint, failover que respeta
-  ``Retry-After``, telemetría persistente y fanout/DAG paralelo
-  (``--provider pool``).
+* ``ProviderPool`` (SORL, motor ``auto`` por defecto) — meta-proveedor que
+  prioriza el OmniRoute incluido por npm y orquesta **los recursos legítimos
+  del operador** con cuotas, failover que respeta ``Retry-After``, telemetría
+  persistente y fanout/DAG paralelo. Siempre conserva el núcleo heurístico
+  como fallback; ``--provider`` solo es un override opcional.
 
 Uso rápido::
 
@@ -24,7 +24,7 @@ Uso rápido::
     python -m a2s dashboard --port 8000
 """
 
-__version__ = "1.12.0"
+__version__ = "1.13.0"
 __all__ = ["__version__"]
 
 from .loop import AgentLoop, run_goal

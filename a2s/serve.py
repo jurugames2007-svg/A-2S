@@ -121,7 +121,7 @@ class MissionRunner:
         os.makedirs(os.path.join(ws, ".a2s"), exist_ok=True)
         return ws
 
-    def start(self, user: str, goal: str, provider: str = "heuristic") -> str:
+    def start(self, user: str, goal: str, provider: str = "auto") -> str:
         from .config import Config
         from .loop import run_goal
         mid = f"m-{uuid.uuid4().hex[:10]}"
@@ -246,7 +246,7 @@ class ServeAPI:
             goal = str(payload.get("goal", "")).strip()
             if not goal:
                 return 400, {"error": "falta 'goal'"}
-            provider = payload.get("provider", "heuristic")
+            provider = payload.get("provider", "auto")
             if provider not in ("heuristic", "pool", "auto"):
                 return 400, {"error": "proveedor no permitido en el servicio"}
             mid = self.runner.start(u, goal, provider)

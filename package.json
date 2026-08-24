@@ -1,6 +1,6 @@
 {
   "name": "a2s-agent-control-plane",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "A²S autonomous agent and industrial control plane — local-first, auditable, Python stdlib runtime launched through npm.",
   "license": "MIT",
   "type": "module",
@@ -38,10 +38,13 @@
     "check": "node npm/scripts/check.mjs",
     "build": "node npm/scripts/build.mjs",
     "release:local": "node npm/scripts/release-local.mjs",
-    "prepublishOnly": "npm run check && npm run test:npm"
+    "prepublishOnly": "npm run check && npm run test:npm",
+    "gateway": "node npm/scripts/gateway.mjs start",
+    "gateway:stop": "node npm/scripts/gateway.mjs stop",
+    "gateway:status": "node npm/scripts/gateway.mjs status"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.22.2 <23 || >=24.0.0 <27"
   },
   "repository": {
     "type": "git",
@@ -62,5 +65,8 @@
     "omniroute",
     "forensics",
     "local-first"
-  ]
+  ],
+  "dependencies": {
+    "omniroute": "3.8.49"
+  }
 }

@@ -23,7 +23,7 @@ class TestEcosystemRadar(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
 
-    def test_semillas_incluyen_omniroute_sin_usarlo_como_base(self):
+    def test_semillas_incluyen_omniroute_con_procedencia_auditable(self):
         radar = EcosystemRadar(self.tmp.name, github=_github([]))
         by = {p.repo: p for p in radar.projects}
         self.assertIn("diegosouzapw/OmniRoute", by)

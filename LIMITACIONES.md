@@ -69,7 +69,7 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 18 | **El filtro de texto de `python_exec` es eludible** (base64, ofuscación). | — | Por diseño: ahora el sandbox aporta la contención real; el filtro sigue siendo cosmético |
 | 19 | **Egress por iptables no auto-aplicado**: requiere root y administración de firewall; el control de red real hoy es la **lista blanca de hosts** (`--allow-host`) + `--no-network`. | Media | 🟡 lista blanca implementada y testeada; iptables queda como tarea del operador |
 | 20 | **Neuroevolución con buffer pequeño es ruido** (mínimo 8 episodios; resultados útiles desde cientos). | Baja | 🟡 documentado; `a2s evolve` avisa si el buffer es insuficiente |
-| 21 | **Autonomía nueva (v1.12)**: la detección de OmniRoute mira SOLO `127.0.0.1` (si cambias el puerto, usa `A2S_OMNIROUTE_URL`); el crecimiento autónomo depende de la cuota de la API de GitHub (sin token: ~10 búsquedas/min) y estudia TEXTO público sin ejecutarlo; el guardián `update --watch` nunca fuerza un árbol sucio (reporta y espera) y hereda las credenciales de git — A²S no gestiona contraseñas. | Baja | 🟡 aceptado: todo es observables (`a2s doctor`, `/api/growth`, logs del guardián) y desconectable (`A2S_AUTO_LEARN=0`, `A2S_OMNIROUTE=off`, Ctrl+C) |
+| 21 | **Autonomía nueva (v1.12–1.13)**: OmniRoute se liga y sondea SOLO en loopback (si cambias el puerto, usa `A2S_OMNIROUTE_URL`); A²S ejecuta el bundle `dist` sin `src`/tsx y recupera su sidecar, pero no puede garantizar la disponibilidad de los upstreams keyless externos. El crecimiento autónomo depende de la cuota de GitHub y estudia TEXTO público sin ejecutarlo; el guardián `update --watch` nunca fuerza un árbol sucio. | Baja | 🟡 aceptado: fallback local sin pedir proveedor; salud y crecimiento observables (`a2s doctor`, `/api/growth`, UI y logs) y desconectables (`A2S_AUTO_LEARN=0`, `A2S_OMNIROUTE=off`, Ctrl+C). El sidecar administrado no exige login; `--auth` sigue disponible al exponer A²S. |
 
 ---
 
@@ -525,7 +525,7 @@ Esto es evidencia de correlación fuerte, no una afirmación causal absoluta: el
 problema previo dependía del entorno reconstruido y no se obtuvo un core dump.
 El test de regresión y la ausencia de `ResourceWarning` son el control futuro.
 
-## 17. Radar OSS y OmniRoute opcional (v1.9)
+## 17. Radar OSS y primera integración OmniRoute (v1.9; base npm desde v1.13)
 
 `a2s scout` no instala soluciones. Lee metadatos públicos, exige una licencia
 SPDX de la allowlist, filtra por el modelo de permisos y persiste la procedencia.
@@ -542,28 +542,41 @@ Límites:
 - buscar más proyectos aumenta el conjunto de ideas, no la capacidad por sí
   sola: solo un experimento verificado autoriza una mejora.
 
-OmniRoute se registra como endpoint SORL únicamente si el operador pasa
-`A2S_OMNIROUTE_URL` o usa `examples/pool.omniroute.json`. No se auto-instala,
-no se convierte en base, no activa upstreams y no entrega credenciales a A²S.
-Su superficie y términos de proveedores son responsabilidad del operador.
+Desde v1.13 la **distribución npm** declara OmniRoute `3.8.49` como dependencia
+fijada. El launcher lo arranca bajo demanda en loopback y registra su endpoint
+en SORL; `auto` es la ruta base y ya no exige `--provider`. La ejecución Python
+directa sigue pudiendo descubrir un gateway existente o usar
+`A2S_OMNIROUTE_URL`.
 
-## 18. Distribución npm (v1.10): launcher, no runtime JavaScript reescrito
+Esto no convierte un servicio externo en cómputo local: no se instala un LLM,
+pero las rutas keyless de OmniRoute necesitan red y están sujetas a la
+disponibilidad y términos de sus upstreams. Si no responden, A²S degrada al
+núcleo heurístico. OmniRoute tiene una superficie y un árbol npm sustanciales;
+su `postinstall` oficial prepara binarios nativos. La dependencia directa es
+exacta y el checkout captura su integridad, pero una actualización requiere la
+misma revisión de supply chain que cualquier dependencia.
+`A2S_OMNIROUTE=off` elimina el arranque automático.
+
+## 18. Distribución npm (v1.10, ampliada en v1.13)
 
 El paquete `a2s-agent-control-plane` hace que A²S sea instalable mediante npm,
-pero el núcleo sigue ejecutándose en Python. Esta separación es intencional:
-evita duplicar seguridad, memoria y planificación en dos implementaciones.
+pero el núcleo sigue ejecutándose en Python. Node solo lanza el núcleo y
+supervisa el gateway; no duplica seguridad, memoria ni planificación.
 
 | Hay | No hay |
 |---|---|
 | Comandos npm globales `a2s` y `a2s-control-plane` | Python embebido dentro de Node |
-| Detección de Python ≥3.9 y `A2S_PYTHON` | Descarga automática de intérpretes |
-| Tarball sin dependencias npm de runtime | Binario nativo único sin prerrequisitos |
-| Zipapp ejecutable con Python del host | Compilación nativa por CPU/SO |
+| Detección de Python ≥3.9 y `A2S_PYTHON` | Descarga automática de intérpretes o modelos LLM |
+| OmniRoute exacto como dependencia npm | Garantía de red o de disponibilidad de cada upstream keyless |
+| Arranque daemon en `127.0.0.1:20128` + detección reutilizable | Sondeo automático de hosts remotos |
+| SORL `auto` + fallback heurístico | Necesidad de elegir proveedor para el uso normal |
+| Zipapp ejecutable con Python del host | Binario nativo único sin prerrequisitos |
 | E2E de instalación aislada en Linux | Certificación manual firmada en cada SO |
 | Matriz CI configurada para Linux/macOS/Windows | Resultado remoto hasta que GitHub ejecute el workflow |
 
 `npm run build` no publica nada. `npm run release:local` deja artefactos locales
 en `artifacts/`; `npm publish` requiere autenticación npm y es una acción
-separada del operador. No se añaden hooks `install`/`postinstall`/`prepare`, de
-modo que instalar el tarball no ejecuta código oculto. El comando sí ejecuta
-Python cuando el operador invoca `a2s`, que es precisamente su función visible.
+separada del operador. A²S no añade un hook propio de instalación, pero npm sí
+ejecuta el `postinstall` declarado por OmniRoute: una instalación funcional no
+debe ocultarlo con `--ignore-scripts`. Python solo se ejecuta cuando el operador
+invoca `a2s`.
