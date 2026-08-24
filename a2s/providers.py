@@ -138,7 +138,14 @@ _HEURISTIC_PLANS: list[tuple[tuple[str, ...], str, list[tuple[str, str, dict[str
         ("verificar_manuscrito", "read_file", {"path": "book/quality.json"},
          ["quality gate y limitaciones disponibles"]),
     ]),
-    (("repositorio", "repositorios", "github", "pdf", "papers", "recientes",
+    (("github.com", "search_repos", "palabra clave"), "repo_keyword_search", [
+        ("buscar_repositorios", "search_repos",
+         {"query": "{goal}", "limit": 8},
+         ["resultados de repositorios guardados"]),
+        ("guardar_busqueda", "read_file", {"path": "research/search.md"},
+         ["informe de búsqueda disponible"]),
+    ]),
+    (("pdf", "papers", "recientes",
       "reciente", "actual", "noticias", "precio", "destacables"), "verified_research", [
         ("investigar_fuentes_y_repositorio", "research_topic",
          {"topic": "{goal}", "repo_limit": 8, "pdf_limit": 8},

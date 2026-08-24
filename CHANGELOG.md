@@ -3,6 +3,35 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.16.0] — 2026-08-24
+
+### Corregido (el chat, la parada, la creación y la búsqueda)
+
+- **Inbox que nunca rechaza por ocupado**: el chat encola peticiones y un
+  worker único las procesa. Se puede hablar mientras una misión corre y
+  mientras el asistente todavía está escribiendo.
+- **Parada real**: `StopToken` compartido. `stop` ya no deja un deadline
+  congelado al inicio de `run()`; corta el bucle externo, no relanza rondas
+  y cancela trabajos laterales. El botón ■ del chat y la palabra «para»
+  interrumpen.
+- **Crear de verdad, sin red**: `create_book` ya no exige GitHub. Un
+  encargo literario (p. ej. El Principito) produce un companion original
+  de miles de palabras, Markdown+HTML+PDF con MiniPDF, no una plantilla de
+  «Panorama, propósito y alcance».
+- **Búsqueda por palabra clave en cualquier idioma**: `RepoFinder` expande
+  ES/EN, busca en GitHub, catálogo y memoria BM25, **sin** el filtro LLMOps
+  del radar. `a2s search`, `GET/POST /api/find` y el chat «busca X».
+- **Anti-deadlock**: chat y misión ya no comparten instancia de proveedor;
+  los candados tienen timeout; el hub SSE sigue con `put_nowait`.
+- El Control Plane acepta orígenes de preview (e2b/arena) y `A2S_PUBLIC=1`
+  para escuchar en `0.0.0.0`.
+
+### Añadido
+
+- Módulos `control`, `intent`, `finder`, `creator`, `literary`, `pdf`.
+- Trabajos laterales (`JobSupervisor`) en paralelo a la misión exclusiva.
+- Tests de inbox, parada, libro del Principito, chat encolado y `/api/find`.
+
 ## [1.15.0] — 2026-08-24
 
 ### Añadido

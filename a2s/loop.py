@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional
 
 from .aegis_protocol import ProtocolDecision, analyze_request
 from .config import Config
+from .control import StopToken
 from .consensus import ConsensusChecker
 from .memory import MemoryHub
 from .models import (Evaluation, Observation, RunReport, Step, StepStatus,
@@ -58,6 +59,8 @@ class AgentLoop:
     neural: Optional[GovernanceNet] = None
     consensus: Optional[ConsensusChecker] = None
     protocol: Optional[ProtocolDecision] = None
+    stop_token: Optional[StopToken] = None
+    _stop_reason: str = ""
 
     # -- fábrica -----------------------------------------------------------
     @classmethod
@@ -88,7 +91,27 @@ class AgentLoop:
         loop.plugins_active = loader.activate(
             registry, goal, max_plugins=config.max_plugins,
             signer=loop.signer, ledger=memory.ledger)
+        loop.stop_token = StopToken()
+        registry.stop_token = loop.stop_token
         return loop
+
+    def request_stop(self, reason: str = "operator") -> None:
+        """Corta el plazo y avisa a herramientas largas. No espera."""
+        self._stop_reason = reason or "operator"
+        self.config.max_wall_seconds = 0
+        if self.stop_token is None:
+            self.stop_token = StopToken()
+        self.stop_token.set(self._stop_reason)
+        if getattr(self, "registry", None) is not None:
+            self.registry.stop_token = self.stop_token
+
+    def _stopped(self) -> bool:
+        if self.stop_token is not None and self.stop_token.is_set():
+            return True
+        return time.time() >= self._started_at + max(0, int(self.config.max_wall_seconds))
+
+    def _live_deadline(self) -> float:
+        return self._started_at + max(0, int(self.config.max_wall_seconds))
 
     # -- eventos -------------------------------------------------------------
     def _emit(self, event: str, data: Optional[dict[str, Any]] = None) -> None:
@@ -147,31 +170,37 @@ class AgentLoop:
                 self._plan = self.planner.decompose(goal, context, schemas, variant=0)
             self._emit("plan_created", {"round": 0, "steps": [s.goal for s in self._plan]})
 
-        deadline = self._started_at + self.config.max_wall_seconds
         achieved, reason = False, ""
         round_idx = 0
 
-        while time.time() < deadline:
+        while not self._stopped():
             round_idx += 1
             self.config.log(f"[A²S] ⬢ Ronda de plan {round_idx}/{self.config.max_rounds}")
             self._execute_plan(self._plan)
+            if self._stopped() and not achieved:
+                reason = f"parada cooperativa ({self._stop_reason or 'operator'})"
+                self._emit("operator_stop", {"note": reason})
+                break
 
             achieved, reason = self._goal_check(goal)
             self._emit("goal_check", {"achieved": achieved, "reason": reason})
             if achieved:
+                break
+            if self._stopped():
+                reason = f"parada cooperativa ({self._stop_reason or 'operator'})"
                 break
 
             if self._iterations >= self.config.max_iterations * self.config.max_rounds:
                 self._emit("budget_renewal", {"note": "presupuesto acumulado expandido vía replanificación"})
 
             blocked = [s for s in self._plan if s.status in (StepStatus.BLOCKED, StepStatus.FAILED)]
-            if blocked and round_idx < self.config.max_rounds:
+            if blocked and round_idx < self.config.max_rounds and not self._stopped():
                 self.config.log(f"[A²S] ◈ re-descomposición fractal de {len(blocked)} paso(s) bloqueado(s)")
                 self._plan = self._redecompose(blocked)
                 self._emit("replan", {"kind": "fractal", "round": round_idx,
                                       "steps": [s.goal for s in self._plan]})
                 continue
-            if round_idx < self.config.max_rounds:
+            if round_idx < self.config.max_rounds and not self._stopped():
                 self.config.log("[A²S] ◈ replanificación con enfoque distinto (variante "
                                 f"{round_idx})")
                 protocol_context = (self.protocol.planner_context()
@@ -186,21 +215,20 @@ class AgentLoop:
             break  # rondas agotadas → cierre con informe y plan de reanudación
 
         # Última pasada de verificación y cierre forense.
-        if not achieved:
+        if not achieved and not self._stopped():
             achieved, reason = self._goal_check(goal)
-        report = self._finalize(goal, achieved, reason, deadline)
+        report = self._finalize(goal, achieved, reason, self._live_deadline())
         return report
 
     # -- ejecución de un plan ------------------------------------------------
     def _execute_plan(self, plan: list[Step]) -> None:
-        deadline = self._started_at + self.config.max_wall_seconds
-        while time.time() < deadline:
+        while not self._stopped():
             pending = [s for s in plan if s.status == StepStatus.PENDING]
             if not pending:
                 return
             progressed = False
             for step in pending:
-                if time.time() >= deadline:
+                if self._stopped():
                     return
                 if self._deps_ready(step, plan):
                     self.execute_step(step, plan)
@@ -230,6 +258,9 @@ class AgentLoop:
             attempts += 1
             call = step.calls[0] if step.calls else None
             if call is None:
+                step.mark(StepStatus.SKIPPED)
+                return
+            if self._stopped():
                 step.mark(StepStatus.SKIPPED)
                 return
             obs = self.registry.invoke(call)
@@ -438,8 +469,11 @@ class AgentLoop:
         note_parts.append(f"Iteraciones de herramienta: {self._iterations}. "
                           f"Estancamientos superados: {len(self.planner.stagnation_events)}. "
                           f"Tiempo: {wall:.1f}s.")
-        if not achieved and time.time() >= deadline:
-            note_parts.append("Límite duro de tiempo alcanzado (seguridad operativa).")
+        if not achieved and (self._stopped() or time.time() >= deadline):
+            if self._stop_reason:
+                note_parts.append(f"Parada cooperativa: {self._stop_reason}.")
+            else:
+                note_parts.append("Límite duro de tiempo alcanzado (seguridad operativa).")
 
         self.memory.finish(achieved, " | ".join(note_parts))
         if self.neural is not None:

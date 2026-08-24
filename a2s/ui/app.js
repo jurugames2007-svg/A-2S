@@ -137,6 +137,9 @@ function switchView(name) {
 /* ------------------------------------------------------------------ */
 
 const EVENT_META = {
+  job_start: ["✎", "Trabajo en paralelo", "step_start"],
+  job_done: ["■", "Trabajo terminado", "success"],
+  artifact_ready: ["⬚", "Artefacto listo", "success"],
   run_start: ["▶", "Misión iniciada", "step_start"],
   capability_protocol: ["◉", "Capacidades adaptativas", "replan"],
   plan_created: ["◇", "Plan construido", "replan"],
@@ -220,6 +223,25 @@ function addEvent(event, scroll = true) {
   }
   if (event.event === "chat_idle") { removeTyping(); state.chatBusy = false; setChatState("Listo", ""); }
   if (event.event === "chat_cleared") { renderChatHistory([]); renderProtocol({}); }
+  if (event.event === "job_start") {
+    setChatState("Creando/buscando…", "busy");
+  }
+  if (event.event === "job_done") {
+    loadArtifacts(true).catch(() => {});
+    if (event.ok) {
+      appendAssistantBubble("Listo. Ya tienes archivos nuevos en **Resultados**.");
+    } else if (event.error) {
+      appendAssistantBubble(`El trabajo se detuvo: ${event.error}`);
+    }
+  }
+  if (event.event === "artifact_ready") {
+    loadArtifacts(true).catch(() => {});
+    switchView("results");
+  }
+  if (event.event === "operator_stop") {
+    updateMissionControls(false);
+    setChatState("Listo", "");
+  }
 }
 
 function connectEvents() {
@@ -347,15 +369,16 @@ function scrollChat() {
 
 async function sendChat(message) {
   message = (message || "").trim();
-  if (!message || state.chatBusy) return;
-  state.chatBusy = true;
+  if (!message) return;
   appendBubble("user", message);
   $("#chat-input").value = "";
   autoGrowChat();
   showTyping();
-  setChatState("Pensando…", "busy");
+  setChatState("En bandeja…", "busy");
   try {
     await api("/api/chat", { method: "POST", body: JSON.stringify({ message }) });
+    // No bloqueamos el compositor: se puede seguir hablando.
+    state.chatBusy = false;
   } catch (e) {
     removeTyping();
     appendBubble("assistant", `No pude enviar el mensaje: ${e.message}`, { error: true });
@@ -724,6 +747,15 @@ function wireActions() {
   $("#chat-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat($("#chat-input").value); }
   });
+  const stopBtn = $("#chat-stop");
+  if (stopBtn) {
+    stopBtn.addEventListener("click", async () => {
+      try {
+        const result = await api("/api/stop", { method: "POST", body: "{}" });
+        toast(result.status);
+      } catch (error) { toast(error.message, true); }
+    });
+  }
   $("#chat-clear").addEventListener("click", async () => {
     if (!window.confirm("¿Reiniciar la conversación? Se borrará el historial del chat.")) return;
     try { await api("/api/chat/clear", { method: "POST" }); } catch (e) { toast(e.message, true); }

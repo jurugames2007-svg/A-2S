@@ -25,6 +25,7 @@ from . import __version__
 from .artifacts import get_artifact, list_artifacts, read_artifact_bytes
 from .chat import ChatManager
 from .config import Config
+from .control import JobSupervisor, StopToken, acquire
 from .goals import (DEMO_GOAL, build_demo_step_verifiers,
                     forensic_report_goal_verifier, prepare_demo_workspace)
 from .loop import AgentLoop
@@ -91,6 +92,8 @@ class MissionManager:
         self.started_at = ""
         self.options: dict[str, Any] = {}
         self._lock = threading.Lock()
+        self.stop_token = StopToken()
+        self.jobs = JobSupervisor(publish=self.hub.publish)
 
     @staticmethod
     def _bounded(value: Any, default: int, low: int, high: int) -> int:
@@ -130,7 +133,9 @@ class MissionManager:
             config = self._config(options or {})
         except ValueError as exc:
             return False, str(exc)
-        with self._lock:
+        if not acquire(self._lock, 1.5):
+            return False, "no pude tomar el candado de misión (evito deadlock)"
+        try:
             if self.running:
                 return False, "ya hay una misión en curso"
             self.running = True
@@ -138,6 +143,7 @@ class MissionManager:
             self.current = None
             self.iterations = 0
             self.started_at = now_iso()
+            self.stop_token = StopToken()
             self.options = {
                 "provider": config.provider, "max_time": config.max_wall_seconds,
                 "max_iterations": config.max_iterations, "max_rounds": config.max_rounds,
@@ -145,10 +151,16 @@ class MissionManager:
                 "allow_network": config.allow_network, "allow_shell": config.allow_shell,
                 "pool_strategy": config.pool_strategy,
             }
+        finally:
+            self._lock.release()
 
         def worker() -> None:
             mission_goal = DEMO_GOAL if demo else goal
             try:
+                if self.stop_token.is_set():
+                    self.hub.publish({"event": "operator_stop", "at": now_iso(),
+                                      "note": "parada antes de arrancar el loop"})
+                    return
                 if demo or "informe forense" in mission_goal.lower():
                     loop = AgentLoop.create(
                         mission_goal, config=config,
@@ -157,9 +169,16 @@ class MissionManager:
                     loop.step_verifiers = build_demo_step_verifiers(loop.memory)
                 else:
                     loop = AgentLoop.create(mission_goal, config=config)
+                loop.stop_token = self.stop_token
+                loop.registry.stop_token = self.stop_token
+                if self.stop_token.is_set():
+                    loop.request_stop(self.stop_token.reason or "operator")
                 loop.on_event = self.hub.publish
-                with self._lock:
-                    self.current = loop
+                if acquire(self._lock, 1.0):
+                    try:
+                        self.current = loop
+                    finally:
+                        self._lock.release()
                 self.report = loop.run(mission_goal)
             except Exception as exc:  # noqa: BLE001 — control plane informa y sigue vivo
                 self.hub.publish({"event": "run_end", "at": now_iso(),
@@ -176,40 +195,67 @@ class MissionManager:
         return True, "misión iniciada"
 
     def stop(self) -> tuple[bool, str]:
-        """Acorta el deadline; el paso activo termina dentro de su timeout."""
+        """Corta el token, los trabajos laterales y el plazo de la misión."""
+        cancelled = self.jobs.cancel_all("operator")
         with self._lock:
-            if not self.running:
-                return False, "no hay una misión en curso"
-            if self.current is not None:
-                self.current.config.max_wall_seconds = 0
+            running = self.running
+            current = self.current
+            self.stop_token.set("operator")
+            if current is not None:
+                current.request_stop("operator")
+        if not running and not cancelled:
+            return False, "no hay una misión en curso"
         self.hub.publish({"event": "operator_stop", "at": now_iso(),
-                          "note": "parada cooperativa solicitada; esperando el paso activo"})
+                          "note": "parada cooperativa: token, jobs y plazo cortados"})
         return True, "parada solicitada"
 
     def snapshot(self) -> dict[str, Any]:
-        with self._lock:
+        if not acquire(self._lock, 1.0):
+            return {"running": self.running, "iterations": self.iterations,
+                    "started_at": self.started_at, "options": {},
+                    "report": None, "events": [], "jobs": self.jobs.snapshot()}
+        try:
             report = self.report.to_dict() if self.report else None
             return {"running": self.running, "iterations": self.iterations,
                     "started_at": self.started_at, "options": dict(self.options),
-                    "report": report, "events": list(self.hub.history)}
+                    "report": report, "events": list(self.hub.history),
+                    "jobs": self.jobs.snapshot()}
+        finally:
+            self._lock.release()
 
     def provider_for_chat(self):
-        """Proveedor de razonamiento para el asistente conversacional.
+        """Proveedor AISLADO: nunca se reutiliza el de la misión (anti-deadlock)."""
+        from .providers import HeuristicProvider, get_provider
+        try:
+            cfg = Config(workspace=self.workspace, quiet=True,
+                         provider=os.environ.get("A2S_CHAT_PROVIDER", "heuristic"))
+            # heuristic por defecto en chat: no comparte pool ni candados
+            # con la misión. Si el operador pide auto, se crea OTRA instancia.
+            kind = cfg.provider if cfg.provider in ("heuristic", "auto") else "heuristic"
+            if kind == "auto":
+                return get_provider("auto", config=cfg)
+            return HeuristicProvider()
+        except Exception:
+            return HeuristicProvider()
 
-        Reutiliza el pool SORL si está configurado (OmniRoute, OpenRouter,
-        Groq, Gemini…) y, si no hay endpoints, cae al núcleo heurístico.
-        El proveedor se construye por llamada para reflejar cambios de
-        configuración sin reiniciar el servicio.
-        """
-        from .providers import get_provider
-        # Si la misión activa ya tiene un provider vivo, lo reutilizamos
-        # (comparte cuotas/telemetría aprendida).
-        with self._lock:
-            if self.current is not None:
-                return self.current.provider
-        cfg = Config(workspace=self.workspace, quiet=True,
-                     provider=os.environ.get("A2S_CHAT_PROVIDER", "auto"))
-        return get_provider(cfg.provider, config=cfg)
+    def run_search(self, query: str) -> dict[str, Any]:
+        from .finder import RepoFinder
+        return RepoFinder(self.workspace).search(query, limit=8, allow_network=True)
+
+    def run_create(self, topic: str, options: Optional[dict[str, Any]] = None
+                   ) -> tuple[bool, str]:
+        options = options or {}
+
+        def job(token: StopToken) -> dict[str, Any]:
+            from .creator import create_document
+            kind = "book" if options.get("book") else "auto"
+            result = create_document(self.workspace, topic, kind=kind, stop=token)
+            self.hub.publish({"event": "artifact_ready", "at": now_iso(),
+                              "artifacts": result.get("artifacts", []),
+                              "title": result.get("title", topic)})
+            return result
+
+        return self.jobs.submit("create", job, {"topic": topic})
 
     def start_in_background(self, goal: str, options: Optional[dict[str, Any]] = None
                             ) -> tuple[bool, str]:
@@ -248,7 +294,13 @@ class DashboardServer:
             self.hub, self.workspace,
             get_provider=self.missions.provider_for_chat,
             launch_mission=self.missions.start_in_background,
-            get_state=self.missions.snapshot)
+            get_state=self.missions.snapshot,
+            stop_all=self.missions.stop,
+            run_search=self.missions.run_search,
+            run_create=self.missions.run_create)
+        if os.environ.get("A2S_PUBLIC", "").strip() in {"1", "true", "yes"}:
+            self.public = True
+            self.host = "0.0.0.0"
         self.auto_demo = auto_demo
         self.growth = None  # AutoLearner: lo arranca cmd_dashboard (si procede)
         self.token_manager = None
@@ -375,7 +427,17 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
         origin = self.headers.get("Origin")
         if not origin:
             return True
-        return urllib.parse.urlsplit(origin).netloc == self.headers.get("Host", "")
+        origin_host = urllib.parse.urlsplit(origin).netloc.lower()
+        host = (self.headers.get("Host") or "").lower()
+        if origin_host == host:
+            return True
+        if self.control_plane.public:
+            return True
+        # Previews / proxies: el Host interno no coincide con el origen público.
+        for suffix in (".e2b.app", ".arena.ai", ".localhost", "localhost"):
+            if origin_host.endswith(suffix) or origin_host == suffix:
+                return True
+        return False
 
     def _asset(self, name: str, content_type: str) -> None:
         try:
@@ -448,6 +510,11 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             self._json(run_audit())
         elif path == "/api/chat":
             self._json(self.control_plane.chat.snapshot())
+        elif path == "/api/jobs":
+            self._json({"jobs": self.control_plane.missions.jobs.snapshot()})
+        elif path == "/api/find":
+            query = (query.get("q") or query.get("query") or [""])[0]
+            self._json(self.control_plane.missions.run_search(query))
         elif path == "/api/artifacts":
             self._json({"artifacts": list_artifacts(
                 self.control_plane.workspace)})
@@ -554,7 +621,10 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             query = str(payload.get("query", ""))[:160]
             limit = MissionManager._bounded(payload.get("limit"), 6, 1, 12)
             radar = EcosystemRadar(self.control_plane.workspace)
-            report = radar.scan(query=query, limit_per_query=limit)
+            if query.strip():
+                report = radar.keyword_search(query, limit=limit)
+            else:
+                report = radar.scan(query=query, limit_per_query=limit)
             self.control_plane.hub.publish({"event": "ecosystem_scan", "at": now_iso(),
                                "added": len(report["added"]),
                                "total": report["total"]})
@@ -569,6 +639,9 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
         elif path == "/api/chat/clear":
             self.control_plane.chat.clear()
             self._json({"status": "conversación reiniciada"})
+        elif path == "/api/find":
+            query = str(payload.get("query") or payload.get("q") or "")
+            self._json(self.control_plane.missions.run_search(query))
         else:
             self._json({"error": "endpoint no encontrado"}, 404)
 

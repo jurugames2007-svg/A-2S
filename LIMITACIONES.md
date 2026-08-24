@@ -3,7 +3,8 @@
 > Documento de transparencia técnica. Aquí no hay maquillaje: esto es lo que
 > el sistema **no puede hacer**, lo que hace **a medias**, los **errores que
 > tiene**, y cómo usarlo para **obtener beneficio real** sin engañarte.
-> Actualizado a v1.15.0 (Protocolo Adaptativo Aegis: clasificación y composición
+> Actualizado a v1.16.0 (chat paralelo + parada real + creación/búsqueda; base
+> v1.15 Protocolo Adaptativo Aegis: clasificación y composición
 > omnimodal auditable, sin promesas de omnipotencia ni razonamiento privado).
 
 ---
@@ -72,6 +73,7 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 21 | **Autonomía nueva (v1.12–1.13)**: OmniRoute se liga y sondea SOLO en loopback (si cambias el puerto, usa `A2S_OMNIROUTE_URL`); A²S ejecuta el bundle `dist` sin `src`/tsx y recupera su sidecar, pero no puede garantizar la disponibilidad de los upstreams keyless externos. El crecimiento autónomo depende de la cuota de GitHub y estudia TEXTO público sin ejecutarlo; el guardián `update --watch` nunca fuerza un árbol sucio. | Baja | 🟡 aceptado: fallback local sin pedir proveedor; salud y crecimiento observables (`a2s doctor`, `/api/growth`, UI y logs) y desconectables (`A2S_AUTO_LEARN=0`, `A2S_OMNIROUTE=off`, Ctrl+C). El sidecar administrado no exige login; `--auth` sigue disponible al exponer A²S. |
 | 22 | **Investigación/libros (v1.14)**: estrellas, citas y actualidad son señales, no prueba de verdad; OpenAlex/arXiv o GitHub pueden estar inaccesibles o devolver metadatos incompletos. Un PDF público puede conservar restricciones propias aunque viva en un repo abierto. El PDF puro-stdlib prioriza portabilidad, no maquetación editorial avanzada. Un `quality_score=100` mide gates estructurales, no perfección factual o literaria. | Media | 🟡 mitigado: manifiesto fechado, candidatos separados de fuentes OA, descarga solo HTTPS público + PDF válido ≤20 MB, citas validadas, `publication_ready`, errores y limitaciones explícitos. Revisión humana obligatoria antes de publicar. |
 | 23 | **Protocolo adaptativo (v1.15)**: la clasificación se basa en palabras y señales deterministas; puede omitir una capacidad útil o activar una innecesaria. Declarar «investigación» no garantiza que la red o una fuente respondan. El fallback heurístico conserva estructura y ejecución acotada, pero no obtiene comprensión general equivalente a un LLM. | Media | 🟡 mitigado: perfil visible/inspeccionable con `a2s protocol`, criterios y supuestos en ledger, respuesta con límites, investigación actual convertida en misión y tests de selección negativa. El operador puede reformular o especificar el criterio de éxito. |
+| 24 | **Chat/creación/búsqueda (v1.16)**: el clasificador de intención es léxico (puede lanzar una búsqueda cuando querías charlar, o al revés). Un `python_exec`/`shell` ya lanzado no se mata a la fuerza: espera su timeout. El companion de El Principito es original, no la novela. La búsqueda por palabra clave no aplica el filtro LLMOps, pero sí exige licencia SPDX abierta. | Media | 🟡 mitigado: inbox que nunca rechaza por ocupado, `StopToken` compartido, creación local-first, `/api/find` + `a2s search --repos`, tests de parada/libro/chat encolado. |
 
 ---
 
@@ -216,7 +218,7 @@ expansivo" es renunciable: el tope real siempre es `--max-time`.
 
 ## 8. Qué está probado y qué no
 
-**Probado (274 tests, `python -m unittest discover -s tests`):**
+**Probado (290 tests, `python -m unittest discover -s tests`):**
 hash chain + detección de modificación/truncación; modelo de permisos básico;
 clasificación adaptativa y selección negativa de capacidades; contrato de
 respuesta sin bloques privados; trazabilidad del perfil en misión; proveedores
@@ -506,7 +508,7 @@ empaquetado, API `http.server` y SSE; no usa CDN ni un backend de pago.
 | Sí implementado | Límite honesto |
 |---|---|
 | Mission control con parámetros acotados | Una misión simultánea por instancia |
-| Parada cooperativa | No interrumpe una syscall; espera el timeout del paso activo |
+| Parada cooperativa | Corta el plazo y el bucle de replanificación; un `python_exec`/shell ya lanzado termina en su timeout (60s). El chat y los trabajos laterales sí se cancelan entre unidades. |
 | Topología y preview SORL sin llamada real | Los factores son heurísticos, no una garantía de calidad futura |
 | CSP, deny framing, nosniff, SameSite y control de Origin | HTTP plano; al exponer usa `--auth` y reverse proxy TLS |
 | Assets relativos y responsive | No se certificó todavía WCAG con lector de pantalla real |

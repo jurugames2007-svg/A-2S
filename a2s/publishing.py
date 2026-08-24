@@ -562,15 +562,21 @@ class BookBuilder:
 
     def build(self, topic: str, title: str = "", chapters: int = 6,
               target_words: int = 3000, output_dir: str = "book",
-              repo_limit: int = 6, pdf_limit: int = 8) -> dict[str, Any]:
+              repo_limit: int = 6, pdf_limit: int = 8,
+              stop: Any = None) -> dict[str, Any]:
         chapters = max(3, min(12, int(chapters)))
         target_words = max(800, min(50_000, int(target_words)))
         title = title.strip() or f"Guía verificable sobre {topic.strip()}"
+        if stop is not None and getattr(stop, "is_set", lambda: False)():
+            raise InterruptedError("parada antes de construir el libro")
         output = self.researcher._safe_output(output_dir)
         os.makedirs(output, exist_ok=True)
-        research = self.researcher.run(
-            topic, repo_limit=repo_limit, pdf_limit=pdf_limit,
-            output_dir=os.path.join(output_dir, "research"), learn=True)
+        try:
+            research = self.researcher.run(
+                topic, repo_limit=repo_limit, pdf_limit=pdf_limit,
+                output_dir=os.path.join(output_dir, "research"), learn=True)
+        except Exception as exc:
+            research = {"sources": [], "errors": [f"investigación no disponible: {exc}"]}
         sources = [SourceRecord(**source) for source in research["sources"]]
         evidence_sources = [source for source in sources
                             if source.kind != "public_pdf_candidate"]
@@ -579,6 +585,8 @@ class BookBuilder:
         chapter_texts = []
         per_chapter = max(250, target_words // chapters)
         for index, heading in enumerate(outline, 1):
+            if stop is not None and getattr(stop, "is_set", lambda: False)():
+                raise InterruptedError("parada durante los capítulos")
             assigned = (evidence_sources[(index - 1) % max(1, len(evidence_sources))::chapters]
                         if evidence_sources else [])
             prompt = self._chapter_prompt(title, topic, heading, index, outline,

@@ -585,21 +585,31 @@ def cmd_research(args: argparse.Namespace) -> int:
 
 
 def cmd_book(args: argparse.Namespace) -> int:
-    """Construye un libro con fuentes, consistencia estructural y quality gate."""
-    from .publishing import BookBuilder
-    result = BookBuilder(args.workspace).build(
-        args.topic, title=args.title, chapters=args.chapters,
-        target_words=args.words, output_dir=args.output,
-        repo_limit=args.repos, pdf_limit=args.pdfs)
+    """Construye un libro: literario local-first o de investigación."""
+    from .literary import is_literary
+    if is_literary(args.topic) or getattr(args, "local", False):
+        from .creator import create_document
+        result = create_document(args.workspace, args.topic, title=args.title,
+                                 kind="book")
+    else:
+        from .publishing import BookBuilder
+        result = BookBuilder(args.workspace).build(
+            args.topic, title=args.title, chapters=args.chapters,
+            target_words=args.words, output_dir=args.output,
+            repo_limit=args.repos, pdf_limit=args.pdfs)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        mark = "✔" if result["status"] == "verified_draft" else "◐"
-        print(f"[A²S] {mark} libro {result['status']} · calidad {result['quality_score']}/100 · "
-              f"{result['word_count']} palabras · {result['sources']} fuentes")
+        mark = "✔" if result.get("status") in ("verified_draft", "original_volume") else "◐"
+        score = result.get("quality_score", result.get("quality", {}).get("score", 0))
+        print(f"[A²S] {mark} libro {result['status']} · calidad {score}/100 · "
+              f"{result.get('word_count', 0)} palabras · "
+              f"{result.get('sources', result.get('chapters', 0))} "
+              f"{'fuentes' if 'sources' in result else 'capítulos'}")
         print("  artefactos: " + ", ".join(result["artifacts"]))
-        if result["quality"]["limitations"]:
-            print("  pendiente: " + ", ".join(result["quality"]["limitations"]))
+        limits = (result.get("quality") or {}).get("limitations") or []
+        if limits:
+            print("  pendiente: " + ", ".join(limits))
     return 0
 
 
@@ -627,14 +637,19 @@ def cmd_pool_preview(args: argparse.Namespace) -> int:
 
 
 def cmd_search(args: argparse.Namespace) -> int:
-    """Memoria semántica: búsqueda BM25 sobre episodios, fichas y pool."""
+    """Memoria semántica + repos por palabra clave (cualquier idioma)."""
+    from .finder import RepoFinder, format_search
     from .search import workspace_search
+    if getattr(args, "repos", False):
+        report = RepoFinder(args.workspace).search(args.query, limit=args.top)
+        print(format_search(report))
+        return 0 if report.get("repositories") or report.get("memory") else 1
     hits = workspace_search(args.workspace, args.query, top=args.top,
                             origenes=set(args.origen) if args.origen else None)
     if not hits:
-        print(f"[A²S] sin resultados para «{args.query}» en {args.workspace} "
-              "(ejecuta misiones/learn primero para acumular memoria)")
-        return 1
+        report = RepoFinder(args.workspace).search(args.query, limit=args.top)
+        print(format_search(report))
+        return 0 if report.get("repositories") or report.get("memory") else 1
     print(f"[A²S] BM25 · {args.query!r} · {len(hits)} resultado(s):")
     for doc, score in hits:
         print(f"  {score:>6.3f}  [{doc.origen:<8}] {doc.meta[:90]}")
@@ -973,6 +988,8 @@ def main(argv: list[str] | None = None) -> int:
     p_book.add_argument("--pdfs", type=int, default=8)
     p_book.add_argument("--output", default="book")
     p_book.add_argument("--json", action="store_true")
+    p_book.add_argument("--local", action="store_true",
+                        help="forzar companion original sin investigación de red")
     p_book.set_defaults(func=cmd_book)
 
     p_bus = sub.add_parser("search", help="memoria semántica: búsqueda BM25 sobre "
@@ -982,6 +999,8 @@ def main(argv: list[str] | None = None) -> int:
     p_bus.add_argument("--top", type=int, default=5)
     p_bus.add_argument("--origen", action="append", default=None,
                        help="filtrar por origen (episodio|ficha|pool, repetible)")
+    p_bus.add_argument("--repos", action="store_true",
+                       help="buscar también repositorios públicos por palabra clave")
     p_bus.set_defaults(func=cmd_search)
 
     p_srv = sub.add_parser("serve", help="modo SERVICIO experimental: API REST con "

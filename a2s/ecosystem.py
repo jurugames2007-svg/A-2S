@@ -148,6 +148,41 @@ class EcosystemRadar:
                          reverse=True)
         return ordered[:limit] if limit else ordered
 
+    def keyword_search(self, query: str, limit: int = 8) -> dict[str, Any]:
+        """Búsqueda por palabra clave SIN filtro LLMOps (sí exige SPDX abierta)."""
+        from .finder import RepoFinder
+        finder = RepoFinder(self.workspace, github=self.github)
+        report = finder.search(query, limit=limit, allow_network=True)
+        added = []
+        for item in report.get("repositories") or []:
+            license_id = item.get("license") or ""
+            if license_id not in OPEN_SOURCE_LICENSES:
+                continue
+            if any(p.repo == item.get("full_name") for p in self.projects):
+                continue
+            rec = ProjectRecord(
+                repo=item.get("full_name") or "",
+                url=item.get("url") or "",
+                license=license_id,
+                language=item.get("language") or "",
+                stars=int(item.get("stars") or 0),
+                description=item.get("description") or "",
+                lessons=["coincidencia por palabra clave"],
+                fit_score=self._score(item.get("description") or "",
+                                      int(item.get("stars") or 0),
+                                      item.get("updated_at") or ""),
+                updated_at=item.get("updated_at") or "",
+                source="keyword_search")
+            if rec.repo:
+                self.projects.append(rec)
+                added.append(rec.repo)
+        if added:
+            self._save()
+        return {"at": now_iso(), "queries": [query], "found": len(report.get("repositories") or []),
+                "added": added, "updated": [], "rejected": [],
+                "errors": report.get("errors") or [], "total": len(self.projects),
+                "code_executed": False, "mode": "keyword"}
+
     def scan(self, query: str = "", limit_per_query: int = 6) -> dict[str, Any]:
         """Amplía el radar mediante búsqueda pública; solo lee metadatos."""
         queries = (query,) if query.strip() else DEFAULT_QUERIES
