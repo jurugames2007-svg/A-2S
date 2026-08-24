@@ -126,6 +126,17 @@ class ToolRegistry:
         self.register(Tool("web_search", "Búsqueda web vía API externa (DuckDuckGo HTML).",
                             {"query": "str", "max_results": "int opcional"},
                             self.web_search, network=True))
+        self.register(Tool(
+            "research_topic",
+            "Investiga un tema: repos recientes/destacables, PDF OA y análisis local; persiste fuentes.",
+            {"topic": "str", "repo_limit": "int opcional", "pdf_limit": "int opcional"},
+            self.research_topic, network=True, destructive=True))
+        self.register(Tool(
+            "create_book",
+            "Crea un libro coherente con investigación, citas, Markdown, HTML, PDF y quality gate.",
+            {"topic": "str", "title": "str opcional", "chapters": "int opcional",
+             "target_words": "int opcional"},
+            self.create_book, network=True, destructive=True))
         self.register(Tool("python_exec", "Ejecuta un fragmento Python aislado (subproceso).",
                             {"code": "str"},
                             self.python_exec, destructive=True))
@@ -424,6 +435,32 @@ class ToolRegistry:
             snip = re.sub(r"<[^>]+>", "", snippets[i]) if i < len(snippets) else ""
             out.append(f"{i+1}. {re.sub('<[^>]+>', '', t)} — {u}\n   {snip.strip()}")
         return "\n".join(out) if out else "(sin resultados)"
+
+    def research_topic(self, topic: str, repo_limit: int = 8,
+                       pdf_limit: int = 8) -> str:
+        if not self.allow_network:
+            raise PermissionError("red deshabilitada")
+        from .publishing import ResearchStudio
+        report = ResearchStudio(self.workspace).run(
+            topic, repo_limit=repo_limit, pdf_limit=pdf_limit,
+            output_dir="research", analyze_local=True, learn=True)
+        return json.dumps({
+            "status": "research_complete",
+            "repositories": report["source_counts"]["repositories"],
+            "open_pdfs": report["source_counts"]["open_pdfs"],
+            "learned_cards": report["learned_cards"],
+            "errors": report["errors"], "artifacts": report["artifacts"],
+        }, ensure_ascii=False)
+
+    def create_book(self, topic: str, title: str = "", chapters: int = 6,
+                    target_words: int = 3000) -> str:
+        if not self.allow_network:
+            raise PermissionError("red deshabilitada")
+        from .publishing import BookBuilder
+        result = BookBuilder(self.workspace).build(
+            topic, title=title, chapters=chapters, target_words=target_words,
+            output_dir="book")
+        return json.dumps(result, ensure_ascii=False)
 
     def python_exec(self, code: str) -> str:
         if reason := classify_forbidden(code):

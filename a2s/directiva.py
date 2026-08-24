@@ -153,6 +153,13 @@ CAPABILITY_MAP = [
      "transición encaja, la observación imprevista escala al loop completo "
      "del agente. Sin rotación de huellas ni fingir usuarios: jitter para no "
      "sincronizarse, User-Agent honesto."),
+    ("Modo Dios / Configuración Omnimodal Universal",
+     "Protocolo adaptativo Aegis (aegis_protocol.py): clasifica necesidades "
+     "informativas, creativas, analíticas, prácticas, emocionales y técnicas; "
+     "activa solo investigación, contraste, cálculo, perspectivas, escenarios, "
+     "iteración, tono o visualización que aporten valor. Publica capacidades, "
+     "método resumido, evidencia, límites y siguientes pasos; nunca equivale a "
+     "omnipotencia, infalibilidad, chain-of-thought visible ni evasión de permisos."),
 ]
 
 

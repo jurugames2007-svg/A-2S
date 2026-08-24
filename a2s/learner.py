@@ -66,6 +66,15 @@ class RepoHit:
     updated_at: str = ""
 
 
+@dataclass
+class PdfHit:
+    name: str
+    html_url: str
+    raw_url: str
+    repository: str
+    license: str = ""
+
+
 class GitHubClient:
     """Búsqueda y lectura en GitHub con cuota auto-impuesta (conservadora).
 
@@ -154,13 +163,17 @@ class GitHubClient:
     # -- API pública -----------------------------------------------------------
 
     def search_repositories(self, query: str, per_page: int = 5,
-                            language: str = "") -> list[RepoHit]:
+                            language: str = "", sort: str = "stars",
+                            order: str = "desc") -> list[RepoHit]:
+        """Busca repos por popularidad o actualidad, sin clonar código."""
         q = urllib.parse.quote(query)
         if language:
             q = urllib.parse.quote(f"{query} language:{language}")
+        safe_sort = sort if sort in ("stars", "forks", "help-wanted-issues", "updated") else "stars"
+        safe_order = order if order in ("asc", "desc") else "desc"
         status, headers, body = self._get(
-            f"{GITHUB_API}/search/repositories?q={q}&sort=stars"
-            f"&order=desc&per_page={per_page}", "application/vnd.github+json",
+            f"{GITHUB_API}/search/repositories?q={q}&sort={safe_sort}"
+            f"&order={safe_order}&per_page={per_page}", "application/vnd.github+json",
             self.search_window)
         if status != 200:
             return []
@@ -178,6 +191,86 @@ class GitHubClient:
         self.last_rate_info = {"search_remaining": headers.get(
             "X-RateLimit-Remaining", "?")}
         return hits
+
+    def discover_repositories(self, query: str, limit: int = 6) -> list[RepoHit]:
+        """Combina lo destacable y lo reciente con ranking explicable.
+
+        Una búsqueda solo por estrellas congela el aprendizaje en proyectos
+        históricos; una solo por fecha favorece ruido. Se consultan ambas y se
+        fusionan por relevancia, popularidad logarítmica y frescura.
+        """
+        each = max(2, min(25, int(limit)))
+        merged: dict[str, RepoHit] = {}
+        for sort in ("stars", "updated"):
+            for hit in self.search_repositories(query, per_page=each, sort=sort):
+                merged[hit.full_name] = hit
+        terms = {word.lower() for word in re.findall(r"[A-Za-z0-9_-]{3,}", query)}
+
+        def score(hit: RepoHit) -> float:
+            text = f"{hit.full_name} {hit.description}".lower()
+            relevant = sum(1 for term in terms if term in text) / max(1, len(terms))
+            popularity = min(1.0, math.log10(max(1, hit.stars)) / 5.0)
+            freshness = 0.0
+            try:
+                stamp = time.mktime(time.strptime(hit.updated_at[:10], "%Y-%m-%d"))
+                days = max(0.0, (time.time() - stamp) / 86400.0)
+                freshness = math.exp(-days / 365.0)
+            except (ValueError, TypeError):
+                pass
+            return relevant * 0.5 + popularity * 0.3 + freshness * 0.2
+
+        return sorted(merged.values(), key=lambda hit: (score(hit), hit.stars),
+                      reverse=True)[:limit]
+
+    def search_public_pdfs(self, query: str, limit: int = 8) -> list[PdfHit]:
+        """Localiza PDF públicos en GitHub y recupera la licencia del repo.
+
+        Es un respaldo cuando los índices académicos no están accesibles. No
+        confunde «URL pública» con acceso abierto: la licencia se devuelve para
+        que la capa de investigación decida si puede incorporarlo/descargarlo.
+        GitHub Code Search requiere una credencial ya presente; sin ella cae a
+        lista vacía, nunca solicita login.
+        """
+        if not self.token:
+            return []
+        q = urllib.parse.quote(f"{query} extension:pdf")
+        status, _, body = self._get(
+            f"{GITHUB_API}/search/code?q={q}&per_page={max(1, min(30, limit * 2))}",
+            "application/vnd.github+json", self.search_window)
+        if status != 200:
+            return []
+        try:
+            items = json.loads(body.decode("utf-8", "replace")).get("items", [])
+        except (ValueError, AttributeError):
+            return []
+        licenses: dict[str, str] = {}
+        out = []
+        for item in items:
+            repo = str((item.get("repository") or {}).get("full_name") or "")
+            html_url = str(item.get("html_url") or "")
+            if not repo or not html_url.startswith(f"https://github.com/{repo}/blob/"):
+                continue
+            if repo not in licenses:
+                repo_status, _, repo_body = self._get(
+                    f"{GITHUB_API}/repos/{urllib.parse.quote(repo)}",
+                    "application/vnd.github+json", self.core_window)
+                if repo_status == 200:
+                    try:
+                        metadata = json.loads(repo_body.decode("utf-8", "replace"))
+                        licenses[repo] = str(((metadata.get("license") or {}).get("spdx_id"))
+                                             or "desconocida")
+                    except ValueError:
+                        licenses[repo] = "desconocida"
+                else:
+                    licenses[repo] = "desconocida"
+            suffix = html_url.split(f"https://github.com/{repo}/blob/", 1)[1]
+            raw_url = f"https://raw.githubusercontent.com/{repo}/{suffix}"
+            out.append(PdfHit(name=str(item.get("name") or "documento.pdf"),
+                              html_url=html_url, raw_url=raw_url,
+                              repository=repo, license=licenses[repo]))
+            if len(out) >= limit:
+                break
+        return out
 
     def fetch_readme(self, full_name: str, max_bytes: int = 60_000) -> str:
         status, headers, body = self._get(
@@ -381,7 +474,7 @@ class Learner:
     def research(self, query: str, topic: str = "") -> list[KnowledgeCard]:
         """Busca repos para la brecha, los estudia y guarda fichas nuevas."""
         topic = topic or query[:40]
-        hits = self.github.search_repositories(query, per_page=self.repos_per_cycle)
+        hits = self.github.discover_repositories(query, limit=self.repos_per_cycle)
         readmes: list[tuple[RepoHit, str]] = []
         for h in hits:
             text = self.github.fetch_readme(h.full_name)

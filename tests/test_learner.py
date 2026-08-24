@@ -62,6 +62,24 @@ class TestGitHubClient(unittest.TestCase):
         text = gh.fetch_readme("pytest-dev/pytest")
         self.assertIn("fixtures", text)
 
+    def test_busca_pdf_publico_y_recupera_licencia_repo(self):
+        def transport(url, headers):
+            if "/search/code?" in url:
+                return 200, {}, json.dumps({"items": [{
+                    "name": "paper.pdf", "path": "docs/paper.pdf",
+                    "html_url": "https://github.com/org/repo/blob/abc/docs/paper.pdf",
+                    "repository": {"full_name": "org/repo"},
+                }]}).encode()
+            if "/repos/org/repo" in url:
+                return 200, {}, json.dumps({"license": {"spdx_id": "MIT"}}).encode()
+            return 404, {}, b"{}"
+        gh = GitHubClient(token="fake", transport=transport)
+        hits = gh.search_public_pdfs("agent evaluation", limit=2)
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].license, "MIT")
+        self.assertEqual(hits[0].raw_url,
+                         "https://raw.githubusercontent.com/org/repo/abc/docs/paper.pdf")
+
     def test_rate_limit_del_servidor_se_respeta(self):
         sleeps = []
         plans = [(403, {"X-RateLimit-Remaining": "0", "Retry-After": "2"}, b"limit")]

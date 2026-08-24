@@ -1,4 +1,5 @@
-# Artefactos generados por el agente (espacio de trabajo)
+# Dependencias y artefactos generados
+node_modules/
 workspace/
 artifacts/
 

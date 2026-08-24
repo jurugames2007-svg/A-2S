@@ -3,8 +3,8 @@
 > Documento de transparencia técnica. Aquí no hay maquillaje: esto es lo que
 > el sistema **no puede hacer**, lo que hace **a medias**, los **errores que
 > tiene**, y cómo usarlo para **obtener beneficio real** sin engañarte.
-> Actualizado a v1.3.0 (fusión DFIR defensiva: puente a herramientas forenses
-> externas + auditoría de repositorios/plugins).
+> Actualizado a v1.15.0 (Protocolo Adaptativo Aegis: clasificación y composición
+> omnimodal auditable, sin promesas de omnipotencia ni razonamiento privado).
 
 ---
 
@@ -69,7 +69,9 @@ Estado: ✅ corregido · 🟡 mitigado · 🔴 pendiente
 | 18 | **El filtro de texto de `python_exec` es eludible** (base64, ofuscación). | — | Por diseño: ahora el sandbox aporta la contención real; el filtro sigue siendo cosmético |
 | 19 | **Egress por iptables no auto-aplicado**: requiere root y administración de firewall; el control de red real hoy es la **lista blanca de hosts** (`--allow-host`) + `--no-network`. | Media | 🟡 lista blanca implementada y testeada; iptables queda como tarea del operador |
 | 20 | **Neuroevolución con buffer pequeño es ruido** (mínimo 8 episodios; resultados útiles desde cientos). | Baja | 🟡 documentado; `a2s evolve` avisa si el buffer es insuficiente |
-| 21 | **Autonomía nueva (v1.12)**: la detección de OmniRoute mira SOLO `127.0.0.1` (si cambias el puerto, usa `A2S_OMNIROUTE_URL`); el crecimiento autónomo depende de la cuota de la API de GitHub (sin token: ~10 búsquedas/min) y estudia TEXTO público sin ejecutarlo; el guardián `update --watch` nunca fuerza un árbol sucio (reporta y espera) y hereda las credenciales de git — A²S no gestiona contraseñas. | Baja | 🟡 aceptado: todo es observables (`a2s doctor`, `/api/growth`, logs del guardián) y desconectable (`A2S_AUTO_LEARN=0`, `A2S_OMNIROUTE=off`, Ctrl+C) |
+| 21 | **Autonomía nueva (v1.12–1.13)**: OmniRoute se liga y sondea SOLO en loopback (si cambias el puerto, usa `A2S_OMNIROUTE_URL`); A²S ejecuta el bundle `dist` sin `src`/tsx y recupera su sidecar, pero no puede garantizar la disponibilidad de los upstreams keyless externos. El crecimiento autónomo depende de la cuota de GitHub y estudia TEXTO público sin ejecutarlo; el guardián `update --watch` nunca fuerza un árbol sucio. | Baja | 🟡 aceptado: fallback local sin pedir proveedor; salud y crecimiento observables (`a2s doctor`, `/api/growth`, UI y logs) y desconectables (`A2S_AUTO_LEARN=0`, `A2S_OMNIROUTE=off`, Ctrl+C). El sidecar administrado no exige login; `--auth` sigue disponible al exponer A²S. |
+| 22 | **Investigación/libros (v1.14)**: estrellas, citas y actualidad son señales, no prueba de verdad; OpenAlex/arXiv o GitHub pueden estar inaccesibles o devolver metadatos incompletos. Un PDF público puede conservar restricciones propias aunque viva en un repo abierto. El PDF puro-stdlib prioriza portabilidad, no maquetación editorial avanzada. Un `quality_score=100` mide gates estructurales, no perfección factual o literaria. | Media | 🟡 mitigado: manifiesto fechado, candidatos separados de fuentes OA, descarga solo HTTPS público + PDF válido ≤20 MB, citas validadas, `publication_ready`, errores y limitaciones explícitos. Revisión humana obligatoria antes de publicar. |
+| 23 | **Protocolo adaptativo (v1.15)**: la clasificación se basa en palabras y señales deterministas; puede omitir una capacidad útil o activar una innecesaria. Declarar «investigación» no garantiza que la red o una fuente respondan. El fallback heurístico conserva estructura y ejecución acotada, pero no obtiene comprensión general equivalente a un LLM. | Media | 🟡 mitigado: perfil visible/inspeccionable con `a2s protocol`, criterios y supuestos en ledger, respuesta con límites, investigación actual convertida en misión y tests de selección negativa. El operador puede reformular o especificar el criterio de éxito. |
 
 ---
 
@@ -214,9 +216,11 @@ expansivo" es renunciable: el tope real siempre es `--max-time`.
 
 ## 8. Qué está probado y qué no
 
-**Probado (30 tests, `python -m unittest discover -s tests`):**
+**Probado (274 tests, `python -m unittest discover -s tests`):**
 hash chain + detección de modificación/truncación; modelo de permisos básico;
-proveedores (heurístico y degradación del LLM); escalera de recuperación;
+clasificación adaptativa y selección negativa de capacidades; contrato de
+respuesta sin bloques privados; trazabilidad del perfil en misión; proveedores
+(heurístico y degradación del LLM); escalera de recuperación;
 división fractal; misión demo completa; red de gobernanza (aprendizaje de
 señal trivial + persistencia); consenso; memoria persistente; shell
 evolucionado ($VAR, globs, $()).
@@ -525,7 +529,7 @@ Esto es evidencia de correlación fuerte, no una afirmación causal absoluta: el
 problema previo dependía del entorno reconstruido y no se obtuvo un core dump.
 El test de regresión y la ausencia de `ResourceWarning` son el control futuro.
 
-## 17. Radar OSS y OmniRoute opcional (v1.9)
+## 17. Radar OSS y primera integración OmniRoute (v1.9; base npm desde v1.13)
 
 `a2s scout` no instala soluciones. Lee metadatos públicos, exige una licencia
 SPDX de la allowlist, filtra por el modelo de permisos y persiste la procedencia.
@@ -542,28 +546,72 @@ Límites:
 - buscar más proyectos aumenta el conjunto de ideas, no la capacidad por sí
   sola: solo un experimento verificado autoriza una mejora.
 
-OmniRoute se registra como endpoint SORL únicamente si el operador pasa
-`A2S_OMNIROUTE_URL` o usa `examples/pool.omniroute.json`. No se auto-instala,
-no se convierte en base, no activa upstreams y no entrega credenciales a A²S.
-Su superficie y términos de proveedores son responsabilidad del operador.
+Desde v1.13 la **distribución npm** declara OmniRoute `3.8.49` como dependencia
+fijada. El launcher lo arranca bajo demanda en loopback y registra su endpoint
+en SORL; `auto` es la ruta base y ya no exige `--provider`. La ejecución Python
+directa sigue pudiendo descubrir un gateway existente o usar
+`A2S_OMNIROUTE_URL`.
 
-## 18. Distribución npm (v1.10): launcher, no runtime JavaScript reescrito
+Esto no convierte un servicio externo en cómputo local: no se instala un LLM,
+pero las rutas keyless de OmniRoute necesitan red y están sujetas a la
+disponibilidad y términos de sus upstreams. Si no responden, A²S degrada al
+núcleo heurístico. OmniRoute tiene una superficie y un árbol npm sustanciales;
+su `postinstall` oficial prepara binarios nativos. La dependencia directa es
+exacta y el checkout captura su integridad, pero una actualización requiere la
+misma revisión de supply chain que cualquier dependencia.
+`A2S_OMNIROUTE=off` elimina el arranque automático.
+
+## 18. Distribución npm (v1.10, ampliada en v1.13)
 
 El paquete `a2s-agent-control-plane` hace que A²S sea instalable mediante npm,
-pero el núcleo sigue ejecutándose en Python. Esta separación es intencional:
-evita duplicar seguridad, memoria y planificación en dos implementaciones.
+pero el núcleo sigue ejecutándose en Python. Node solo lanza el núcleo y
+supervisa el gateway; no duplica seguridad, memoria ni planificación.
 
 | Hay | No hay |
 |---|---|
 | Comandos npm globales `a2s` y `a2s-control-plane` | Python embebido dentro de Node |
-| Detección de Python ≥3.9 y `A2S_PYTHON` | Descarga automática de intérpretes |
-| Tarball sin dependencias npm de runtime | Binario nativo único sin prerrequisitos |
-| Zipapp ejecutable con Python del host | Compilación nativa por CPU/SO |
+| Detección de Python ≥3.9 y `A2S_PYTHON` | Descarga automática de intérpretes o modelos LLM |
+| OmniRoute exacto como dependencia npm | Garantía de red o de disponibilidad de cada upstream keyless |
+| Arranque daemon en `127.0.0.1:20128` + detección reutilizable | Sondeo automático de hosts remotos |
+| SORL `auto` + fallback heurístico | Necesidad de elegir proveedor para el uso normal |
+| Zipapp ejecutable con Python del host | Binario nativo único sin prerrequisitos |
 | E2E de instalación aislada en Linux | Certificación manual firmada en cada SO |
 | Matriz CI configurada para Linux/macOS/Windows | Resultado remoto hasta que GitHub ejecute el workflow |
 
 `npm run build` no publica nada. `npm run release:local` deja artefactos locales
 en `artifacts/`; `npm publish` requiere autenticación npm y es una acción
-separada del operador. No se añaden hooks `install`/`postinstall`/`prepare`, de
-modo que instalar el tarball no ejecuta código oculto. El comando sí ejecuta
-Python cuando el operador invoca `a2s`, que es precisamente su función visible.
+separada del operador. A²S no añade un hook propio de instalación, pero npm sí
+ejecuta el `postinstall` declarado por OmniRoute: una instalación funcional no
+debe ocultarlo con `--ignore-scripts`. Python solo se ejecuta cuando el operador
+invoca `a2s`.
+
+## 19. Protocolo Adaptativo Aegis (v1.15): omnimodal no significa universal
+
+`aegis_protocol.py` aporta una capa de decisión reproducible delante del chat y
+del planner. La mejora real es **selección y trazabilidad**, no una ampliación
+mágica de las herramientas instaladas.
+
+| Sí hay | No hay |
+|---|---|
+| Clasificación multi-etiqueta de seis familias de necesidad | Comprensión semántica perfecta de cualquier frase |
+| Catálogo explícito de análisis, investigación, cálculo, creación, visualización y recuperación | Activación indiscriminada de todos los modos en cada mensaje |
+| Contexto reciente del chat y prompt especializado por petición | Ventana de contexto ilimitada o memoria total infalible |
+| Fuente/fecha exigidas para hechos actuales | Garantía de que internet, el upstream o dos fuentes estén disponibles |
+| Herramientas candidatas inyectadas al planner | Garantía de que una herramienta candidata será ejecutable con los permisos actuales |
+| Perfil en SSE, timeline, ledger e informe final | Prueba de corrección por el solo hecho de registrar el perfil |
+| Resumen de método, evidencia y criterios | Chain-of-thought privado, tokens internos o deliberación oculta |
+| ASCII/Mermaid/Markdown como visualización textual | Generador nativo de imágenes, audio o vídeo dentro del core stdlib |
+| Alternativas legítimas y degradación honesta | Acceso a sistemas, cuentas, datos o cómputo no concedidos |
+
+La selección por palabras clave es deliberadamente auditable y funciona sin
+LLM, pero tiene falsos positivos y negativos. `a2s protocol "..." --json`
+permite inspeccionarla antes de una misión. Cuando el resultado dependa de una
+matemática, fuente o artefacto, el criterio fuerte sigue siendo el mismo de todo
+A²S: **evidencia reproducible y verificador de misión**. Una lista de
+capacidades activadas no sustituye esa prueba.
+
+El sistema descarta bloques `<think>...</think>` emitidos por un upstream antes
+de persistir o mostrar el texto. Esto reduce una vía común de exposición, pero
+no puede demostrar cómo razona internamente un proveedor remoto. Por eso el
+contrato solicita únicamente un resumen externo de enfoque; no intenta capturar
+ni auditar estados internos del modelo.

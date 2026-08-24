@@ -9,6 +9,7 @@ import tempfile
 import time
 import unittest
 import urllib.error
+from unittest import mock
 
 from a2s.provider_pool import (PoolEndpoint, ProviderPool, RateWindow,
                                TaskScheduler, Telemetry, _parse_retry_after,
@@ -421,6 +422,8 @@ class TestConfiguracion(unittest.TestCase):
             self.assertEqual(omni.base_url, "http://127.0.0.1:20128/v1")
             self.assertEqual(omni.model, "auto/coding")
             self.assertEqual(omni.rpm, 0)
+            self.assertEqual(omni.quality, 1.0)
+            self.assertIn("evaluate", omni.capabilities)
         finally:
             for key, value in previous.items():
                 if value is None:
@@ -753,6 +756,17 @@ class TestPoolComoProviderAuto(unittest.TestCase):
         got = get_provider("pool", config=None)
         self.assertEqual(got.name, "pool")
         self.assertTrue(any(e.role == "fallback_only" for e in got.endpoints))
+        got.close()
+
+    def test_auto_es_pool_sin_flag_ni_endpoint(self):
+        from a2s.providers import get_provider
+        with mock.patch("a2s.provider_pool.discover_endpoints_from_env", return_value=[]):
+            got = get_provider("auto", config=None)
+        try:
+            self.assertEqual(got.name, "pool")
+            self.assertTrue(any(e.role == "fallback_only" for e in got.endpoints))
+        finally:
+            got.close()
 
 
 if __name__ == "__main__":

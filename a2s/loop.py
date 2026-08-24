@@ -21,6 +21,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
+from .aegis_protocol import ProtocolDecision, analyze_request
 from .config import Config
 from .consensus import ConsensusChecker
 from .memory import MemoryHub
@@ -56,6 +57,7 @@ class AgentLoop:
     _workspace_before: set[str] = field(default_factory=set)
     neural: Optional[GovernanceNet] = None
     consensus: Optional[ConsensusChecker] = None
+    protocol: Optional[ProtocolDecision] = None
 
     # -- fábrica -----------------------------------------------------------
     @classmethod
@@ -110,18 +112,25 @@ class AgentLoop:
     # -- bucle principal -----------------------------------------------------
     def run(self, goal: str) -> RunReport:
         self.memory.goal = goal
+        self.protocol = analyze_request(goal)
+        protocol_data = self.protocol.to_dict()
         self._workspace_before = self._snapshot_workspace()
         self._emit("run_start", {"goal": goal, "provider": self.provider.name,
                                  "workspace": self.config.workspace,
                                  "sandbox": self.registry.sandbox.level_name,
                                  "plugins": list(getattr(self, "plugins_active", []))})
+        self._emit("capability_protocol", {"protocol": protocol_data})
+        self.memory.ledger.append("capability_protocol", protocol_data)
         self.config.log(f"[A²S] ▶ Objetivo: {goal}")
+        self.config.log(f"[A²S] ◉ necesidad: {', '.join(self.protocol.need_types)}")
+        self.config.log("[A²S] ◉ capacidades: " + ", ".join(
+            capability.label for capability in self.protocol.capabilities))
         self.config.log(f"[A²S] ⚙ proveedor de razonamiento: {self.provider.name}")
         self.config.log(f"[A²S] ⛨ sandbox: {self.registry.sandbox.level_name} "
                         f"| plugins activos: {getattr(self, 'plugins_active', []) or 'ninguno'}")
 
         schemas = self.registry.schemas()
-        context = self.planner.context_for(goal)
+        context = self.planner.context_for(goal, extra=self.protocol.planner_context())
         if not self._plan:  # permite inyectar un plan manual (tests, reanudación)
             win = self._active_win_rate()
             if (self.neural is not None and self.neural.trained > 0
@@ -165,8 +174,11 @@ class AgentLoop:
             if round_idx < self.config.max_rounds:
                 self.config.log("[A²S] ◈ replanificación con enfoque distinto (variante "
                                 f"{round_idx})")
+                protocol_context = (self.protocol.planner_context()
+                                    if self.protocol is not None else "")
                 context = self.planner.context_for(
-                    goal, extra=f"Intento global {round_idx}: evita repetir enfoques ya probados.")
+                    goal, extra=(f"Intento global {round_idx}: evita repetir enfoques ya probados.\n"
+                                 f"{protocol_context}"))
                 self._plan = self.planner.decompose(goal, context, schemas, variant=round_idx)
                 self._emit("replan", {"kind": "variant", "round": round_idx,
                                       "steps": [s.goal for s in self._plan]})
@@ -420,6 +432,9 @@ class AgentLoop:
                 f"python -m a2s run --resume \"{goal}\" (el plan de reanudación está "
                 "en .a2s/ledger.jsonl).")
         note_parts.append(f"Cadena de custodia: {integrity_msg} ({n_entries} entradas).")
+        if self.protocol is not None:
+            note_parts.append("Protocolo adaptativo: " + ", ".join(
+                capability.label for capability in self.protocol.capabilities) + ".")
         note_parts.append(f"Iteraciones de herramienta: {self._iterations}. "
                           f"Estancamientos superados: {len(self.planner.stagnation_events)}. "
                           f"Tiempo: {wall:.1f}s.")
@@ -439,6 +454,8 @@ class AgentLoop:
                         for s in self.memory.strategies.values() if s.used],
             timeline=self._timeline,
             artifacts=list(self.memory.artifacts),
+            capability_protocol=(self.protocol.to_dict()
+                                 if self.protocol is not None else {}),
             final_note=" | ".join(note_parts),
             ended_at=now_iso(),
             sandbox_level=self.registry.sandbox.level_name,

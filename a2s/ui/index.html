@@ -25,16 +25,24 @@
         </div>
       </div>
 
+      <div class="protocol-strip" aria-live="polite">
+        <div><b>PROTOCOLO ADAPTATIVO</b><small id="protocol-types">clasifica cada necesidad</small></div>
+        <div id="protocol-chips" class="protocol-chips"><span>selección mínima pertinente</span></div>
+      </div>
+
       <div id="chat-thread" class="chat-thread" aria-live="polite">
         <div class="chat-msg assistant">
           <div class="bubble">
-            <p><b>Hola.</b> Soy tu asistente A²S.</p>
-            <p>Puedes conversar conmigo mientras trabajo. Dime qué objetivo perseguir,
-            pregúntame qué está pasando o pídeme un archivo, imagen o informe y lo
-            produzco en segundo plano. Los resultados aparecerán a la derecha.</p>
+            <p><b>Hola.</b> Soy Aegis, tu asistente autónomo A²S.</p>
+            <p>Dime el objetivo: elijo la ruta, ejecuto la misión en segundo plano y
+            publico el avance y los resultados a la derecha. No necesitas configurar
+            un proveedor ni iniciar sesión.</p>
             <div class="quick-row">
               <button class="quick" data-text="Analiza el workspace y dame un informe de mejoras.">Analizar workspace</button>
               <button class="quick" data-text="¿Qué estás haciendo ahora mismo?">¿Qué haces?</button>
+              <button class="quick" data-text="Investiga repositorios recientes y PDF abiertos sobre agentes autónomos; aprende de las mejores fuentes.">Investigar fuentes</button>
+              <button class="quick" data-text="Crea un libro verificable sobre agentes autónomos, con fuentes, citas, HTML y PDF.">Crear libro</button>
+              <button class="quick" data-text="Analiza críticamente tres estrategias para mejorar este proyecto, incluye abogado del diablo, escenarios y próximos pasos.">Comparar estrategias</button>
               <button class="quick" data-text="Muéstrame los archivos que has producido.">Ver resultados</button>
             </div>
           </div>
@@ -44,11 +52,11 @@
       <form id="chat-form" class="chat-composer">
         <button type="button" id="chat-clear" class="icon-btn icon-btn-sm" title="Reiniciar conversación" aria-label="Reiniciar conversación">⟲</button>
         <textarea id="chat-input" rows="1" maxlength="8000"
-          placeholder="Escribe a A²S… (Enter para enviar, Shift+Enter nueva línea)"></textarea>
+          placeholder="Pide algo a Aegis… (Enter para enviar, Shift+Enter nueva línea)"></textarea>
         <button type="submit" id="chat-send" class="btn btn-primary" title="Enviar">➤</button>
       </form>
       <div class="chat-foot">
-        <small>SORL/OmniRoute · local-first · auditable</small>
+        <small>Omnimodal adaptativo · SORL/OmniRoute · local-first · auditable</small>
       </div>
     </aside>
 
@@ -105,12 +113,12 @@
                 <label for="goal">Objetivo verificable</label>
                 <textarea id="goal" maxlength="8000" required placeholder="Describe el resultado, su evidencia y el criterio de aceptación…">Analiza el workspace y produce un informe verificable de mejoras, riesgos y próximos pasos.</textarea>
                 <div class="form-row">
-                  <label>Proveedor
+                  <label>Motor (opcional)
                     <select id="provider">
-                      <option value="pool">Pool SORL (OmniRoute…)</option>
-                      <option value="auto">Auto seguro</option>
-                      <option value="heuristic">Heurístico local</option>
-                      <option value="openai">OpenAI compatible</option>
+                      <option value="auto">Automático · OmniRoute incluido</option>
+                      <option value="pool">Pool SORL</option>
+                      <option value="heuristic">Solo heurístico local</option>
+                      <option value="openai">Solo OpenAI compatible</option>
                     </select>
                   </label>
                   <label>Estrategia pool

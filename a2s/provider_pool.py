@@ -1203,7 +1203,7 @@ def _local_omniroute_status(port: int = OMNIROUTE_DEFAULT_PORT,
         return None
     base = f"http://127.0.0.1:{port}"
     req = urllib.request.Request(f"{base}/v1/models",
-                                 headers={"User-Agent": "A2S/1.12 (+local discovery)"})
+                                 headers={"User-Agent": "A2S/1.13 (+local discovery)"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read(200_000).decode("utf-8", "replace"))
@@ -1257,15 +1257,17 @@ def discover_endpoints_from_env(include_local: bool = True) -> list[PoolEndpoint
                            "meta-llama/llama-3.1-8b-instruct:free"),
             "cheap", rpm=15, quality=0.75, caps=("general",),
             extra={"X-Title": "A2S-agent"})
-    # OmniRoute es un gateway OPCIONAL del operador, nunca la base de A²S.
-    # Vía 1 — declaración explícita del operador (entorno).
+    # OmniRoute es la ruta preferida de ``auto``. La distribución npm lo
+    # incluye y su launcher lo arranca; la ejecución Python directa conserva
+    # estas dos vías seguras de descubrimiento y el fallback heurístico.
+    # Vía 1 — declaración explícita del launcher o del operador (entorno).
     omniroute_url = os.environ.get("A2S_OMNIROUTE_URL", "").strip()
     if omniroute_url:
         add("omniroute", omniroute_url.rstrip("/"),
             os.environ.get("A2S_OMNIROUTE_KEY", "omniroute-local"),
             os.environ.get("A2S_OMNIROUTE_MODEL", "auto"),
-            "free", rpm=0, quality=0.8,
-            caps=("plan", "code", "summarize", "general"), timeout=180)
+            "free", rpm=0, quality=1.0,
+            caps=("plan", "evaluate", "code", "summarize", "general"), timeout=180)
     elif include_local and os.environ.get("A2S_OMNIROUTE", "").lower() != "off":
         # Vía 2 — cero-config: el operador TIENE OmniRoute si lo ejecuta en su
         # propia máquina; se detecta mirando SOLO 127.0.0.1 (sin terceros).
@@ -1277,8 +1279,8 @@ def discover_endpoints_from_env(include_local: bool = True) -> list[PoolEndpoint
             if found["auth"] == "open" or key:
                 add("omniroute", found["base_url"], key or "omniroute-local",
                     os.environ.get("A2S_OMNIROUTE_MODEL", "auto"),
-                    "free", rpm=0, quality=0.85,
-                    caps=("plan", "code", "summarize", "general"), timeout=180)
+                    "free", rpm=0, quality=1.0,
+                    caps=("plan", "evaluate", "code", "summarize", "general"), timeout=180)
             # auth == "key" sin clave: no se registra (fallaría cada request);
             # `a2s doctor` indica cómo declararla (Dashboard → Endpoints).
     openai_key = os.environ.get("OPENAI_API_KEY")

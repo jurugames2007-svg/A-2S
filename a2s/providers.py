@@ -131,6 +131,21 @@ print("(fin del registro de custodia)")
 
 _HEURISTIC_PLANS: list[tuple[tuple[str, ...], str, list[tuple[str, str, dict[str, Any], list[str]]]]] = [
     # (palabras clave, nombre de plantilla, pasos (nombre, tool, params, criterios))
+    (("libro", "ebook", "manual", "capítulos", "capitulos"), "verified_book", [
+        ("investigar_y_crear_libro", "create_book",
+         {"topic": "{goal}", "chapters": 6, "target_words": 3000},
+         ["book/book.md, HTML, PDF y quality.json creados"]),
+        ("verificar_manuscrito", "read_file", {"path": "book/quality.json"},
+         ["quality gate y limitaciones disponibles"]),
+    ]),
+    (("repositorio", "repositorios", "github", "pdf", "papers", "recientes",
+      "reciente", "actual", "noticias", "precio", "destacables"), "verified_research", [
+        ("investigar_fuentes_y_repositorio", "research_topic",
+         {"topic": "{goal}", "repo_limit": 8, "pdf_limit": 8},
+         ["repositorios y PDF OA documentados con procedencia"]),
+        ("verificar_fuentes", "read_file", {"path": "research/sources.json"},
+         ["manifiesto de fuentes disponible"]),
+    ]),
     (("forense", "informe", "auditor", "analiza", "análisis", "evidence", "evidencia"),
      "forensic_report", [
          ("inventariar_evidencia", "python_exec",
@@ -208,7 +223,8 @@ class HeuristicProvider(BaseProvider):
         step_ids = [f"step-{variant}-{i+1}" for i in range(len(steps))]
         out_steps = []
         for i, (name, tool, params, criteria) in enumerate(steps):
-            params = {k: v.replace("{goal}", goal) for k, v in params.items()}
+            params = {k: (v.replace("{goal}", goal) if isinstance(v, str) else v)
+                      for k, v in params.items()}
             if variant > 0 and "command" in params:
                 params["command"] = f"{params['command']} 2>&1 | head -300"
             out_steps.append({
@@ -266,7 +282,8 @@ class OpenAICompatProvider(BaseProvider):
         self.temperature = temperature
         self.fallback = fallback or HeuristicProvider()
 
-    def _chat(self, prompt: str, max_tokens: int = 1500) -> str:
+    def _chat(self, prompt: str, max_tokens: int = 1500,
+              system: str = SYSTEM_PROMPT) -> str:
         if not self.api_key:
             raise RuntimeError("OPENAI_API_KEY no definida")
         payload = {
@@ -274,7 +291,7 @@ class OpenAICompatProvider(BaseProvider):
             "temperature": self.temperature,
             "max_tokens": max_tokens,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system},
                 {"role": "user", "content": prompt},
             ],
         }
@@ -360,19 +377,21 @@ class OpenAICompatProvider(BaseProvider):
 
 def get_provider(kind: str, fallback_ok: bool = True,
                  config: Any = None) -> BaseProvider:
-    """auto → OpenAI si hay clave, si no heurístico. Sin excepciones posibles.
+    """Resuelve el motor sin obligar al operador a escoger un proveedor.
 
-    ``pool`` → SORL: meta-proveedor que orquesta todos los recursos legítimos
-    del operador (ver ``provider_pool.py``).
+    ``auto`` y ``pool`` usan SORL: descubren OmniRoute y cualquier otro recurso
+    legítimo disponible, y conservan el núcleo heurístico como último fallback.
+    Así, la ruta por defecto del CLI y del agente es el OmniRoute incluido por
+    la distribución npm cuando está vivo, sin ``--provider`` ni clave externa.
+    ``heuristic`` y ``openai`` permanecen como overrides explícitos.
     """
     fallback = HeuristicProvider()
     if kind == "heuristic":
         return fallback
-    if kind == "pool":
+    if kind in ("auto", "pool"):
         from .provider_pool import build_pool_provider
         return build_pool_provider(config=config)
     if kind == "openai":
         return OpenAICompatProvider(fallback=fallback)
-    if os.environ.get("OPENAI_API_KEY"):
-        return OpenAICompatProvider(fallback=fallback)
+    # Una entrada desconocida nunca debe saltarse la degradación segura.
     return fallback

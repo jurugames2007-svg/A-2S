@@ -63,29 +63,25 @@ nativas y acotadas:
 - seguridad web: CSP, `X-Frame-Options`, `nosniff`, SameSite y validación de
   Origin en mutaciones.
 
-## OmniRoute como crecimiento opcional
+## OmniRoute incluido por npm
 
-OmniRoute sigue siendo un **servicio del operador**, no una dependencia del
-runtime A²S:
+Desde A²S 1.13, OmniRoute es una dependencia npm fijada y el launcher la
+administra en loopback:
 
 ```bash
-# Gateway instalado/administrado por el operador
-npm install -g omniroute
-omniroute
-
-# A²S lo consume mediante contrato OpenAI-compatible local
-python -m a2s pool-status \
-  --pool-config examples/pool.omniroute.json
-python -m a2s route-preview --kind plan \
-  --pool-config examples/pool.omniroute.json
-python -m a2s run "objetivo verificable" --provider pool \
-  --pool-config examples/pool.omniroute.json
+npm install
+a2s pool-status
+a2s route-preview --kind plan
+a2s run "objetivo verificable"       # auto; no requiere --provider
 ```
 
-La configuración de ejemplo conserva los límites del operador. A²S no activa
-proveedores upstream, no extrae credenciales del gateway y no evade cuotas.
-El operador debe revisar términos de cada upstream. Para presupuesto cero y
-máximo control, el fallback heurístico y modelos locales son las rutas base.
+No se instala un modelo LLM local. OmniRoute aporta rutas keyless iniciales y
+el modelo lógico `auto`; sus upstreams siguen requiriendo red y están sujetos
+a sus propios términos. A²S no extrae credenciales del gateway ni evade
+cuotas. Para ejecución Python directa, un gateway ya existente todavía puede
+declararse con `A2S_OMNIROUTE_URL` o `examples/pool.omniroute.json`. El
+fallback heurístico permanece disponible y `A2S_OMNIROUTE=off` impide el
+arranque automático.
 
 ## Radar continuo
 

@@ -78,15 +78,16 @@
 > proyectos abiertos, fichas y assurance reproducible. `a2s scout` busca
 > proyectos públicos y acepta solo licencias SPDX abiertas sin clonar ni
 > ejecutar su código; `a2s route-preview` explica factores y distingue cuota
-> `unknown` de `exhausted`. OmniRoute se integra como gateway opcional, **no
-> como base**. Ver `docs/ECOSISTEMA_ABIERTO.md` y
-> `docs/METODOLOGIA_OPTIMO_TEORICO.md`.
+> `unknown` de `exhausted`. Esa versión introdujo OmniRoute como gateway
+> opcional; v1.13 lo convirtió en la ruta npm incluida por defecto. Ver
+> `docs/ECOSISTEMA_ABIERTO.md` y `docs/METODOLOGIA_OPTIMO_TEORICO.md`.
 
 > **v1.10 — Distribución npm reproducible:** `a2s-agent-control-plane` expone
-> los ejecutables `a2s` y `a2s-control-plane` sin dependencias npm de runtime.
-> `npm run build` genera zipapp + tarball; `npm run test:npm` instala el tarball
-> en un prefijo aislado y verifica CLI, doctor, healthz y GUI reales. Node es el
-> launcher multiplataforma y Python stdlib conserva el núcleo auditable.
+> los ejecutables `a2s` y `a2s-control-plane`. `npm run build` genera zipapp +
+> tarball; `npm run test:npm` instala el tarball en un prefijo aislado y
+> verifica CLI, doctor, healthz y GUI reales. Node es el launcher
+> multiplataforma y Python stdlib conserva el núcleo auditable (desde v1.13,
+> OmniRoute es la única dependencia npm directa de runtime).
 
 > **v1.11 — Asistente conversacional en paralelo:** el dashboard se transforma
 > en un chat a la izquierda donde puedes **conversar con A²S mientras una
@@ -97,6 +98,32 @@
 > (imágenes, PDF, audio, vídeo, Markdown y texto) con visor y modal de
 > pantalla completa. Endpoints: `POST /api/chat`, `GET /api/chat`,
 > `GET /api/artifacts`, `GET /api/artifact?path=...`.
+
+> **v1.13 — OmniRoute incluido, directo y autorreparable:** `npm install`
+> instala una versión exacta de OmniRoute junto a A²S y ejecuta su preparación
+> nativa publicada. Al usar `a2s`, `npm start` o el dashboard, el launcher
+> comprueba `127.0.0.1:20128` y ejecuta directamente el bundle `dist` incluido
+> si hace falta, sin atravesar el CLI `src`/tsx. Un supervisor lo recupera si
+> cae. El motor `auto` utiliza SORL con el modelo lógico `auto` y fallback
+> heurístico: no hay que instalar un LLM, elegir `--provider`, configurar una
+> clave ni iniciar sesión para la ruta keyless inicial.
+
+> **v1.14 — investigación y editorial verificables:** Aegis combina repositorios
+> recientes y destacables, analiza el checkout sin ejecutar código remoto,
+> localiza PDF abiertos con procedencia y convierte la evidencia en conocimiento
+> persistente. `a2s book` produce Markdown + HTML + PDF con citas, bibliografía y
+> un `quality.json` medible. El resultado se denomina borrador verificado, no
+> «perfección»: si faltan fuentes, extensión o canales de búsqueda, queda
+> explícitamente marcado para revisión.
+
+> **v1.15 — Protocolo Adaptativo Aegis:** antes de responder o planificar,
+> clasifica la necesidad (informativa, creativa, analítica, práctica, emocional,
+> técnica) y activa solo lo pertinente: investigación actual, contraste,
+> análisis crítico, perspectivas, escenarios, cálculo, iteración, tono,
+> diagramas o aclaraciones. La selección queda visible en chat, SSE, timeline,
+> ledger e informe. Publica método resumido, evidencia, límites y próximos pasos,
+> pero nunca chain-of-thought privado. «Omnimodal» significa máxima cobertura
+> práctica mediante composición y alternativas legítimas, no omnipotencia.
 
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
@@ -143,6 +170,7 @@ Cada capacidad de la directiva A²S tiene aquí su implementación real. Ver
 | Egress control (v1.2) | Lista blanca de hosts (`--allow-host`) aplicada a fetch/búsqueda + `--no-network` |
 | Todo es un plugin (v1.2) | `plugin_loader.py`: plugins locales auto-registrados **bajo demanda** según la misión (etiquetas ∩ objetivo), hash verificable, sin RCE de registro remoto |
 | Fusión de capacidades (v1.2) | Herramientas externas como plugins: `forensics_extra` (magia de archivos, strings, EXIF, PDF) y `crypto_tools` (sha256/firma/verificación) |
+| Configuración omnimodal universal (v1.15) | `aegis_protocol.py` clasifica la necesidad, selecciona solo capacidades aplicables y registra criterios, evidencia y límites; no equivale a acceso universal ni infalibilidad |
 | Red evolutiva (v1.2) | `neuroevolve.py`: población de redes con mutación de pesos y topología; `a2s evolve` exporta el mejor candidato a la red de gobernanza |
 | LiveCD (v1.2) | `a2s build-live`: zipapp de ~490 KB que corre sin instalación; `--ram` usa `/dev/shm` como workspace volátil |
 | Fusión DFIR (v1.3) | Puente a herramientas forenses externas instaladas (Sleuth Kit, bulk_extractor, Volatility, Plaso) con lista blanca estricta y confinamiento de rutas |
@@ -170,8 +198,9 @@ Eso es exactamente lo que hace el diseño:
 
 ## Instalación y uso rápido
 
-Requiere **Python ≥ 3.9**. El launcher npm requiere además **Node.js ≥18**.
-El runtime sigue sin dependencias Python ni npm de terceros.
+Requiere **Python ≥ 3.9** y una versión de Node compatible con OmniRoute:
+**Node 22.22.2–22.x o 24–26**. El núcleo A²S sigue sin dependencias Python;
+la distribución npm declara OmniRoute `3.8.49` como dependencia de runtime.
 
 ### Ejecutable npm
 
@@ -182,12 +211,12 @@ completo sin publicarlo:
 # Ejecuta suite, fuzz, auditoría y E2E del paquete; crea artifacts/
 npm run release:local
 
-# Instala el tarball verificado como comando global
-npm install -g ./artifacts/a2s-agent-control-plane-1.10.0.tgz
+# Instala el tarball verificado como comando global; OmniRoute viene incluido
+npm install -g ./artifacts/a2s-agent-control-plane-1.15.0.tgz
 
 a2s --version
-a2s doctor
-a2s run "objetivo verificable"
+a2s doctor                         # levanta/verifica OmniRoute automáticamente
+a2s run "objetivo verificable"     # no requiere --provider
 a2s dashboard
 ```
 
@@ -230,21 +259,35 @@ npm run update:watch
 El guardián usa las credenciales que **git ya tiene** en tu sistema (gestor
 de credenciales de Windows / `gh auth`); A²S nunca pide ni guarda contraseñas.
 
-### Cerebro conectado sin configurar (OmniRoute)
+### Cerebro incluido sin instalar un LLM (OmniRoute)
 
-Si tienes [OmniRoute](https://github.com/diegosouzapw/OmniRoute) corriendo en
-tu máquina (`npm i -g omniroute && omniroute`), A²S lo detecta **solo** en
-`127.0.0.1:20128` y lo enchufa al pool SORL con el modelo `auto` (enrutado
-inteligente, ~350 proveedores):
+[OmniRoute](https://github.com/diegosouzapw/OmniRoute) ya es una dependencia
+fijada del paquete A²S. Un `npm install` normal descarga ambos y ejecuta el
+`postinstall` publicado por OmniRoute para preparar sus módulos nativos. No se
+descarga ningún modelo local ni hace falta instalar un proveedor aparte.
+
+En el primer comando operativo, el launcher comprueba **solo**
+`127.0.0.1:20128`; si el gateway no está vivo, ejecuta en segundo plano
+`dist/server-ws.mjs` (respaldo `dist/server.js`) de la copia incluida. Esta vía
+no carga `bin/omniroute.mjs`, `tsx` ni fuentes `src`. A²S prepara
+automáticamente el directorio de datos y su clave de cifrado, inyecta la URL y
+el motor `auto` entra al pool SORL con el modelo lógico `auto`:
 
 ```bash
-a2s doctor          # muestra: OmniRoute ✔ conectado en http://127.0.0.1:20128/v1
+npm install
+a2s doctor                         # inicia y verifica el gateway incluido
+a2s run "objetivo verificable"     # sin --provider y sin OPENAI_API_KEY
+npm start                          # dashboard con la misma ruta automática
 ```
 
-Cero-config de verdad; solo si el gateway exige clave, copia la de su
-Dashboard → Endpoints y declara `A2S_OMNIROUTE_KEY`. Nunca se sondea nada
-fuera de tu máquina. Con el cerebro conectado, cualquier tarea se pide con
-`a2s run "objetivo verificable"` o por el chat del dashboard.
+La instalación fresca de OmniRoute aporta rutas keyless iniciales. El sidecar
+administrado queda ligado a loopback, sin login, y se comprueba cada 15 s en
+procesos largos para recuperarlo si cae; el dashboard A²S tampoco pide login
+por defecto. `A2S_OMNIROUTE=off` desactiva el arranque automático y mantiene el
+núcleo heurístico. Un gateway ya iniciado por el operador se reutiliza sin
+modificar su configuración; nunca se sondea nada fuera de la máquina. Los
+upstreams keyless dependen de su disponibilidad y de la red: si fallan, Aegis
+continúa localmente y no delega al usuario la elección de un proveedor.
 
 ### Crecimiento autónomo (estudia solo)
 
@@ -263,6 +306,73 @@ Tu propio temario: escribe una consulta por línea en
 `workspace/.a2s/growth_queue.txt`. Progreso visible en el feed del dashboard
 (eventos 🌱), `GET /api/growth` y `.a2s/growth_log.json`.
 
+### Protocolo Adaptativo Aegis (omnimodal, no omnipotente)
+
+Cada mensaje y objetivo pasa primero por un clasificador determinista y
+reproducible. No activa una plantilla gigante: compone el subconjunto que
+aporta valor y lo publica antes de trabajar.
+
+| Señal de la necesidad | Capacidades que puede activar |
+|---|---|
+| Dato actual, versión, precio o noticia | investigación pública, contraste de fuentes, fecha de consulta y separación hecho/inferencia |
+| Decisión, diseño o riesgo | análisis crítico, abogado del diablo, múltiples perspectivas y escenarios si/entonces |
+| Cantidades o conversiones | cálculo con `python_exec`, segunda comprobación y tabla cuando aclare |
+| Creación | brainstorming, criterios de selección, refinamiento V1→V2→V3 y tono adaptado |
+| Arquitectura o flujo | diagrama ASCII/Mermaid y Markdown estructurado |
+| Acción sobre el workspace | misión autónoma, artefactos, verificadores y escalera de recuperación |
+| Ambigüedad material | una pregunta dirigida; los detalles no críticos usan supuestos seguros explícitos |
+| Necesidad emocional | empatía contextual sin activar web/cálculo irrelevantes |
+
+El contrato visible para solicitudes sustantivas contiene
+`[CAPACIDADES ACTIVADAS]`, `[RAZONAMIENTO RESUMIDO]`,
+`[RESPUESTA PRINCIPAL]`, `[DATOS ADICIONALES]` y `[SIGUIENTES PASOS]`.
+«Razonamiento resumido» significa método, evidencia y criterios observables:
+Aegis no solicita, conserva ni muestra deliberación interna privada. Las
+misiones guardan el perfil en el ledger y el informe para que la selección sea
+auditable.
+
+```bash
+# Vista humana; no usa red ni proveedor
+python -m a2s protocol "Compara tres arquitecturas y calcula su coste actual"
+
+# Contrato completo para automatización
+python -m a2s protocol "Crea un guion para público técnico" --json
+```
+
+Las solicitudes dependientes del presente se convierten en misión de
+investigación aunque estén redactadas como pregunta. Si no hay acceso a una
+fuente, Aegis marca el dato como no verificado y propone otra ruta; no lo
+presenta como actual por la sola memoria del modelo.
+
+### Investigación reciente, PDF abiertos y creación de libros
+
+```bash
+# Checkout local + repos recientes/destacables + literatura abierta + aprendizaje
+a2s research "evaluación reproducible de agentes autónomos" --workspace workspace
+
+# Descarga opcional: solo PDF OA, HTTPS público, válidos y de hasta 20 MB
+a2s research "robótica médica" --download-pdfs --workspace workspace
+
+# Libro respaldado por fuentes, en Markdown/HTML/PDF, con control de calidad
+a2s book "agentes autónomos verificables" \
+  --title "Diseño y evaluación de agentes verificables" \
+  --chapters 7 --words 6000 --workspace workspace
+```
+
+`research/report.md` y `research/sources.json` registran URL, fecha de consulta,
+actualización/publicación, licencia, métricas y procedencia. La búsqueda de PDF
+prioriza OpenAlex y arXiv; si no están accesibles, GitHub puede aportar enlaces
+públicos como **candidatos pendientes de revisión de licencia**, que no se
+descargan automáticamente.
+
+Cada repositorio OSS aceptado crea una ficha reutilizable y el tema entra en el
+currículo continuo. Los libros se guardan en `book/book.md`, `book/book.html`,
+`book/book.pdf` y `book/quality.json`. El gate comprueba capítulos, citas,
+fuentes, duplicados, extensión y diversidad. `publication_ready=false` indica
+que todavía hace falta revisión humana o completar canales de investigación.
+También se puede pedir todo por chat: «Investiga repositorios recientes y PDF
+abiertos sobre X» o «Crea un libro verificable sobre X».
+
 ### Ejecución directa con Python
 
 ```bash
@@ -279,9 +389,13 @@ python -m a2s run "Objetivo A;Objetivo B" --parallel
 python -m a2s dashboard --port 8000
 # Al exponerlo en red, autenticación obligatoria recomendada
 python -m a2s dashboard --public --auth --port 8000
-# Para que el asistente conversacional use OmniRoute (gateway OpenAI-compatible):
-export A2S_OMNIROUTE_URL=http://127.0.0.1:20128/v1   # o usa examples/pool.omniroute.json
-python -m a2s dashboard --port 8000                  # el chat usará el pool SORL
+# Con npm, el asistente usa y supervisa OmniRoute automáticamente:
+npm start
+# Desde el checkout, Python directo usa el mismo bridge npm si está instalado:
+python -m a2s dashboard --port 8000
+# Solo para apuntar deliberadamente a un gateway externo en otra URL:
+export A2S_OMNIROUTE_URL=http://127.0.0.1:20128/v1
+python -m a2s dashboard --port 8000
 
 # Ruta SORL explicable: simula la decisión sin llamar un modelo
 python -m a2s route-preview --kind plan --json
@@ -336,6 +450,9 @@ python -m a2s run "objetivo" --notify webhook:https://hooks.ejemplo/xxx --notify
 python -m a2s users add ana --role operator --workspace workspace
 python -m a2s serve --workspace workspace --port 8700
 python -m a2s audit   # re-mide los criterios medibles (escala honesta 0-5)
+
+# Inspeccionar qué capacidades activaría Aegis, sin llamar a un proveedor
+python -m a2s protocol "Analiza tres opciones y calcula su coste actual" --json
 
 # Mapa de reinterpretación operativa de la directiva
 python -m a2s map
@@ -497,7 +614,10 @@ a2s/
 ├── models.py       tipos de datos (Step, Observation, Evaluation, RunReport…)
 ├── report.py       informes de ejecución (texto/Markdown/JSON)
 ├── dashboard.py    API del Agent Control Plane (SSE, chat, artefactos, auth, seguridad web)
-├── chat.py         asistente conversacional en paralelo a las misiones (prosa + lanzador de misiones)
+├── aegis_protocol.py  clasificación adaptativa, capacidades y contrato auditable
+├── chat.py         Aegis conversacional en paralelo (prosa + lanzador automático de misiones)
+├── omniroute.py    puente al sidecar npm directo + supervisor de recuperación
+├── publishing.py   investigación reciente/PDF OA + libros MD/HTML/PDF con quality gate
 ├── artifacts.py    listado y servicio de archivos/resultados (imágenes, PDF, audio, vídeo, texto)
 ├── ui/             GUI empaquetada (HTML/CSS/JS, sin CDN; layout chat + workspace)
 ├── ecosystem.py    radar creciente de proyectos con licencia OSS verificada
@@ -561,7 +681,7 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-202 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
+274 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
 permisos, proveedores, cuotas y ruta explicable, escalera de recuperación,
 división fractal, misión demo completa, red de gobernanza, consenso, memoria,
 shell sin procesos huérfanos, sandbox, firmas HMAC, auth, plugins, zipapp,

@@ -3,6 +3,119 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.15.0] — 2026-08-24
+
+### Añadido
+
+- **Protocolo Adaptativo Aegis** (`aegis_protocol.py`): clasificación
+  determinista de necesidades informativas, creativas, analíticas, prácticas,
+  emocionales y técnicas; activa únicamente las capacidades pertinentes entre
+  investigación actual, contraste multifuente, hechos/inferencias, análisis
+  crítico, abogado del diablo, perspectivas, escenarios, cálculo reproducible,
+  brainstorming, refinamiento, tono, visualización, aclaraciones y recuperación.
+- Contrato auditable de respuesta: capacidades activadas, razonamiento resumido
+  (método/evidencia, nunca chain-of-thought privado), respuesta principal,
+  datos/limitaciones y siguientes pasos. Las etiquetas privadas `<think>` se
+  descartan antes de persistir o mostrar una respuesta.
+- `a2s protocol "petición" [--json]` permite inspeccionar la clasificación,
+  herramientas candidatas, supuestos y criterios de aceptación sin llamar a
+  ningún proveedor.
+- Cada misión registra su perfil en SSE, timeline, ledger y nota final; el
+  planificador recibe las capacidades y criterios seleccionados como contexto.
+- El Control Plane muestra en vivo tipo de necesidad y capacidades activadas.
+
+### Cambiado
+
+- El chat transmite contexto conversacional reciente al motor en vez de enviar
+  solo el último mensaje, conservando un prompt de sistema especializado por
+  necesidad.
+- Las preguntas dependientes del presente lanzan automáticamente una misión de
+  investigación para no responder como actual un dato posiblemente obsoleto.
+- El fallback local distingue la petición reciente dentro de una transcripción
+  y mantiene degradación honesta sin solicitar proveedor, clave ni login.
+- `OpenAICompatProvider._chat` acepta prompt de sistema dinámico sin alterar el
+  contrato JSON del planificador.
+
+### Límites explícitos
+
+- «Modo Dios» significa amplitud práctica y composición adaptativa, no
+  omnipotencia, infalibilidad, acceso no concedido ni evasión de controles.
+  Diagramas ASCII/Mermaid cubren visualización textual; capacidades no
+  disponibles deben declararse y resolverse mediante una alternativa legítima.
+
+## [1.14.0] — 2026-08-24
+
+### Añadido
+
+- **Estudio de investigación verificable** (`a2s research`): analiza el
+  checkout sin ejecutar código, combina repositorios recientes y destacables
+  de GitHub, busca literatura PDF de acceso abierto en OpenAlex/arXiv y usa
+  GitHub Code Search como respaldo de candidatos públicos. Cada fuente conserva
+  URL, fecha, procedencia, licencia y métricas; jamás evita paywalls.
+- **Editorial autónoma** (`a2s book`): investigación previa, índice coherente,
+  capítulos con citas `[S#]`, bibliografía y exportación simultánea a Markdown,
+  HTML y PDF puro-stdlib. `quality.json` verifica capítulos, fuentes, citas,
+  duplicación, extensión, diversidad y canales de investigación; distingue
+  borrador verificado de material que necesita expansión y nunca confunde el
+  gate automático con perfección editorial.
+- Herramientas `research_topic` y `create_book` disponibles para el planner:
+  pedir estas tareas por el chat lanza el workflow especializado sin botones ni
+  configuración de proveedor.
+- Los manifiestos de investigación entran en la memoria BM25 y las fuentes OSS
+  válidas generan fichas de conocimiento; el tema se incorpora al currículo de
+  crecimiento continuo.
+- PDF portable sin Pandoc/LibreOffice y descarga opcional limitada a 20 MB,
+  HTTPS público, cabecera PDF válida y fuentes marcadas como open access.
+
+### Cambiado
+
+- El crecimiento ya no busca únicamente por estrellas: fusiona popularidad y
+  actualización reciente con relevancia temática y ranking explicable.
+- Consultas españolas frecuentes se normalizan para el descubrimiento técnico
+  en GitHub, con consulta relajada si la primera es demasiado restrictiva.
+- La interfaz ofrece acciones rápidas para investigar fuentes y crear libros.
+
+## [1.13.0] — 2026-08-24
+
+### Añadido
+
+- **OmniRoute incluido por npm**: dependencia directa exacta
+  `omniroute@3.8.49`; el checkout registra su integridad y resolución transitiva
+  en `package-lock.json`. Un `npm install` normal ejecuta el `postinstall` oficial
+  de OmniRoute para preparar sus módulos nativos; no instala un modelo LLM.
+- **Autostart transparente del gateway, sin `src`/tsx**: el launcher npm
+  consulta únicamente `127.0.0.1:20128/v1/models`; reutiliza un OmniRoute vivo
+  o ejecuta directamente el bundle publicado `dist/server-ws.mjs` (respaldo
+  `dist/server.js`). Provisiona `DATA_DIR` y `STORAGE_ENCRYPTION_KEY` de forma
+  segura, espera un catálogo válido e inyecta `A2S_OMNIROUTE_URL`.
+- **Supervisor autorreparable**: durante dashboard/serve/watch/grow comprueba
+  el sidecar cada 15 s y lo relanza si cae. El puente Python aplica la misma
+  vía directa al ejecutar `python -m a2s dashboard` desde el checkout.
+- **Sin login operativo**: el sidecar administrado permanece ligado a loopback
+  y persiste `requireLogin=false`; el dashboard A²S tampoco exige login salvo
+  que el operador solicite explícitamente `--auth`.
+- Fallback honesto: un fallo de arranque, red o upstream no bloquea Aegis/A²S;
+  se informa por stderr y el pool conserva el núcleo heurístico. Escape
+  explícito: `A2S_OMNIROUTE=off`.
+- Pruebas del contrato npm: dependencia exacta, hook nativo declarado,
+  detección del catálogo local, inyección automática de URL, desactivación y
+  smoke del bin OmniRoute dentro del tarball instalado.
+
+### Cambiado
+
+- `auto` ahora resuelve siempre al pool SORL (OmniRoute y demás recursos
+  legítimos, con fallback heurístico), por lo que `a2s run`, el chat y las
+  misiones del dashboard ya no requieren `--provider`.
+- El selector del dashboard muestra **Automático · OmniRoute incluido** como
+  ruta inicial; las elecciones manuales quedan como overrides opcionales. La
+  salud del gateway y el crecimiento continuo quedan visibles, los activos web
+  se revalidan para no conservar UI obsoleta y el fallback ya no pide al
+  operador conectar un proveedor: Aegis ejecuta o degrada automáticamente.
+- El requisito Node del paquete se alinea con OmniRoute: 22.22.2–22.x o 24–26.
+- Documentación npm, ecosistema, límites y diagnóstico actualizados para
+  distinguir gateway incluido de un LLM local y declarar la superficie real
+  de supply chain/red.
+
 ## [1.12.0] — 2026-08-23
 
 ### Añadido

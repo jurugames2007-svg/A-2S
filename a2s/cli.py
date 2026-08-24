@@ -11,6 +11,7 @@ import urllib.error
 
 from . import __version__
 from ._platform import force_utf8
+from .aegis_protocol import analyze_request
 from .config import Config
 
 force_utf8()
@@ -82,6 +83,32 @@ def ram_workspace() -> str:
         return path
     print("[A²S] /dev/shm no disponible: usando directorio temporal")
     return tempfile.mkdtemp(prefix="a2s-")
+
+
+def cmd_protocol(args: argparse.Namespace) -> int:
+    """Inspecciona la selección adaptativa antes de ejecutar una misión."""
+    decision = analyze_request(args.request)
+    if args.json:
+        print(json.dumps(decision.to_dict(), ensure_ascii=False, indent=2))
+        return 0
+    print("Protocolo Adaptativo Aegis")
+    print(f"Necesidad: {', '.join(decision.need_types)}")
+    print(f"Fecha de referencia: {decision.reference_at}")
+    print("Capacidades activadas:")
+    for capability in decision.capabilities:
+        print(f"  ✅ {capability.label} — {capability.purpose}")
+    print("Criterios de aceptación:")
+    for criterion in decision.acceptance_criteria:
+        print(f"  - {criterion}")
+    if decision.clarification_questions:
+        print("Preguntas aclaratorias:")
+        for question in decision.clarification_questions:
+            print(f"  - {question}")
+    if decision.assumptions:
+        print("Supuestos explícitos:")
+        for assumption in decision.assumptions:
+            print(f"  - {assumption}")
+    return 0
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -192,6 +219,23 @@ def cmd_swarm(args: argparse.Namespace) -> int:
 
 def cmd_dashboard(args: argparse.Namespace) -> int:
     from .dashboard import DashboardServer
+    from .omniroute import OmniRouteWatchdog
+
+    # También cubre ``python -m a2s dashboard``: usa el bundle dist incluido y
+    # evita por completo la ruta src/tsx que puede bloquearse.
+    gateway_watchdog = OmniRouteWatchdog()
+    gateway = gateway_watchdog.ensure_now()
+    if gateway.get("usable"):
+        print(f"[A²S] ◉ OmniRoute portable: {gateway.get('url')} "
+              f"({gateway.get('mode', gateway.get('state', 'conectado'))})")
+    elif gateway.get("state") == "disabled":
+        print("[A²S] OmniRoute desactivado; Aegis continúa con el núcleo local")
+    else:
+        print(f"[A²S] ◐ OmniRoute no disponible aún: "
+              f"{gateway.get('detail', gateway.get('state', 'desconocido'))}; "
+              "Aegis continúa localmente y reintentará")
+    gateway_watchdog.start()
+
     server = DashboardServer(port=args.port, workspace=args.workspace,
                              auto_demo=args.autodemo, public=args.public,
                              require_auth=args.auth)
@@ -208,6 +252,7 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
     try:
         server.serve_forever()
     finally:
+        gateway_watchdog.stop()
         if server.growth:
             server.growth.stop()
     return 0
@@ -356,20 +401,17 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"  Ledger:        {msg} ({n} entradas)")
     if os.path.exists(os.path.join(ws, ".a2s", "secret")):
         print("  Firma HMAC:    secreto del workspace presente (a2s verify)")
+    print("  Motor auto:    pool SORL (OmniRoute primero; fallback heurístico siempre disponible)")
     if os.environ.get("OPENAI_API_KEY"):
-        print("  LLM externo:   OPENAI_API_KEY detectada → se usará API externa")
         base = os.environ.get("A2S_LLM_BASE_URL", "https://api.openai.com/v1")
-        print(f"                base_url: {base}")
-    else:
-        print("  LLM externo:   sin OPENAI_API_KEY → núcleo heurístico determinista")
+        print(f"  OpenAI extra:  clave detectada · base_url: {base}")
     from .provider_pool import discover_endpoints_from_env
     pool_eps = discover_endpoints_from_env()
     if pool_eps:
         print(f"  Pool SORL:     {len(pool_eps)} endpoint(s) legítimo(s) detectado(s): "
-              f"{', '.join(e.name for e in pool_eps)} (a2s pool-status / --provider pool)")
+              f"{', '.join(e.name for e in pool_eps)} (selección automática)")
     else:
-        print("  Pool SORL:     sin claves propias detectadas (GROQ/GEMINI/GITHUB/… "
-              "o workspace/.a2s/pool.json) → solo fallback heurístico")
+        print("  Pool SORL:     sin gateway ni claves detectados → fallback heurístico")
     from .provider_pool import OMNIROUTE_DETECTED
     if OMNIROUTE_DETECTED:
         activo = any(e.name == "omniroute" for e in pool_eps)
@@ -381,6 +423,11 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             n = len(OMNIROUTE_DETECTED.get("models", []))
             print(f"  OmniRoute:     ✔ conectado en {OMNIROUTE_DETECTED.get('base_url')} "
                   f"({n} modelos visibles; el modelo 'auto' enruta solo, cero-config)")
+    elif os.environ.get("A2S_OMNIROUTE_MANAGED") == "1":
+        omni = next((e for e in pool_eps if e.name == "omniroute"), None)
+        if omni is not None:
+            print(f"  OmniRoute:     ✔ incluido por npm y conectado en {omni.base_url} "
+                  "(modelo 'auto'; sin selección manual)")
     try:
         socket.create_connection(("duckduckgo.com", 443), timeout=5).close()
         print("  Red externa:   disponible (búsqueda web y fetch habilitados)")
@@ -510,6 +557,50 @@ def cmd_scout(args: argparse.Namespace) -> int:
         for err in report["errors"]:
             print(f"  aviso: {err}")
     return 0 if not report["errors"] else 2
+
+
+def cmd_research(args: argparse.Namespace) -> int:
+    """Investigación reproducible: checkout, repos recientes/destacables y PDF OA."""
+    from .publishing import ResearchStudio
+    studio = ResearchStudio(args.workspace)
+    report = studio.run(
+        args.topic, repo_limit=args.repos, pdf_limit=args.pdfs,
+        output_dir=args.output, analyze_local=not args.no_local,
+        learn=not args.no_learn, download_pdfs=args.download_pdfs)
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        counts = report["source_counts"]
+        print(f"[A²S] investigación verificable: {counts['repositories']} repo(s), "
+              f"{counts['open_pdfs']} PDF OA + {counts.get('public_pdf_candidates', 0)} "
+              f"candidato(s) público(s), {len(report['learned_cards'])} ficha(s) nueva(s)")
+        for source in report["sources"][:12]:
+            signal = f"★{source['stars']}" if source["stars"] else \
+                (f"{source['citations']} citas" if source["citations"] else source["kind"])
+            print(f"  [{source['id']}] {signal:<12} {source['title'][:72]}")
+        for warning in report["errors"]:
+            print(f"  aviso: {warning}")
+        print("  artefactos: " + ", ".join(report["artifacts"]))
+    return 0 if report["sources"] or report.get("local_repository") else 2
+
+
+def cmd_book(args: argparse.Namespace) -> int:
+    """Construye un libro con fuentes, consistencia estructural y quality gate."""
+    from .publishing import BookBuilder
+    result = BookBuilder(args.workspace).build(
+        args.topic, title=args.title, chapters=args.chapters,
+        target_words=args.words, output_dir=args.output,
+        repo_limit=args.repos, pdf_limit=args.pdfs)
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        mark = "✔" if result["status"] == "verified_draft" else "◐"
+        print(f"[A²S] {mark} libro {result['status']} · calidad {result['quality_score']}/100 · "
+              f"{result['word_count']} palabras · {result['sources']} fuentes")
+        print("  artefactos: " + ", ".join(result["artifacts"]))
+        if result["quality"]["limitations"]:
+            print("  pendiente: " + ", ".join(result["quality"]["limitations"]))
+    return 0
 
 
 def cmd_pool_preview(args: argparse.Namespace) -> int:
@@ -853,6 +944,37 @@ def main(argv: list[str] | None = None) -> int:
     p_scout.add_argument("--json", action="store_true")
     p_scout.set_defaults(func=cmd_scout)
 
+    p_research = sub.add_parser(
+        "research", help="investigación verificable: analiza el checkout y descubre "
+                         "repos recientes/destacables y PDF de acceso abierto")
+    p_research.add_argument("topic", help="tema o pregunta de investigación")
+    p_research.add_argument("--workspace", default="workspace")
+    p_research.add_argument("--repos", type=int, default=8)
+    p_research.add_argument("--pdfs", type=int, default=8)
+    p_research.add_argument("--output", default="research")
+    p_research.add_argument("--download-pdfs", action="store_true",
+                            help="descargar solo PDF marcados open access (máx 20 MB)")
+    p_research.add_argument("--no-local", action="store_true",
+                            help="no analizar estáticamente el workspace")
+    p_research.add_argument("--no-learn", action="store_true",
+                            help="no crear fichas ni añadir el tema al currículo")
+    p_research.add_argument("--json", action="store_true")
+    p_research.set_defaults(func=cmd_research)
+
+    p_book = sub.add_parser(
+        "book", help="crea un libro con investigación, citas, Markdown, HTML, PDF y quality gate")
+    p_book.add_argument("topic", help="tema central del libro")
+    p_book.add_argument("--title", default="")
+    p_book.add_argument("--workspace", default="workspace")
+    p_book.add_argument("--chapters", type=int, default=6)
+    p_book.add_argument("--words", type=int, default=3000,
+                        help="extensión objetivo total")
+    p_book.add_argument("--repos", type=int, default=6)
+    p_book.add_argument("--pdfs", type=int, default=8)
+    p_book.add_argument("--output", default="book")
+    p_book.add_argument("--json", action="store_true")
+    p_book.set_defaults(func=cmd_book)
+
     p_bus = sub.add_parser("search", help="memoria semántica: búsqueda BM25 sobre "
                                           "episodios, fichas de conocimiento y pool")
     p_bus.add_argument("query", help="consulta en lenguaje natural")
@@ -980,6 +1102,14 @@ def main(argv: list[str] | None = None) -> int:
     p_map = sub.add_parser("map", help="mapa de reinterpretación operativa de la directiva")
     p_map.set_defaults(func=lambda _a: (print_capability_map(), 0)[1])
 
+    p_protocol = sub.add_parser(
+        "protocol",
+        help="clasifica una necesidad y muestra las capacidades que Aegis activaría")
+    p_protocol.add_argument("request", help="petición u objetivo a clasificar")
+    p_protocol.add_argument("--json", action="store_true",
+                            help="emite el contrato completo como JSON")
+    p_protocol.set_defaults(func=cmd_protocol)
+
     p_upd = sub.add_parser(
         "update",
         help="auto-actualización en el sitio (git fetch + fast-forward, "
@@ -1028,8 +1158,8 @@ def main(argv: list[str] | None = None) -> int:
 def _add_common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--workspace", default="workspace", help="espacio de trabajo (default: workspace)")
     p.add_argument("--provider", choices=["auto", "heuristic", "openai", "pool"], default="auto",
-                   help="motor de razonamiento (auto: OpenAI si hay clave, si no heurístico; "
-                        "pool: SORL, orquesta todos los recursos legítimos del operador)")
+                   help="override opcional (default auto: OmniRoute/pool SORL con fallback "
+                        "heurístico; normalmente no hace falta indicar proveedor)")
     p.add_argument("--max-iterations", type=int, default=60,
                    help="iteraciones por rebanada de presupuesto (se renueva al replanificar)")
     p.add_argument("--max-rounds", type=int, default=6, help="rondas máximas de replanificación")

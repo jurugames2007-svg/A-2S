@@ -22,6 +22,13 @@ def render_text(report: RunReport) -> str:
         f" Tiempo:       {report.wall_seconds}s",
         f" Estancamientos superados: {report.stagnation_events}",
         "",
+        " Protocolo adaptativo:",
+        f"   Necesidad: {', '.join(report.capability_protocol.get('need_types', [])) or 'no registrada'}",
+        "   Capacidades: " + (", ".join(
+            capability.get("label", capability.get("id", ""))
+            for capability in report.capability_protocol.get("capabilities", []))
+            or "no registradas"),
+        "",
         " Estrategias (metaprendizaje):",
     ]
     for s in report.strategies:
@@ -56,6 +63,17 @@ def render_markdown(report: RunReport) -> str:
         f"**Tiempo:** {report.wall_seconds}s",
         f"- **Estancamientos superados:** {report.stagnation_events}",
         f"- **Rango:** {report.started_at} → {report.ended_at}",
+        "",
+        "## Protocolo adaptativo Aegis",
+        "",
+        f"- **Necesidad:** {', '.join(report.capability_protocol.get('need_types', [])) or 'no registrada'}",
+        "- **Capacidades:** " + (", ".join(
+            capability.get("label", capability.get("id", ""))
+            for capability in report.capability_protocol.get("capabilities", []))
+            or "no registradas"),
+        "- **Criterios:** " + ("; ".join(
+            report.capability_protocol.get("acceptance_criteria", []))
+            or "no registrados"),
         "",
         "## Metaprendizaje (estrategias)",
         "",
