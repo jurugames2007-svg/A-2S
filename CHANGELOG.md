@@ -3,6 +3,46 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.15.0] — 2026-08-24
+
+### Añadido
+
+- **Protocolo Adaptativo Aegis** (`aegis_protocol.py`): clasificación
+  determinista de necesidades informativas, creativas, analíticas, prácticas,
+  emocionales y técnicas; activa únicamente las capacidades pertinentes entre
+  investigación actual, contraste multifuente, hechos/inferencias, análisis
+  crítico, abogado del diablo, perspectivas, escenarios, cálculo reproducible,
+  brainstorming, refinamiento, tono, visualización, aclaraciones y recuperación.
+- Contrato auditable de respuesta: capacidades activadas, razonamiento resumido
+  (método/evidencia, nunca chain-of-thought privado), respuesta principal,
+  datos/limitaciones y siguientes pasos. Las etiquetas privadas `<think>` se
+  descartan antes de persistir o mostrar una respuesta.
+- `a2s protocol "petición" [--json]` permite inspeccionar la clasificación,
+  herramientas candidatas, supuestos y criterios de aceptación sin llamar a
+  ningún proveedor.
+- Cada misión registra su perfil en SSE, timeline, ledger y nota final; el
+  planificador recibe las capacidades y criterios seleccionados como contexto.
+- El Control Plane muestra en vivo tipo de necesidad y capacidades activadas.
+
+### Cambiado
+
+- El chat transmite contexto conversacional reciente al motor en vez de enviar
+  solo el último mensaje, conservando un prompt de sistema especializado por
+  necesidad.
+- Las preguntas dependientes del presente lanzan automáticamente una misión de
+  investigación para no responder como actual un dato posiblemente obsoleto.
+- El fallback local distingue la petición reciente dentro de una transcripción
+  y mantiene degradación honesta sin solicitar proveedor, clave ni login.
+- `OpenAICompatProvider._chat` acepta prompt de sistema dinámico sin alterar el
+  contrato JSON del planificador.
+
+### Límites explícitos
+
+- «Modo Dios» significa amplitud práctica y composición adaptativa, no
+  omnipotencia, infalibilidad, acceso no concedido ni evasión de controles.
+  Diagramas ASCII/Mermaid cubren visualización textual; capacidades no
+  disponibles deben declararse y resolverse mediante una alternativa legítima.
+
 ## [1.14.0] — 2026-08-24
 
 ### Añadido

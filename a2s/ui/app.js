@@ -138,6 +138,7 @@ function switchView(name) {
 
 const EVENT_META = {
   run_start: ["▶", "Misión iniciada", "step_start"],
+  capability_protocol: ["◉", "Capacidades adaptativas", "replan"],
   plan_created: ["◇", "Plan construido", "replan"],
   speculative_plan: ["⋈", "Planificación especulativa", "replan"],
   step_start: ["→", "Paso en ejecución", "step_start"],
@@ -156,6 +157,10 @@ const EVENT_META = {
 
 function eventDetail(event) {
   if (event.event === "run_start") return `${event.goal || ""} · proveedor ${event.provider || "—"}`;
+  if (event.event === "capability_protocol") {
+    const protocol = event.protocol || {};
+    return `${(protocol.need_types || []).join(", ")} · ${(protocol.capabilities || []).map((cap) => cap.label).join(", ")}`;
+  }
   if (event.event === "step_start") return `${event.goal || ""} · ${event.approach || ""}`;
   if (event.event === "evaluation") return `${event.goal || ""} · ${event.verdict || ""} · ${event.reason || ""}`;
   if (event.event === "goal_check") return `${event.achieved ? "CUMPLIDO" : "pendiente"} · ${event.reason || ""}`;
@@ -188,6 +193,7 @@ function addEvent(event, scroll = true) {
   state.eventCount += 1;
 
   if (event.event === "run_start") { updateMissionControls(true); setChatState("Trabajando…", "busy"); }
+  if (event.event === "capability_protocol") renderProtocol(event.protocol || {});
   if (event.event === "evaluation") {
     state.iterations += 1;
     text($("#metric-iterations"), state.iterations);
@@ -213,7 +219,7 @@ function addEvent(event, scroll = true) {
     setChatState("Listo", "");
   }
   if (event.event === "chat_idle") { removeTyping(); state.chatBusy = false; setChatState("Listo", ""); }
-  if (event.event === "chat_cleared") { renderChatHistory([]); }
+  if (event.event === "chat_cleared") { renderChatHistory([]); renderProtocol({}); }
 }
 
 function connectEvents() {
@@ -254,6 +260,24 @@ async function loadState() {
 /* Chat                                                                */
 /* ------------------------------------------------------------------ */
 
+function renderProtocol(protocol) {
+  const chips = $("#protocol-chips");
+  if (!protocol || !protocol.capabilities) {
+    text($("#protocol-types"), "clasifica cada necesidad");
+    if (chips) chips.innerHTML = "<span>selección mínima pertinente</span>";
+    return;
+  }
+  text($("#protocol-types"), (protocol.need_types || []).join(" · ") || "adaptativo");
+  if (!chips) return;
+  chips.replaceChildren();
+  protocol.capabilities.slice(0, 5).forEach((capability) => {
+    const chip = el("span");
+    chip.textContent = `✓ ${capability.label || capability.id}`;
+    chip.title = capability.purpose || "";
+    chips.appendChild(chip);
+  });
+}
+
 function renderChat(history) {
   const thread = $("#chat-thread");
   thread.replaceChildren();
@@ -285,8 +309,10 @@ function appendBubble(role, content, opts = {}) {
 function appendAssistantBubble(content) { appendBubble("assistant", content); }
 
 function renderRich(text) {
-  // Markdown mínimo: **bold**, `code`, bloques ```, enlaces y saltos.
+  // Markdown mínimo + secciones auditables del protocolo Aegis.
   let s = escapeHtml(text);
+  s = s.replace(/\[(CAPACIDADES ACTIVADAS|RAZONAMIENTO RESUMIDO|RESPUESTA PRINCIPAL|DATOS ADICIONALES|SIGUIENTES PASOS)\]/g,
+    '<span class="response-section">$1</span>');
   s = s.replace(/```([\s\S]*?)```/g, (_, code) => `<pre>${code}</pre>`);
   s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
@@ -342,6 +368,7 @@ async function loadChat() {
   try {
     const data = await api("/api/chat");
     renderChat(data.history || []);
+    renderProtocol(data.protocol || {});
   } catch (e) {
     // el chat puede no estar disponible; no es crítico
   }

@@ -116,6 +116,15 @@
 > «perfección»: si faltan fuentes, extensión o canales de búsqueda, queda
 > explícitamente marcado para revisión.
 
+> **v1.15 — Protocolo Adaptativo Aegis:** antes de responder o planificar,
+> clasifica la necesidad (informativa, creativa, analítica, práctica, emocional,
+> técnica) y activa solo lo pertinente: investigación actual, contraste,
+> análisis crítico, perspectivas, escenarios, cálculo, iteración, tono,
+> diagramas o aclaraciones. La selección queda visible en chat, SSE, timeline,
+> ledger e informe. Publica método resumido, evidencia, límites y próximos pasos,
+> pero nunca chain-of-thought privado. «Omnimodal» significa máxima cobertura
+> práctica mediante composición y alternativas legítimas, no omnipotencia.
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -161,6 +170,7 @@ Cada capacidad de la directiva A²S tiene aquí su implementación real. Ver
 | Egress control (v1.2) | Lista blanca de hosts (`--allow-host`) aplicada a fetch/búsqueda + `--no-network` |
 | Todo es un plugin (v1.2) | `plugin_loader.py`: plugins locales auto-registrados **bajo demanda** según la misión (etiquetas ∩ objetivo), hash verificable, sin RCE de registro remoto |
 | Fusión de capacidades (v1.2) | Herramientas externas como plugins: `forensics_extra` (magia de archivos, strings, EXIF, PDF) y `crypto_tools` (sha256/firma/verificación) |
+| Configuración omnimodal universal (v1.15) | `aegis_protocol.py` clasifica la necesidad, selecciona solo capacidades aplicables y registra criterios, evidencia y límites; no equivale a acceso universal ni infalibilidad |
 | Red evolutiva (v1.2) | `neuroevolve.py`: población de redes con mutación de pesos y topología; `a2s evolve` exporta el mejor candidato a la red de gobernanza |
 | LiveCD (v1.2) | `a2s build-live`: zipapp de ~490 KB que corre sin instalación; `--ram` usa `/dev/shm` como workspace volátil |
 | Fusión DFIR (v1.3) | Puente a herramientas forenses externas instaladas (Sleuth Kit, bulk_extractor, Volatility, Plaso) con lista blanca estricta y confinamiento de rutas |
@@ -202,7 +212,7 @@ completo sin publicarlo:
 npm run release:local
 
 # Instala el tarball verificado como comando global; OmniRoute viene incluido
-npm install -g ./artifacts/a2s-agent-control-plane-1.14.0.tgz
+npm install -g ./artifacts/a2s-agent-control-plane-1.15.0.tgz
 
 a2s --version
 a2s doctor                         # levanta/verifica OmniRoute automáticamente
@@ -295,6 +305,44 @@ A2S_AUTO_LEARN=0 npm start     # apagarlo
 Tu propio temario: escribe una consulta por línea en
 `workspace/.a2s/growth_queue.txt`. Progreso visible en el feed del dashboard
 (eventos 🌱), `GET /api/growth` y `.a2s/growth_log.json`.
+
+### Protocolo Adaptativo Aegis (omnimodal, no omnipotente)
+
+Cada mensaje y objetivo pasa primero por un clasificador determinista y
+reproducible. No activa una plantilla gigante: compone el subconjunto que
+aporta valor y lo publica antes de trabajar.
+
+| Señal de la necesidad | Capacidades que puede activar |
+|---|---|
+| Dato actual, versión, precio o noticia | investigación pública, contraste de fuentes, fecha de consulta y separación hecho/inferencia |
+| Decisión, diseño o riesgo | análisis crítico, abogado del diablo, múltiples perspectivas y escenarios si/entonces |
+| Cantidades o conversiones | cálculo con `python_exec`, segunda comprobación y tabla cuando aclare |
+| Creación | brainstorming, criterios de selección, refinamiento V1→V2→V3 y tono adaptado |
+| Arquitectura o flujo | diagrama ASCII/Mermaid y Markdown estructurado |
+| Acción sobre el workspace | misión autónoma, artefactos, verificadores y escalera de recuperación |
+| Ambigüedad material | una pregunta dirigida; los detalles no críticos usan supuestos seguros explícitos |
+| Necesidad emocional | empatía contextual sin activar web/cálculo irrelevantes |
+
+El contrato visible para solicitudes sustantivas contiene
+`[CAPACIDADES ACTIVADAS]`, `[RAZONAMIENTO RESUMIDO]`,
+`[RESPUESTA PRINCIPAL]`, `[DATOS ADICIONALES]` y `[SIGUIENTES PASOS]`.
+«Razonamiento resumido» significa método, evidencia y criterios observables:
+Aegis no solicita, conserva ni muestra deliberación interna privada. Las
+misiones guardan el perfil en el ledger y el informe para que la selección sea
+auditable.
+
+```bash
+# Vista humana; no usa red ni proveedor
+python -m a2s protocol "Compara tres arquitecturas y calcula su coste actual"
+
+# Contrato completo para automatización
+python -m a2s protocol "Crea un guion para público técnico" --json
+```
+
+Las solicitudes dependientes del presente se convierten en misión de
+investigación aunque estén redactadas como pregunta. Si no hay acceso a una
+fuente, Aegis marca el dato como no verificado y propone otra ruta; no lo
+presenta como actual por la sola memoria del modelo.
 
 ### Investigación reciente, PDF abiertos y creación de libros
 
@@ -402,6 +450,9 @@ python -m a2s run "objetivo" --notify webhook:https://hooks.ejemplo/xxx --notify
 python -m a2s users add ana --role operator --workspace workspace
 python -m a2s serve --workspace workspace --port 8700
 python -m a2s audit   # re-mide los criterios medibles (escala honesta 0-5)
+
+# Inspeccionar qué capacidades activaría Aegis, sin llamar a un proveedor
+python -m a2s protocol "Analiza tres opciones y calcula su coste actual" --json
 
 # Mapa de reinterpretación operativa de la directiva
 python -m a2s map
@@ -563,6 +614,7 @@ a2s/
 ├── models.py       tipos de datos (Step, Observation, Evaluation, RunReport…)
 ├── report.py       informes de ejecución (texto/Markdown/JSON)
 ├── dashboard.py    API del Agent Control Plane (SSE, chat, artefactos, auth, seguridad web)
+├── aegis_protocol.py  clasificación adaptativa, capacidades y contrato auditable
 ├── chat.py         Aegis conversacional en paralelo (prosa + lanzador automático de misiones)
 ├── omniroute.py    puente al sidecar npm directo + supervisor de recuperación
 ├── publishing.py   investigación reciente/PDF OA + libros MD/HTML/PDF con quality gate
@@ -629,7 +681,7 @@ Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md
 python -m unittest discover -s tests -v
 ```
 
-202 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
+274 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
 permisos, proveedores, cuotas y ruta explicable, escalera de recuperación,
 división fractal, misión demo completa, red de gobernanza, consenso, memoria,
 shell sin procesos huérfanos, sandbox, firmas HMAC, auth, plugins, zipapp,

@@ -28,69 +28,76 @@ import threading
 import time
 from typing import Any, Callable, Optional
 
-from .config import Config
+from .aegis_protocol import (ProtocolDecision, analyze_request,
+                             format_response)
 from .models import now_iso
 from .providers import BaseProvider, HeuristicProvider, OpenAICompatProvider
 
-# Prompt del asistente: prosa, en español, orientado a ayudar.
-ASSISTANT_SYSTEM_PROMPT = (
-    "Eres Aegis, el asistente autónomo de A²S. Dialogas en español de forma "
-    "clara, técnica pero cercana. Puedes explicar qué está haciendo el agente, "
-    "resumir resultados, proponer próximos pasos y, cuando el operador lo pide, "
-    "lanzar misiones de fondo (un planificador separado las ejecuta). No inventes "
-    "archivos ni resultados: si no sabes algo, dilo. Cuando el operador te pida "
-    "producir algo (un informe, código, una imagen, analizar el workspace), "
-    "respóndele que vas a lanzar una misión para hacerlo y descríbela en una línea. "
-    "Mantén las respuestas concisas y accionables."
-)
+# Compatibilidad pública: el prompt efectivo se especializa por petición.
+ASSISTANT_SYSTEM_PROMPT = analyze_request(
+    "Explica de forma verificable qué puede hacer Aegis").system_prompt()
 
 
 def _prose_chat(provider: BaseProvider, messages: list[dict[str, str]],
-                max_tokens: int = 900) -> str:
+                max_tokens: int = 900,
+                decision: Optional[ProtocolDecision] = None) -> str:
     """Llama al proveedor en modo *prosa* (no JSON estructurado).
 
     Aprovecha el transporte existente de cada proveedor: el pool SORL ya tiene
     ``chat()``; ``OpenAICompatProvider`` expone ``_chat``; el núcleo heurístico
     tiene un asistente determinista de respaldo que nunca falla.
     """
+    last_user = next((message.get("content", "") for message in reversed(messages)
+                      if message.get("role") == "user"), "")
+    decision = decision or analyze_request(last_user)
+    system_prompt = decision.system_prompt()
+    conversation_prompt = _messages_to_prompt(messages)
+
+    def finish(output: str) -> str:
+        return format_response(output.strip(), decision)
+
     # 1) Pool SORL / OmniRoute / cualquier proveedor con chat(prose).
     chat = getattr(provider, "chat", None)
     if callable(chat):
         try:
-            out = chat(messages[-1]["content"], kind="general",
-                       max_tokens=max_tokens, system=ASSISTANT_SYSTEM_PROMPT)
+            out = chat(conversation_prompt, kind="general",
+                       max_tokens=max_tokens, system=system_prompt)
             if out:
-                return out.strip()
+                return finish(out)
         except Exception:  # noqa: BLE001 — el asistente nunca muere
             pass
 
-    # 2) OpenAI-compatible (reutiliza _chat, que ya hace failover al heurístico).
+    # 2) OpenAI-compatible con el mismo contrato conversacional dinámico.
     if isinstance(provider, OpenAICompatProvider):
         try:
-            return provider._chat(messages[-1]["content"],
-                                  max_tokens=max_tokens).strip()
+            out = provider._chat(conversation_prompt, max_tokens=max_tokens,
+                                 system=system_prompt)
+            return finish(out)
         except Exception:  # noqa: BLE001
-            return HeuristicAssistant().reply(messages)
+            return finish(HeuristicAssistant().reply(messages))
 
     # 3) Heurístico local / cualquier otro: respaldo determinista.
     if isinstance(provider, HeuristicProvider) or provider is None:
-        return HeuristicAssistant().reply(messages)
+        return finish(HeuristicAssistant().reply(messages))
 
     generic = getattr(provider, "_chat", None)
     if callable(generic):
         try:
-            return generic(messages[-1]["content"],
-                           max_tokens=max_tokens).strip()
+            out = generic(conversation_prompt, max_tokens=max_tokens,
+                          system=system_prompt)
+            return finish(out)
         except Exception:  # noqa: BLE001
             pass
-    return HeuristicAssistant().reply(messages)
+    return finish(HeuristicAssistant().reply(messages))
 
 
 def _messages_to_prompt(messages: list[dict[str, str]]) -> str:
     lines = []
-    for m in messages[-10:]:
-        role = "Operador" if m["role"] == "user" else "Aegis"
-        lines.append(f"{role}: {m['content']}")
+    for message in messages[-12:]:
+        role = {"user": "Operador", "assistant": "Aegis",
+                "system": "Contexto verificable"}.get(message.get("role"), "Contexto")
+        content = str(message.get("content", ""))[:6000]
+        lines.append(f"{role}: {content}")
     return "\n".join(lines)
 
 
@@ -113,7 +120,12 @@ class HeuristicAssistant:
                  "como te encuentras", "todo bien")
 
     def reply(self, messages: list[dict[str, str]]) -> str:
-        text = (messages[-1]["content"] if messages else "").lower().strip()
+        text = (messages[-1]["content"] if messages else "").strip()
+        # El pool puede degradar pasando la transcripción como un único prompt;
+        # en ese caso se clasifica la petición más reciente, no palabras antiguas.
+        if "Operador:" in text:
+            text = text.rsplit("Operador:", 1)[-1]
+        text = text.lower().strip()
         if any(g in text for g in self.GREETINGS):
             return ("Hola. Soy Aegis, el asistente autónomo de A²S. Puedo ejecutar "
                     "misiones en segundo plano, explicarte qué está pasando y "
@@ -169,6 +181,7 @@ class ChatManager:
         self._lock = threading.Lock()
         self.history: list[dict[str, Any]] = []
         self.busy = False
+        self.last_protocol: Optional[dict[str, Any]] = None
         self._path = os.path.join(self.workspace, ".a2s", "chat_history.json")
         self._load()
 
@@ -204,7 +217,8 @@ class ChatManager:
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
-            return {"busy": self.busy, "history": list(self.history)}
+            return {"busy": self.busy, "history": list(self.history),
+                    "protocol": self.last_protocol}
 
     # -- publicación de eventos ---------------------------------------------
     def _publish(self, event: str, **data: Any) -> None:
@@ -215,10 +229,17 @@ class ChatManager:
                       "haz", "analiza", "produce", "escribe", "descarga",
                       "investiga", "busca", "audita", "revisa")
 
-    def _wants_mission(self, text: str) -> bool:
+    def _wants_mission(self, text: str,
+                       decision: Optional[ProtocolDecision] = None) -> bool:
         low = text.lower()
-        return any(f" {v} " in f" {low} " for v in self._MISSION_VERBS) and \
-            len(text) > 12
+        explicit_action = (any(f" {verb} " in f" {low} "
+                               for verb in self._MISSION_VERBS)
+                           and len(text) > 12)
+        decision = decision or analyze_request(text)
+        # Una respuesta dependiente del presente requiere recuperar evidencia;
+        # no se deja como conocimiento posiblemente obsoleto del modelo.
+        evidence_required = "current_research" in decision.capability_ids
+        return explicit_action or evidence_required
 
     # -- API principal -------------------------------------------------------
     def send(self, text: str) -> tuple[bool, str]:
@@ -235,14 +256,21 @@ class ChatManager:
                                   "at": now_iso()})
             self._save()
 
-        wants_mission = self._wants_mission(text)
+        decision = analyze_request(text)
+        wants_mission = self._wants_mission(text, decision)
         threading.Thread(target=self._respond, name="a2s-chat",
-                         args=(text, wants_mission), daemon=True).start()
+                         args=(text, wants_mission, decision), daemon=True).start()
         return True, "ok"
 
-    def _respond(self, user_text: str, wants_mission: bool) -> None:
+    def _respond(self, user_text: str, wants_mission: bool,
+                 decision: Optional[ProtocolDecision] = None) -> None:
         self._publish("chat_typing")
         reply = ""
+        decision = decision or analyze_request(user_text)
+        protocol = decision.to_dict()
+        with self._lock:
+            self.last_protocol = protocol
+        self._publish("capability_protocol", protocol=protocol)
         try:
             provider = self._get_provider()
             context = self._context_block()
@@ -250,7 +278,8 @@ class ChatManager:
             if context:
                 convo = [{"role": "system", "content": context}] + convo
             convo.append({"role": "user", "content": user_text})
-            reply = _prose_chat(provider, convo) or "No tengo respuesta en este momento."
+            reply = (_prose_chat(provider, convo, decision=decision)
+                     or "No tengo respuesta en este momento.")
 
             # Si el operador pide acción y hay lanzador disponible, abrimos misión.
             mission_id = None
@@ -267,7 +296,8 @@ class ChatManager:
 
             with self._lock:
                 self.history.append({"role": "assistant", "content": reply,
-                                     "at": now_iso(), "mission_id": mission_id})
+                                     "at": now_iso(), "mission_id": mission_id,
+                                     "protocol": protocol})
                 self._save()
             self._publish("chat_message", role="assistant", content=reply,
                           mission_id=mission_id)
@@ -313,5 +343,6 @@ class ChatManager:
     def clear(self) -> None:
         with self._lock:
             self.history = []
+            self.last_protocol = None
             self._save()
         self._publish("chat_cleared")

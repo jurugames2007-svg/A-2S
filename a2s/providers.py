@@ -139,7 +139,7 @@ _HEURISTIC_PLANS: list[tuple[tuple[str, ...], str, list[tuple[str, str, dict[str
          ["quality gate y limitaciones disponibles"]),
     ]),
     (("repositorio", "repositorios", "github", "pdf", "papers", "recientes",
-      "destacables"), "verified_research", [
+      "reciente", "actual", "noticias", "precio", "destacables"), "verified_research", [
         ("investigar_fuentes_y_repositorio", "research_topic",
          {"topic": "{goal}", "repo_limit": 8, "pdf_limit": 8},
          ["repositorios y PDF OA documentados con procedencia"]),
@@ -282,7 +282,8 @@ class OpenAICompatProvider(BaseProvider):
         self.temperature = temperature
         self.fallback = fallback or HeuristicProvider()
 
-    def _chat(self, prompt: str, max_tokens: int = 1500) -> str:
+    def _chat(self, prompt: str, max_tokens: int = 1500,
+              system: str = SYSTEM_PROMPT) -> str:
         if not self.api_key:
             raise RuntimeError("OPENAI_API_KEY no definida")
         payload = {
@@ -290,7 +291,7 @@ class OpenAICompatProvider(BaseProvider):
             "temperature": self.temperature,
             "max_tokens": max_tokens,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system},
                 {"role": "user", "content": prompt},
             ],
         }

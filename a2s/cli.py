@@ -11,6 +11,7 @@ import urllib.error
 
 from . import __version__
 from ._platform import force_utf8
+from .aegis_protocol import analyze_request
 from .config import Config
 
 force_utf8()
@@ -82,6 +83,32 @@ def ram_workspace() -> str:
         return path
     print("[A²S] /dev/shm no disponible: usando directorio temporal")
     return tempfile.mkdtemp(prefix="a2s-")
+
+
+def cmd_protocol(args: argparse.Namespace) -> int:
+    """Inspecciona la selección adaptativa antes de ejecutar una misión."""
+    decision = analyze_request(args.request)
+    if args.json:
+        print(json.dumps(decision.to_dict(), ensure_ascii=False, indent=2))
+        return 0
+    print("Protocolo Adaptativo Aegis")
+    print(f"Necesidad: {', '.join(decision.need_types)}")
+    print(f"Fecha de referencia: {decision.reference_at}")
+    print("Capacidades activadas:")
+    for capability in decision.capabilities:
+        print(f"  ✅ {capability.label} — {capability.purpose}")
+    print("Criterios de aceptación:")
+    for criterion in decision.acceptance_criteria:
+        print(f"  - {criterion}")
+    if decision.clarification_questions:
+        print("Preguntas aclaratorias:")
+        for question in decision.clarification_questions:
+            print(f"  - {question}")
+    if decision.assumptions:
+        print("Supuestos explícitos:")
+        for assumption in decision.assumptions:
+            print(f"  - {assumption}")
+    return 0
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -1074,6 +1101,14 @@ def main(argv: list[str] | None = None) -> int:
 
     p_map = sub.add_parser("map", help="mapa de reinterpretación operativa de la directiva")
     p_map.set_defaults(func=lambda _a: (print_capability_map(), 0)[1])
+
+    p_protocol = sub.add_parser(
+        "protocol",
+        help="clasifica una necesidad y muestra las capacidades que Aegis activaría")
+    p_protocol.add_argument("request", help="petición u objetivo a clasificar")
+    p_protocol.add_argument("--json", action="store_true",
+                            help="emite el contrato completo como JSON")
+    p_protocol.set_defaults(func=cmd_protocol)
 
     p_upd = sub.add_parser(
         "update",

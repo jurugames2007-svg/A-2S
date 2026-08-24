@@ -116,6 +116,7 @@ class RunReport:
     strategies: list[dict[str, Any]] = field(default_factory=list)
     timeline: list[dict[str, Any]] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
+    capability_protocol: dict[str, Any] = field(default_factory=dict)
     final_note: str = ""
     signature: str = ""               # HMAC del informe (verificación criptográfica)
     sandbox_level: str = ""           # nivel de aislamiento usado
