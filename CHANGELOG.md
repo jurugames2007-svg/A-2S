@@ -3,6 +3,38 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.14.0] — 2026-08-24
+
+### Añadido
+
+- **Estudio de investigación verificable** (`a2s research`): analiza el
+  checkout sin ejecutar código, combina repositorios recientes y destacables
+  de GitHub, busca literatura PDF de acceso abierto en OpenAlex/arXiv y usa
+  GitHub Code Search como respaldo de candidatos públicos. Cada fuente conserva
+  URL, fecha, procedencia, licencia y métricas; jamás evita paywalls.
+- **Editorial autónoma** (`a2s book`): investigación previa, índice coherente,
+  capítulos con citas `[S#]`, bibliografía y exportación simultánea a Markdown,
+  HTML y PDF puro-stdlib. `quality.json` verifica capítulos, fuentes, citas,
+  duplicación, extensión, diversidad y canales de investigación; distingue
+  borrador verificado de material que necesita expansión y nunca confunde el
+  gate automático con perfección editorial.
+- Herramientas `research_topic` y `create_book` disponibles para el planner:
+  pedir estas tareas por el chat lanza el workflow especializado sin botones ni
+  configuración de proveedor.
+- Los manifiestos de investigación entran en la memoria BM25 y las fuentes OSS
+  válidas generan fichas de conocimiento; el tema se incorpora al currículo de
+  crecimiento continuo.
+- PDF portable sin Pandoc/LibreOffice y descarga opcional limitada a 20 MB,
+  HTTPS público, cabecera PDF válida y fuentes marcadas como open access.
+
+### Cambiado
+
+- El crecimiento ya no busca únicamente por estrellas: fusiona popularidad y
+  actualización reciente con relevancia temática y ranking explicable.
+- Consultas españolas frecuentes se normalizan para el descubrimiento técnico
+  en GitHub, con consulta relajada si la primera es demasiado restrictiva.
+- La interfaz ofrece acciones rápidas para investigar fuentes y crear libros.
+
 ## [1.13.0] — 2026-08-24
 
 ### Añadido

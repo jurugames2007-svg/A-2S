@@ -337,9 +337,12 @@ export function stopOmniRoute() {
 const REASONING_COMMANDS = new Set([
   "run", "supervise", "swarm", "demo", "learn", "serve", "fsm", "watch",
   "dashboard", "doctor", "pool-status", "pool-check", "route-preview", "grow",
+  "research", "book",
 ]);
 
-const LONG_RUNNING_COMMANDS = new Set(["dashboard", "serve", "watch", "grow"]);
+const LONG_RUNNING_COMMANDS = new Set([
+  "dashboard", "serve", "watch", "grow", "research", "book",
+]);
 
 export function shouldEnsureOmniRoute(args = process.argv.slice(2)) {
   if (!enabled() || args.length === 0) return false;

@@ -532,6 +532,50 @@ def cmd_scout(args: argparse.Namespace) -> int:
     return 0 if not report["errors"] else 2
 
 
+def cmd_research(args: argparse.Namespace) -> int:
+    """Investigación reproducible: checkout, repos recientes/destacables y PDF OA."""
+    from .publishing import ResearchStudio
+    studio = ResearchStudio(args.workspace)
+    report = studio.run(
+        args.topic, repo_limit=args.repos, pdf_limit=args.pdfs,
+        output_dir=args.output, analyze_local=not args.no_local,
+        learn=not args.no_learn, download_pdfs=args.download_pdfs)
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        counts = report["source_counts"]
+        print(f"[A²S] investigación verificable: {counts['repositories']} repo(s), "
+              f"{counts['open_pdfs']} PDF OA + {counts.get('public_pdf_candidates', 0)} "
+              f"candidato(s) público(s), {len(report['learned_cards'])} ficha(s) nueva(s)")
+        for source in report["sources"][:12]:
+            signal = f"★{source['stars']}" if source["stars"] else \
+                (f"{source['citations']} citas" if source["citations"] else source["kind"])
+            print(f"  [{source['id']}] {signal:<12} {source['title'][:72]}")
+        for warning in report["errors"]:
+            print(f"  aviso: {warning}")
+        print("  artefactos: " + ", ".join(report["artifacts"]))
+    return 0 if report["sources"] or report.get("local_repository") else 2
+
+
+def cmd_book(args: argparse.Namespace) -> int:
+    """Construye un libro con fuentes, consistencia estructural y quality gate."""
+    from .publishing import BookBuilder
+    result = BookBuilder(args.workspace).build(
+        args.topic, title=args.title, chapters=args.chapters,
+        target_words=args.words, output_dir=args.output,
+        repo_limit=args.repos, pdf_limit=args.pdfs)
+    if args.json:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        mark = "✔" if result["status"] == "verified_draft" else "◐"
+        print(f"[A²S] {mark} libro {result['status']} · calidad {result['quality_score']}/100 · "
+              f"{result['word_count']} palabras · {result['sources']} fuentes")
+        print("  artefactos: " + ", ".join(result["artifacts"]))
+        if result["quality"]["limitations"]:
+            print("  pendiente: " + ", ".join(result["quality"]["limitations"]))
+    return 0
+
+
 def cmd_pool_preview(args: argparse.Namespace) -> int:
     """Vista explicable y sin llamadas del scheduler SORL."""
     from .provider_pool import build_pool_provider
@@ -872,6 +916,37 @@ def main(argv: list[str] | None = None) -> int:
                          help="resultados máximos por consulta (default: 6)")
     p_scout.add_argument("--json", action="store_true")
     p_scout.set_defaults(func=cmd_scout)
+
+    p_research = sub.add_parser(
+        "research", help="investigación verificable: analiza el checkout y descubre "
+                         "repos recientes/destacables y PDF de acceso abierto")
+    p_research.add_argument("topic", help="tema o pregunta de investigación")
+    p_research.add_argument("--workspace", default="workspace")
+    p_research.add_argument("--repos", type=int, default=8)
+    p_research.add_argument("--pdfs", type=int, default=8)
+    p_research.add_argument("--output", default="research")
+    p_research.add_argument("--download-pdfs", action="store_true",
+                            help="descargar solo PDF marcados open access (máx 20 MB)")
+    p_research.add_argument("--no-local", action="store_true",
+                            help="no analizar estáticamente el workspace")
+    p_research.add_argument("--no-learn", action="store_true",
+                            help="no crear fichas ni añadir el tema al currículo")
+    p_research.add_argument("--json", action="store_true")
+    p_research.set_defaults(func=cmd_research)
+
+    p_book = sub.add_parser(
+        "book", help="crea un libro con investigación, citas, Markdown, HTML, PDF y quality gate")
+    p_book.add_argument("topic", help="tema central del libro")
+    p_book.add_argument("--title", default="")
+    p_book.add_argument("--workspace", default="workspace")
+    p_book.add_argument("--chapters", type=int, default=6)
+    p_book.add_argument("--words", type=int, default=3000,
+                        help="extensión objetivo total")
+    p_book.add_argument("--repos", type=int, default=6)
+    p_book.add_argument("--pdfs", type=int, default=8)
+    p_book.add_argument("--output", default="book")
+    p_book.add_argument("--json", action="store_true")
+    p_book.set_defaults(func=cmd_book)
 
     p_bus = sub.add_parser("search", help="memoria semántica: búsqueda BM25 sobre "
                                           "episodios, fichas de conocimiento y pool")

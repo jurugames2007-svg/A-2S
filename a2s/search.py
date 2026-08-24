@@ -138,10 +138,35 @@ def _docs_pool(workspace: str) -> list[Doc]:
     return out
 
 
+def _docs_investigacion(workspace: str) -> list[Doc]:
+    """Fuentes producidas por ``a2s research``/``a2s book``."""
+    base = os.path.abspath(workspace)
+    out = []
+    for root, dirs, files in os.walk(base):
+        dirs[:] = [directory for directory in dirs
+                   if directory not in (".git", ".a2s", "node_modules", ".venv")]
+        if "sources.json" not in files or os.path.basename(root) != "research":
+            continue
+        try:
+            with open(os.path.join(root, "sources.json"), encoding="utf-8") as fh:
+                report = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        for source in report.get("sources", [])[:100]:
+            out.append(Doc(
+                doc_id=f"research:{source.get('id')}:{source.get('url')}",
+                texto=" ".join(str(source.get(key, "")) for key in
+                               ("title", "summary", "authors", "kind", "updated_at")),
+                origen="investigacion",
+                meta=f"{source.get('id')} · {source.get('title', '')} · {source.get('url', '')}"))
+    return out
+
+
 def workspace_search(workspace: str, consulta: str, top: int = 5,
                      origenes: Optional[set[str]] = None
                      ) -> list[tuple[Doc, float]]:
-    docs = _docs_episodios(workspace) + _docs_fichas(workspace) + _docs_pool(workspace)
+    docs = (_docs_episodios(workspace) + _docs_fichas(workspace) +
+            _docs_pool(workspace) + _docs_investigacion(workspace))
     if origenes:
         docs = [d for d in docs if d.origen in origenes]
     if not docs:

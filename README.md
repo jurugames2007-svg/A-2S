@@ -108,6 +108,14 @@
 > heurístico: no hay que instalar un LLM, elegir `--provider`, configurar una
 > clave ni iniciar sesión para la ruta keyless inicial.
 
+> **v1.14 — investigación y editorial verificables:** Aegis combina repositorios
+> recientes y destacables, analiza el checkout sin ejecutar código remoto,
+> localiza PDF abiertos con procedencia y convierte la evidencia en conocimiento
+> persistente. `a2s book` produce Markdown + HTML + PDF con citas, bibliografía y
+> un `quality.json` medible. El resultado se denomina borrador verificado, no
+> «perfección»: si faltan fuentes, extensión o canales de búsqueda, queda
+> explícitamente marcado para revisión.
+
 ```text
 ▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
                                               → reparametrización
@@ -194,7 +202,7 @@ completo sin publicarlo:
 npm run release:local
 
 # Instala el tarball verificado como comando global; OmniRoute viene incluido
-npm install -g ./artifacts/a2s-agent-control-plane-1.13.0.tgz
+npm install -g ./artifacts/a2s-agent-control-plane-1.14.0.tgz
 
 a2s --version
 a2s doctor                         # levanta/verifica OmniRoute automáticamente
@@ -287,6 +295,35 @@ A2S_AUTO_LEARN=0 npm start     # apagarlo
 Tu propio temario: escribe una consulta por línea en
 `workspace/.a2s/growth_queue.txt`. Progreso visible en el feed del dashboard
 (eventos 🌱), `GET /api/growth` y `.a2s/growth_log.json`.
+
+### Investigación reciente, PDF abiertos y creación de libros
+
+```bash
+# Checkout local + repos recientes/destacables + literatura abierta + aprendizaje
+a2s research "evaluación reproducible de agentes autónomos" --workspace workspace
+
+# Descarga opcional: solo PDF OA, HTTPS público, válidos y de hasta 20 MB
+a2s research "robótica médica" --download-pdfs --workspace workspace
+
+# Libro respaldado por fuentes, en Markdown/HTML/PDF, con control de calidad
+a2s book "agentes autónomos verificables" \
+  --title "Diseño y evaluación de agentes verificables" \
+  --chapters 7 --words 6000 --workspace workspace
+```
+
+`research/report.md` y `research/sources.json` registran URL, fecha de consulta,
+actualización/publicación, licencia, métricas y procedencia. La búsqueda de PDF
+prioriza OpenAlex y arXiv; si no están accesibles, GitHub puede aportar enlaces
+públicos como **candidatos pendientes de revisión de licencia**, que no se
+descargan automáticamente.
+
+Cada repositorio OSS aceptado crea una ficha reutilizable y el tema entra en el
+currículo continuo. Los libros se guardan en `book/book.md`, `book/book.html`,
+`book/book.pdf` y `book/quality.json`. El gate comprueba capítulos, citas,
+fuentes, duplicados, extensión y diversidad. `publication_ready=false` indica
+que todavía hace falta revisión humana o completar canales de investigación.
+También se puede pedir todo por chat: «Investiga repositorios recientes y PDF
+abiertos sobre X» o «Crea un libro verificable sobre X».
 
 ### Ejecución directa con Python
 
@@ -528,6 +565,7 @@ a2s/
 ├── dashboard.py    API del Agent Control Plane (SSE, chat, artefactos, auth, seguridad web)
 ├── chat.py         Aegis conversacional en paralelo (prosa + lanzador automático de misiones)
 ├── omniroute.py    puente al sidecar npm directo + supervisor de recuperación
+├── publishing.py   investigación reciente/PDF OA + libros MD/HTML/PDF con quality gate
 ├── artifacts.py    listado y servicio de archivos/resultados (imágenes, PDF, audio, vídeo, texto)
 ├── ui/             GUI empaquetada (HTML/CSS/JS, sin CDN; layout chat + workspace)
 ├── ecosystem.py    radar creciente de proyectos con licencia OSS verificada

@@ -131,6 +131,21 @@ print("(fin del registro de custodia)")
 
 _HEURISTIC_PLANS: list[tuple[tuple[str, ...], str, list[tuple[str, str, dict[str, Any], list[str]]]]] = [
     # (palabras clave, nombre de plantilla, pasos (nombre, tool, params, criterios))
+    (("libro", "ebook", "manual", "capítulos", "capitulos"), "verified_book", [
+        ("investigar_y_crear_libro", "create_book",
+         {"topic": "{goal}", "chapters": 6, "target_words": 3000},
+         ["book/book.md, HTML, PDF y quality.json creados"]),
+        ("verificar_manuscrito", "read_file", {"path": "book/quality.json"},
+         ["quality gate y limitaciones disponibles"]),
+    ]),
+    (("repositorio", "repositorios", "github", "pdf", "papers", "recientes",
+      "destacables"), "verified_research", [
+        ("investigar_fuentes_y_repositorio", "research_topic",
+         {"topic": "{goal}", "repo_limit": 8, "pdf_limit": 8},
+         ["repositorios y PDF OA documentados con procedencia"]),
+        ("verificar_fuentes", "read_file", {"path": "research/sources.json"},
+         ["manifiesto de fuentes disponible"]),
+    ]),
     (("forense", "informe", "auditor", "analiza", "análisis", "evidence", "evidencia"),
      "forensic_report", [
          ("inventariar_evidencia", "python_exec",
@@ -208,7 +223,8 @@ class HeuristicProvider(BaseProvider):
         step_ids = [f"step-{variant}-{i+1}" for i in range(len(steps))]
         out_steps = []
         for i, (name, tool, params, criteria) in enumerate(steps):
-            params = {k: v.replace("{goal}", goal) for k, v in params.items()}
+            params = {k: (v.replace("{goal}", goal) if isinstance(v, str) else v)
+                      for k, v in params.items()}
             if variant > 0 and "command" in params:
                 params["command"] = f"{params['command']} 2>&1 | head -300"
             out_steps.append({
