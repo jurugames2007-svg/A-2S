@@ -131,11 +131,14 @@
 > 63. El enrutador (`a2s capacidades ruta OBJETIVO`) implementa el sistema
 > de decisión (reconocimiento → web-check/osint4all/nuclei, reversing →
 > ghidra/imhex/x64dbg/cyberchef, prompt → claude-courses/system-prompts,
-> …) con **puerta de autorización**: las cadenas ofensivas se retienen
-> salvo `workspace/.a2s/alcance.json` y siempre se ofrece la alternativa
-> defensiva. `a2s capacidades ingesta` convierte READMEs públicos en fichas
-> de conocimiento (solo lectura, cuotas respetadas, nunca clona ni
-> ejecuta); `a2s capacidades --mapa` genera el informe completo;
+> …). **Flujo académico/hacking ético de primera clase**: perfiles
+> `ctf`/`lab`/`propio`/`universidad` registrados con
+> `a2s capacidades --alcance --perfil ... --nota "..."` (archivo auditable
+> en `workspace/.a2s/alcance.json`); sin archivo, las cadenas ofensivas se
+> retienen con su motivo y la alternativa defensiva — ver
+> `docs/HACKING_ETICO.md`. `a2s capacidades ingesta` convierte READMEs
+> públicos en fichas de conocimiento (solo lectura, cuotas respetadas,
+> nunca clona ni ejecuta); `a2s capacidades --mapa` genera el informe;
 > `GET /api/capacidades` y enrutador en la pestaña Recursos. Ver
 > `docs/CAPACIDADES.md`.
 

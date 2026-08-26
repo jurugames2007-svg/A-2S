@@ -1086,6 +1086,9 @@ def _fmt_requiere(requiere: list[str]) -> str:
     return ", ".join(REQ_NOMBRE.get(r, r) for r in requiere) or "ninguna"
 
 
+
+
+
 def cmd_capacidades(args: argparse.Namespace) -> int:
     """Mapa fuente→capacidad→A²S y enrutador con puerta de autorización."""
     if args.ingesta:
@@ -1110,11 +1113,47 @@ def cmd_capacidades(args: argparse.Namespace) -> int:
                       f"{rid}: {st.get('motivo', '')}")
         return 0
 
+    if args.alcance:
+        from .capacidades import PERFILES, alcance_info, alcance_path, crear_alcance
+        if args.perfil:
+            try:
+                data = crear_alcance(args.workspace, perfil=args.perfil,
+                                     nota=args.nota,
+                                     hosts=tuple(args.hosts or ()) or None)
+            except ValueError as exc:
+                print(f"✗ {exc}")
+                return 1
+            if args.json:
+                print(json.dumps(data, ensure_ascii=False, indent=2))
+                return 0
+            print("[A²S] alcance registrado (auditable):")
+            print(f"  perfil: {data['perfil']} — {data['perfil_nombre']}")
+            print(f"  nota:   {data['nota']}")
+            print(f"  hosts:  {', '.join(data['hosts'])}")
+            print(f"  archivo: {alcance_path(args.workspace)}")
+            return 0
+        info = alcance_info(args.workspace)
+        if args.json:
+            print(json.dumps(info, ensure_ascii=False, indent=2))
+            return 0
+        if not info["existe"]:
+            print(f"A²S — sin alcance registrado en {info['path']}")
+            print("Registra tu marco académico/ético:")
+            print(f"  a2s capacidades --alcance --perfil "
+                  f"ctf|lab|propio|universidad --nota \"clase HTB 2026\"")
+            return 0
+        print(f"A²S — alcance: {'VÁLIDO' if info['valido'] else 'INCOMPLETO'}"
+              f" · perfil {info['perfil'] or '—'}")
+        print(f"  nota:  {info['nota'] or '—'}")
+        print(f"  hosts: {', '.join(info['hosts']) or '—'}")
+        print(f"  archivo: {info['path']}")
+        return 0
+
     if args.ruta:
         from .capacidades import seleccionar
         try:
             plan = seleccionar(args.ruta, contexto=args.ctx,
-                               workspace=args.workspace)
+                               workspace=args.workspace, perfil=args.perfil)
         except ValueError as exc:
             print(f"✗ {exc}")
             return 1
@@ -1513,6 +1552,19 @@ def main(argv: list[str] | None = None) -> int:
                             "capacidades.md; '-' = stdout)")
     p_cap.add_argument("--core", action="store_true",
                        help="lista las 15 fuentes core")
+    p_cap.add_argument("--alcance", action="store_true",
+                       help="consulta el alcance académico registrado "
+                            "(con --perfil lo crea/actualiza)")
+    p_cap.add_argument("--perfil", default="",
+                       choices=["ctf", "lab", "propio", "universidad"],
+                       help="marco académico/ético al registrar el alcance "
+                            "o al enrutar (ctf | lab | propio | universidad)")
+    p_cap.add_argument("--nota", default="",
+                       help="caso concreto del alcance (clase, plataforma, "
+                            "infraestructura…); obligatoria al crear")
+    p_cap.add_argument("--hosts", action="append", default=None,
+                       help="hosts/redes cubiertos por el alcance "
+                            "(repetible; default 127.0.0.1,localhost)")
     p_cap.add_argument("--workspace", default="workspace")
     p_cap.add_argument("--json", action="store_true", help="salida JSON")
     p_cap.set_defaults(func=cmd_capacidades)

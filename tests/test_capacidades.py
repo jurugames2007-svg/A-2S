@@ -9,10 +9,11 @@ import os
 import tempfile
 import unittest
 
-from a2s.capacidades import (DOMINIOS, DOMINIO_NOMBRE, REQ_NOMBRE, USO_NOMBRE,
-                             buscar_capacidad, core_ids, estado_ingesta,
-                             ingesta, mapa_markdown, puerta_autorizacion,
-                             resumen, resolver, seleccionar, todas)
+from a2s.capacidades import (DOMINIOS, DOMINIO_NOMBRE, PERFILES, REQ_NOMBRE,
+                             USO_NOMBRE, alcance_info, buscar_capacidad,
+                             core_ids, crear_alcance, estado_ingesta, ingesta,
+                             mapa_markdown, puerta_autorizacion, resumen,
+                             resolver, seleccionar, todas)
 from a2s.cli import main
 from a2s.learner import GitHubClient, load_cards
 from a2s.recursos import ENTRADAS, api_snapshot, validar
@@ -108,19 +109,46 @@ class TestEnrutador(unittest.TestCase):
         self.assertNotIn("nuclei", ids)
         self.assertIn("defensiva", plan["sugerencia_defensiva"].lower())
 
+    def test_alcance_academico_por_perfil_y_hosts(self):
+        self.assertEqual(set(PERFILES), {"ctf", "lab", "propio", "universidad"})
+        with tempfile.TemporaryDirectory() as ws:
+            data = crear_alcance(ws, "ctf",
+                                 nota="clase HTB — alcance de la plataforma",
+                                 hosts=("127.0.0.1", "localhost"))
+            self.assertEqual(data["perfil"], "ctf")
+            self.assertTrue(data["autorizado"])
+            info = alcance_info(ws)
+            self.assertTrue(info["valido"])
+            # objetivo sin marca de CTF/lab y sin host: el perfil lo cubre
+            gate = puerta_autorizacion("reconocimiento de ejemplo.com", ws,
+                                       perfil="ctf")
+            self.assertTrue(gate["valida"])
+
+    def test_alcance_exige_nota_y_perfil_valido(self):
+        with tempfile.TemporaryDirectory() as ws:
+            with self.assertRaises(ValueError):
+                crear_alcance(ws, "ctf", nota="")
+            with self.assertRaises(ValueError):
+                crear_alcance(ws, "inexistente", nota="x")
+
     def test_reconocimiento_con_alcance_firmado_libera_ruta_ofensiva(self):
         with tempfile.TemporaryDirectory() as ws:
-            os.makedirs(os.path.join(ws, ".a2s"), exist_ok=True)
-            with open(os.path.join(ws, ".a2s", "alcance.json"), "w",
-                      encoding="utf-8") as fh:
-                json.dump({"autorizado": True, "hosts": ["*"],
-                           "nota": "red-team propio"}, fh)
+            crear_alcance(ws, "propio", nota="red-team sobre infraestructura propia",
+                          hosts=("*",))
             gate = puerta_autorizacion("reconocimiento de ejemplo.com", ws)
             self.assertTrue(gate["valida"])
             plan = seleccionar("reconocimiento de ejemplo.com", workspace=ws)
             ids = {p["id"] for p in plan["pasos"]}
             self.assertIn("nuclei", ids)
             self.assertFalse(any(b["id"] == "nuclei" for b in plan["bloqueados"]))
+
+    def test_perfil_sin_alcance_registrado_no_abre_la_puerta(self):
+        with tempfile.TemporaryDirectory() as ws:
+            plan = seleccionar("reconocimiento web", workspace=ws, perfil="ctf")
+            self.assertIn("nuclei", {b["id"] for b in plan["bloqueados"]})
+            info = plan["autorizacion"]
+            self.assertFalse(info["valida"])
+            self.assertFalse(info["existe"])
 
     def test_reversing_binario_encadena_pipeline(self):
         plan = seleccionar("reversing binario")
@@ -240,6 +268,31 @@ class TestMapaYCLI(unittest.TestCase):
             code = main(["capacidades", "--core"])
         self.assertEqual(code, 0)
         self.assertIn("web-check", out.getvalue())
+
+    def test_cli_alcance_y_ruta_perfil_academico(self):
+        with tempfile.TemporaryDirectory() as ws:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = main(["capacidades", "--alcance", "--perfil", "lab",
+                             "--nota", "DVWA en local (clase)", "--workspace", ws])
+            self.assertEqual(code, 0)
+            self.assertIn("registrado", out.getvalue())
+            out2 = io.StringIO()
+            with contextlib.redirect_stdout(out2):
+                code = main(["capacidades", "--alcance", "--json", "--workspace", ws])
+            self.assertEqual(code, 0)
+            data = json.loads(out2.getvalue())
+            self.assertTrue(data["valido"])
+            self.assertEqual(data["perfil"], "lab")
+            # el perfil registrado abre la ruta ofensiva al enrutar con él
+            out3 = io.StringIO()
+            with contextlib.redirect_stdout(out3):
+                code = main(["capacidades", "--ruta", "reconocimiento web",
+                             "--perfil", "lab", "--json", "--workspace", ws])
+            self.assertEqual(code, 0)
+            plan = json.loads(out3.getvalue())
+            self.assertIn("nuclei", {p["id"] for p in plan["pasos"]})
+            self.assertTrue(plan["autorizacion"]["valida"])
 
 
 if __name__ == "__main__":

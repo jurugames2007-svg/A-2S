@@ -25,11 +25,19 @@ versionado semántico mientras la API pública permanece en evolución.
   prompt → claude-courses + system-prompts-leaks + karpathy-skills +
   agency-agents; orquestación → n8n + ruflo; secretos → vault + openssl;
   VPN → algo + setup-ipsec + xray…), con búsqueda BM25 como fallback.
+- **Flujo académico / hacking ético de primera clase**: perfiles
+  `ctf`, `lab`, `propio` y `universidad` registrados con
+  `a2s capacidades --alcance --perfil ... --nota "..."` (archivo atómico,
+  fechado y auditable; plantilla en `examples/alcance.example.json`).
+  El enrutador acepta `--perfil` (o `?perfil=` en la API) pero **solo**
+  abre las rutas con `autorizacion_escrita` si el alcance ya está
+  registrado y cubre el caso (hosts, `*`, marca de laboratorio CTF/HTB/
+  THM/DVWA/propio, o perfil coincidente).
 - **Puerta de autorización**: las rutas con `autorizacion_escrita` se
-  mueven a `bloqueados` salvo que exista `workspace/.a2s/alcance.json`
-  (`{"autorizado": true, "hosts": [...]}`); las de zona gris (`no`) quedan
-  como referencia y nunca se automatizan; siempre se publica la alternativa
-  defensiva.
+  mueven a `bloqueados` con motivo exacto (cómo registrarlo) salvo alcance
+  válido; las de zona gris (`no`) quedan como referencia y nunca se
+  automatizan; siempre se publica la alternativa defensiva. Ver
+  `docs/HACKING_ETICO.md`.
 - **Ingesta a memoria** (`a2s capacidades ingesta`): READMEs públicos →
   fichas de conocimiento (`cap-<id>` en `.a2s/knowledge/`) con licencia,
   stars, resumen extractivo y estado en

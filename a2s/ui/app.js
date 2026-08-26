@@ -1052,9 +1052,12 @@ function wireActions() {
   const enrutar = async () => {
     const objetivo = (rutaInput.value || "").trim();
     if (!objetivo) { toast("Escribe un objetivo (p. ej. «recon web», «prompt», «vpn»)", true); return; }
+    const perfil = ($("#recursos-perfil") || {}).value || "";
     rutaBtn.disabled = true;
     try {
-      const plan = await api(`/api/capacidades?objetivo=${encodeURIComponent(objetivo)}`);
+      const params = new URLSearchParams({ objetivo });
+      if (perfil) params.set("perfil", perfil);
+      const plan = await api(`/api/capacidades?${params.toString()}`);
       renderRuta(plan, rutaOut);
     } catch (error) { toast(error.message, true); }
     finally { rutaBtn.disabled = false; }

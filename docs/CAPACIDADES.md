@@ -116,30 +116,48 @@ Ejemplos de salida real:
   requiere alcance escrito firmado»); sugerencia defensiva.
 - `streaming flixer` → retenido («zona gris/referencia»).
 
-### Puerta de autorización
+### Puerta de autorización (perfiles académicos/éticos)
 
-`a2s capacidades ruta` lee `workspace/.a2s/alcance.json`:
+`a2s capacidades --alcance --perfil ...` registra el marco con
+`workspace/.a2s/alcance.json` (atómico, fechado, con nota del caso):
+
+```bash
+a2s capacidades --alcance --perfil lab \
+  --nota "DVWA en VM local (clase de la U)"        # crea el alcance
+a2s capacidades --alcance                           # consulta el estado
+a2s capacidades --ruta "recon web" --perfil lab     # enruta con el perfil
+```
 
 ```json
 {
-  "autorizado": true,
-  "hosts": ["*"],
-  "nota": "red-team propio con alcance firmado (2026-08)"
+  "version": 1, "autorizado": true,
+  "perfil": "lab",
+  "perfil_nombre": "Laboratorio propio (Metasploitable, DVWA, Juice Shop, Kali)",
+  "nota": "DVWA en VM local (clase de la U)",
+  "hosts": ["127.0.0.1", "localhost"],
+  "at": "2026-08-26T00:00:00+00:00"
 }
 ```
 
-Solo con alcance válido (y cobertura del host o contexto CTF/lab propio) se
-liberan los eslabones con `autorizacion_escrita` (nuclei, hashcat, etc.).
-Sin archivo, la ruta ofensiva queda bloqueada y se publica la alternativa.
-Los recursos `no` (zona gris: deepweb, streaming sin licencia, Worm-GPT,
-réplicas) **nunca** se liberan: son documentación.
+Perfiles: `ctf`, `lab`, `propio`, `universidad` (ver
+`docs/HACKING_ETICO.md`). Solo con alcance **válido** (perfil + nota) y
+cobertura (hosts, `*`, marca de laboratorio en el objetivo o perfil
+coincidente) se liberan los eslabones con `autorizacion_escrita`
+(nuclei, sqlmap, metasploit, hashcat, hackingtool — como herramientas que
+**el operador ejecuta** en su entorno autorizado; A²S no porta sus
+exploits). Sin archivo — aunque pases `--perfil` — la ruta ofensiva queda
+bloqueada y se publica la alternativa. Los recursos `no` (zona gris:
+deepweb, streaming sin licencia, Worm-GPT, réplicas) **nunca** se liberan:
+son documentación.
 
 ## 5. Comandos
 
 ```
 a2s capacidades                      # resumen (dominios, usos, core, ingesta)
 a2s capacidades --core               # las 15 fuentes core
-a2s capacidades --ruta "recon web"   # enrutador con puerta de autorización
+a2s capacidades --alcance            # estado del alcance registrado
+a2s capacidades --alcance --perfil lab --nota "DVWA en VM local"  # registra
+a2s capacidades --ruta "recon web" [--perfil ctf|lab|propio|universidad]
 a2s capacidades --ruta ... --json    # contrato JSON completo
 a2s capacidades --mapa [-|RUTA]      # informe Markdown completo
 a2s capacidades --ingesta --calls 40 [--solo ghidra,cyberchef] [--refresh]

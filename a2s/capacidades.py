@@ -294,10 +294,11 @@ _ESPEC: tuple[dict[str, Any], ...] = (
        "Análisis de binarios propios/CTF; nunca de software ajeno sin autorización.",
        ("imhex", "x64dbg", "cyberchef"), True),
     _e("hackingtool", "ciber", "suite_pruebas_cli", "parcial",
-       ("cli_hackingtool", "autorizacion_escrita"), ("tools.shell",),
-       ("Estudiar la composición de la suite.",
-        "No instalarla ni ejecutarla sin alcance autorizado."),
-       "Suite ofensiva agregada: solo alcance escrito y entorno propio."),
+       ("cli_hackingtool", "autorizacion_escrita", "entorno_autorizado"),
+       ("tools.shell",),
+       ("Usar en el laboratorio autorizado con el operador presente.",
+        "Registrar cada ejecución con su alcance."),
+       "Suite agregada: solo entorno autorizado; A²S no automatiza su ejecución."),
     _e("imhex", "ciber", "analisis_binario_hex", "parcial",
        ("cli_imhex",), ("plugin.forensics_extra.extract_strings",
                         "plugin.forensics_extra.file_magic"),
@@ -321,16 +322,18 @@ _ESPEC: tuple[dict[str, Any], ...] = (
        ("Interceptar tráfico de servicios propios.",
         "Parsear los hallazgos al informe con la fuente."),
        "Solo tráfico propio/autorizado; nunca credenciales de terceros."),
-    _e("metasploit", "ciber", "explotacion_framework", "no",
-       ("cli_metasploit", "autorizacion_escrita"), (),
-       ("Consultar documentación para planificación defensiva.",
-        "Bloqueado por defecto: requiere alcance escrito firmado."),
-       "Framework ofensivo: A²S no lo ejecuta; solo documenta alternativas defensivas."),
-    _e("sqlmap", "ciber", "deteccion_sqli", "no",
-       ("cli_sqlmap", "autorizacion_escrita"), (),
-       ("Consultar la técnica para revisiones defensivas.",
-        "Bloqueado por defecto: requiere alcance escrito firmado."),
-       "Herramienta ofensiva: solo pruebas autorizadas y nunca automatizada."),
+    _e("metasploit", "ciber", "explotacion_framework", "parcial",
+       ("cli_metasploit", "autorizacion_escrita", "entorno_autorizado"), (),
+       ("Preparar el laboratorio (Metasploitable/Kali) y registrar alcance.",
+        "El operador ejecuta el framework en el entorno autorizado.",
+        "Documentar resultados con cadena de custodia."),
+       "Uso exclusivo en laboratorio/alcance registrado; A²S no porta ni ejecuta exploits."),
+    _e("sqlmap", "ciber", "deteccion_sqli", "parcial",
+       ("cli_sqlmap", "autorizacion_escrita", "entorno_autorizado"), (),
+       ("Usar solo sobre el objetivo autorizado del lab.",
+        "Registrar alcance, parámetros y salida en el informe.",
+        "No automatizar contra sistemas ajenos al alcance."),
+       "Pruebas de inyección exclusivamente sobre el alcance registrado."),
     _e("xray-core", "infraestructura", "proxy_xray", "parcial",
        ("servidor_propio",), ("tools.fetch_url",),
        ("Desplegar sobre infraestructura propia.",
@@ -697,14 +700,31 @@ def buscar_capacidad(consulta: str, top: int = 8,
 # Puerta de autorización (ruta ofensiva)
 # ---------------------------------------------------------------------------
 
-def _alcance_path(workspace: str) -> str:
+# Perfiles académicos/éticos con alcance explícito y registrado. Ningún perfil
+# es "auto-autorización": el archivo de alcance debe existir antes de enrutar.
+PERFILES: dict[str, str] = {
+    "ctf": "Competiciones/plataformas de CTF (HTB, THM, VulnHub, retos locales)",
+    "lab": "Laboratorio propio (Metasploitable, DVWA, Juice Shop, Kali)",
+    "propio": "Infraestructura, datos o binarios propios",
+    "universidad": "Laboratorio académico con autorización docente/comité",
+}
+
+_MARCAS_LAB = ("ctf", "hackthebox", "tryhackme", "htb", "thm", "vulnhub",
+               "metasploitable", "dvwa", "juice shop", "kali", "lab",
+               "laboratorio", "propio", "local", "demo", "red-team",
+               "tesis", "universidad", "academico", "academica", "ejercicio",
+               "practica", "clase", "curso")
+
+
+def alcance_path(workspace: str) -> str:
     return os.path.join(os.path.abspath(workspace or "."), ".a2s", "alcance.json")
 
 
 def alcance_info(workspace: str) -> dict[str, Any]:
     """Estado del alcance escrito: existe, es válido y qué cubre."""
-    path = _alcance_path(workspace)
-    base = {"existe": False, "valido": False, "hosts": [], "nota": "", "path": path}
+    path = alcance_path(workspace)
+    base = {"existe": False, "valido": False, "hosts": [], "nota": "",
+            "perfil": "", "path": path}
     if not os.path.isfile(path):
         return base
     try:
@@ -717,20 +737,50 @@ def alcance_info(workspace: str) -> dict[str, Any]:
     hosts = data.get("hosts") or []
     if not isinstance(hosts, list):
         hosts = []
-    return {**base, "existe": True, "valido": True,
+    perfil = str(data.get("perfil") or "")
+    nota = str(data.get("nota") or "")[:300]
+    valido = bool(perfil in PERFILES and nota)
+    return {**base, "existe": True, "valido": valido,
             "hosts": [str(h)[:120] for h in hosts],
-            "nota": str(data.get("nota", ""))[:300]}
+            "nota": nota, "perfil": perfil}
 
 
-def _es_objetivo_propio(objetivo: str) -> bool:
+def crear_alcance(workspace: str, perfil: str, nota: str = "",
+                  hosts: Optional[tuple[str, ...]] = None) -> dict[str, Any]:
+    """Registra el alcance académico/ético del operador (auditable, atómico).
+
+    ``perfil`` define el marco (ctf/lab/propio/universidad), ``nota`` el caso
+    concreto (clase, plataforma, infraestructura) y ``hosts`` el alcance de
+    red opcional (por defecto sólo el entorno local/lab). El archivo queda en
+    ``workspace/.a2s/alcance.json`` junto a la bitácora forense.
+    """
+    perfil = (perfil or "").strip().lower()
+    if perfil not in PERFILES:
+        raise ValueError(
+            f"perfil desconocido «{perfil}»; usa: {', '.join(PERFILES)}")
+    nota = (nota or "").strip()
+    if not nota:
+        raise ValueError("falta la nota del alcance (caso concreto: clase, "
+                         "plataforma, infraestructura…)")
+    hosts_list = [h.strip().lower() for h in (hosts or ("127.0.0.1", "localhost"))
+                  if h.strip()]
+    perfil_nombre = PERFILES[perfil]
+    data = {"version": 1, "autorizado": True, "perfil": perfil,
+            "perfil_nombre": perfil_nombre,
+            "nota": nota[:300], "hosts": hosts_list,
+            "at": now_iso()}
+    _atomic_write(alcance_path(workspace), data)
+    return data
+
+
+def _es_objetivo_lab(objetivo: str) -> bool:
     text = _norm(objetivo)
-    return any(w in text for w in ("ctf", "propio", "local", "demo", "lab",
-                                   "laboratorio", "red-team", "infraestructura propia",
-                                   "own ", "hackthebox", "tryhackme"))
+    return any(mar in text for mar in _MARCAS_LAB)
 
 
-def puerta_autorizacion(objetivo: str, workspace: str = "") -> dict[str, Any]:
-    """¿La ruta ofensiva pedida está dentro del alcance autorizado?"""
+def puerta_autorizacion(objetivo: str, workspace: str = "",
+                        perfil: str = "") -> dict[str, Any]:
+    """¿La ruta ofensiva pedida está dentro del alcance académico autorizado?"""
     info = alcance_info(workspace)
     objetivo_norm = _norm(objetivo or "")
     host = ""
@@ -738,11 +788,13 @@ def puerta_autorizacion(objetivo: str, workspace: str = "") -> dict[str, Any]:
         if objetivo_norm.startswith(prefix):
             host = urllib.parse.urlparse(objetivo).netloc.lower()
             break
+    perfil_pedido = (perfil or "").strip().lower()
     cubierto = (
         info["valido"]
         and ("*" in info["hosts"]
              or (host and any(h in host or host in h for h in info["hosts"]))
-             or _es_objetivo_propio(objetivo))
+             or _es_objetivo_lab(objetivo)
+             or (perfil_pedido and info["perfil"] == perfil_pedido))
     )
     return {"necesaria": True, "valida": bool(cubierto), **info}
 
@@ -784,11 +836,14 @@ def _paso(ident: str, posicion: int, total: int,
 
 
 def seleccionar(objetivo: str, contexto: str = "",
-                workspace: str = "", top: int = 6) -> dict[str, Any]:
+                workspace: str = "", top: int = 6,
+                perfil: str = "") -> dict[str, Any]:
     """Decide qué cadena de recursos usar para un objetivo (o la bloquea).
 
-    Devuelve ``pasos`` (lo que A²S puede ejecutar o preparar), ``bloqueados``
-    (lo que la puerta de ética retiene) y una sugerencia defensiva alternativa.
+    ``perfil`` (ctf/lab/propio/universidad) solo actúa cuando el alcance ya
+    está registrado en ``workspace/.a2s/alcance.json``. Devuelve ``pasos``
+    (lo que A²S puede ejecutar o preparar), ``bloqueados`` (lo que la puerta
+    retiene) y una sugerencia defensiva alternativa.
     """
     objetivo = (objetivo or "").strip()
     if not objetivo:
@@ -798,7 +853,7 @@ def seleccionar(objetivo: str, contexto: str = "",
         ranked = buscar_capacidad(f"{objetivo} {contexto}", top=top,
                                   workspace=workspace)
         cadena = tuple(str(r["id"]) for r in ranked)
-    gate = puerta_autorizacion(objetivo, workspace)
+    gate = puerta_autorizacion(objetivo, workspace, perfil=perfil)
     pasos: list[dict[str, Any]] = []
     bloqueados: list[dict[str, Any]] = []
     for ident in cadena:
@@ -828,7 +883,7 @@ def seleccionar(objetivo: str, contexto: str = "",
         "pasos": pasos,
         "bloqueados": bloqueados,
         "autorizacion": {k: gate[k] for k in ("necesaria", "valida", "existe",
-                                              "nota", "hosts", "path")},
+                                              "nota", "hosts", "perfil", "path")},
         "sugerencia_defensiva": defensiva,
         "resumen": (f"{len(pasos)} paso(s) habilitado(s), "
                     f"{len(bloqueados)} retenido(s) por la puerta de ética"),
@@ -845,8 +900,9 @@ def _motivo_bloqueo(cap: Capacidad, entry: dict[str, Any],
         return "zona gris/referencia: A²S no automatiza este recurso"
     if "autorizacion_escrita" in cap.requiere:
         if not gate["valida"]:
-            return ("requiere alcance escrito: crea workspace/.a2s/alcance.json "
-                    "con \"autorizado\": true y los hosts cubiertos")
+            return ("requiere alcance académico registrado: ejecuta "
+                    "`a2s capacidades --alcance --perfil ctf|lab|propio|"
+                    "universidad --nota \"...\"` antes de enrutar")
         return ""
     if "advertido" in etiquetas:
         return "advertido: verificar términos y legalidad local"

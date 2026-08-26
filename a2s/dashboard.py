@@ -564,10 +564,12 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             from .capacidades import resumen, seleccionar
             objetivo = (query.get("objetivo") or [""])[0][:200]
             if objetivo:
+                perfil = (query.get("perfil") or [""])[0][:32]
                 self._json(seleccionar(
                     objetivo,
                     contexto=(query.get("ctx") or [""])[0][:300],
-                    workspace=self.control_plane.workspace))
+                    workspace=self.control_plane.workspace,
+                    perfil=perfil))
             else:
                 self._json(resumen(self.control_plane.workspace))
         elif path == "/api/audit":
