@@ -222,6 +222,38 @@ class GitHubClient:
         return sorted(merged.values(), key=lambda hit: (score(hit), hit.stars),
                       reverse=True)[:limit]
 
+    def repo_metadata(self, full_name: str) -> dict[str, Any]:
+        """Metadatos de un repo concreto (lectura simple, sin clonar).
+
+        Usado por la capa de capacidades (``a2s capacidades ingesta``) para
+        registrar licencia, lenguaje y estado de mantenimiento de las fuentes
+        del catálogo. Respeta las mismas ventanas y ``Retry-After`` que el
+        resto del cliente.
+        """
+        status, _, body = self._get(
+            f"{GITHUB_API}/repos/{urllib.parse.quote(full_name)}",
+            "application/vnd.github+json", self.core_window)
+        if status != 200:
+            return {}
+        try:
+            data = json.loads(body.decode("utf-8", "replace"))
+        except ValueError:
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return {
+            "full_name": str(data.get("full_name") or full_name),
+            "description": str(data.get("description") or "")[:300],
+            "stars": int(data.get("stargazers_count", 0) or 0),
+            "language": str(data.get("language") or ""),
+            "license": str(((data.get("license") or {}).get("spdx_id"))
+                           or "desconocida"),
+            "updated_at": str(data.get("updated_at") or "")[:10],
+            "archived": bool(data.get("archived")),
+            "html_url": str(data.get("html_url")
+                            or f"https://github.com/{full_name}"),
+        }
+
     def search_public_pdfs(self, query: str, limit: int = 8) -> list[PdfHit]:
         """Localiza PDF públicos en GitHub y recupera la licencia del repo.
 

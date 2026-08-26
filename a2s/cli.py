@@ -1081,6 +1081,253 @@ def _recursos_check_watch(args: argparse.Namespace, data: dict,
     return 0
 
 
+def _fmt_requiere(requiere: list[str]) -> str:
+    from .capacidades import REQ_NOMBRE
+    return ", ".join(REQ_NOMBRE.get(r, r) for r in requiere) or "ninguna"
+
+
+def cmd_promptguard(args: argparse.Namespace) -> int:
+    """PromptGuard: detección defensiva de inyección de prompts/jailbreaks."""
+    from .promptguard import clasificar, documentar, formato_legible
+    texto = args.texto or ""
+    if args.archivo:
+        path = os.path.abspath(os.path.join(os.path.abspath(args.workspace),
+                                            args.archivo))
+        root = os.path.abspath(args.workspace or ".")
+        if not (path.startswith(root + os.sep) or path == root):
+            print("✗ archivo fuera del workspace")
+            return 1
+        if not os.path.isfile(path):
+            print(f"✗ archivo no encontrado: {args.archivo}")
+            return 1
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                texto = fh.read(50_000)
+        except OSError as exc:
+            print(f"✗ no se pudo leer: {exc}")
+            return 1
+    veredicto = clasificar(texto)
+    if args.ledger and veredicto.veredicto != "sin_texto":
+        registrado = documentar(args.workspace, veredicto)
+        if args.json:
+            print(json.dumps({**veredicto.to_dict(),
+                              "registrado": registrado["ledger"]["hash"][:16]},
+                             ensure_ascii=False, indent=2))
+            return 0
+        print("[A²S] hallazgo registrado en el ledger (cadena de custodia)")
+    elif args.json:
+        print(json.dumps(veredicto.to_dict(), ensure_ascii=False, indent=2))
+        return 0
+    print(formato_legible(veredicto))
+    return 0
+
+
+def cmd_secops(args: argparse.Namespace) -> int:
+    """SecOps asistido: alcance criptográfico + ejecución defensiva local."""
+    from .secops import (crear_scope, estado_scope, ejecutar, resumen_secops)
+    if args.accion == "scope-create":
+        try:
+            data = crear_scope(
+                args.workspace,
+                targets=[t for t in (args.targets or "").split(",") if t.strip()],
+                acciones=[a for a in (args.acciones or "").split(",") if a.strip()],
+                expires=args.expires, firma=args.firma)
+        except ValueError as exc:
+            print(f"✗ {exc}")
+            return 1
+        if args.json:
+            print(json.dumps(data, ensure_ascii=False, indent=2))
+            return 0
+        print("[A²S] alcance firmado (HMAC-SHA256, vocabulario cerrado):")
+        print(f"  firmante: {data['signed_by']}")
+        print(f"  targets:  {', '.join(data['targets'])}")
+        print(f"  acciones: {', '.join(data['acciones'])}")
+        print(f"  expira:   {data['expires']}")
+        print(f"  archivo:  {args.workspace}/.a2s/scope.jwt")
+        return 0
+    if args.accion == "scope-status":
+        estado = estado_scope(args.workspace)
+        if args.json:
+            print(json.dumps(estado, ensure_ascii=False, indent=2))
+            return 0
+        if not estado["valido"]:
+            print(f"A²S — alcance: INVALIDO · {estado.get('motivo', '')}")
+            print("  crea uno con: a2s secops scope-create --targets ... "
+                  "--acciones recon,scan,analizar --firma \"...\"")
+            return 0
+        print(f"A²S — alcance: VÁLIDO · firmante {estado['signed_by']}")
+        print(f"  targets:  {', '.join(estado['targets'])}")
+        print(f"  acciones: {', '.join(estado['acciones'])}")
+        print(f"  expira:   {estado['expires']} · emitido {estado['iat']}")
+        return 0
+    try:
+        report = ejecutar(args.objetivo, modo=args.modo, workspace=args.workspace,
+                          targets=[t for t in (args.targets or "").split(",")
+                                   if t.strip()] or None,
+                          archivo=args.archivo, templates=args.templates,
+                          confirm=args.confirm)
+    except ValueError as exc:
+        print(f"✗ {exc}")
+        return 1
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+    print(f"A²S — SecOps · modo {report['modo']} · «{report['objetivo']}»")
+    print(f"  scope: {'VÁLIDO' if report['scope']['valido'] else 'sin alcance'}"
+          if report['modo'] == "asistido" else
+          "  scope: no necesario en simulación")
+    for paso in report["pasos"]:
+        marca = {"simulado": "·", "ok": "✔", "denegado": "✗", "omitido": "•",
+                 "sin_objetivo": "•", "error": "✗"}.get(paso["estado"], "?")
+        print(f"  {marca} {paso['nombre']} ({paso['tipo']})")
+        if paso.get("motivo"):
+            print(f"        → {paso['motivo']}")
+        if paso.get("reporte") and paso["estado"] == "ok":
+            r = paso["reporte"]
+            detalle = (f"HTTP {r.get('status')} · {r.get('ms')}ms"
+                       if "status" in r else
+                       f"{r.get('scanner')}: {r.get('total')} hallazgos"
+                       if "scanner" in r else
+                       f"sha256 {str(r.get('sha256', ''))[:16]}…")
+            print(f"        → {detalle}")
+    if report["modo"] == "asistido":
+        print(f"  run: {report.get('run_id', '')} · informe en "
+              f"{args.workspace}/.a2s/secops/")
+    else:
+        print(f"  nota: {report['nota']}")
+    return 0
+
+
+
+
+
+def cmd_capacidades(args: argparse.Namespace) -> int:
+    """Mapa fuente→capacidad→A²S y enrutador con puerta de autorización."""
+    if args.ingesta:
+        from .capacidades import ingesta
+        try:
+            report = ingesta(args.workspace, max_calls=args.calls,
+                             solo=args.solo, refresh=args.refresh)
+        except Exception as exc:  # noqa: BLE001 — presupuesto/cuota de GitHub
+            print(f"✗ ingesta detenida: {exc}")
+            return 1
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        print(f"[A²S] ingesta de capacidades: {report['total']} procesadas · "
+              f"{report['ok']} ok · {report['revisar']} para revisar · "
+              f"{report['error']} error · {report['referencia']} referencia")
+        print(f"      fichas en workspace/.a2s/knowledge/ y estados en "
+              f"workspace/.a2s/capacidades/ingesta.json (reanudable)")
+        for rid, st in report["estados"].items():
+            if st.get("estado") in ("revisar", "error"):
+                print(f"      {'!' if st.get('estado') == 'error' else '~'} "
+                      f"{rid}: {st.get('motivo', '')}")
+        return 0
+
+    if args.alcance:
+        from .capacidades import PERFILES, alcance_info, alcance_path, crear_alcance
+        if args.perfil:
+            try:
+                data = crear_alcance(args.workspace, perfil=args.perfil,
+                                     nota=args.nota,
+                                     hosts=tuple(args.hosts or ()) or None)
+            except ValueError as exc:
+                print(f"✗ {exc}")
+                return 1
+            if args.json:
+                print(json.dumps(data, ensure_ascii=False, indent=2))
+                return 0
+            print("[A²S] alcance registrado (auditable):")
+            print(f"  perfil: {data['perfil']} — {data['perfil_nombre']}")
+            print(f"  nota:   {data['nota']}")
+            print(f"  hosts:  {', '.join(data['hosts'])}")
+            print(f"  archivo: {alcance_path(args.workspace)}")
+            return 0
+        info = alcance_info(args.workspace)
+        if args.json:
+            print(json.dumps(info, ensure_ascii=False, indent=2))
+            return 0
+        if not info["existe"]:
+            print(f"A²S — sin alcance registrado en {info['path']}")
+            print("Registra tu marco académico/ético:")
+            print(f"  a2s capacidades --alcance --perfil "
+                  f"ctf|lab|propio|universidad --nota \"clase HTB 2026\"")
+            return 0
+        print(f"A²S — alcance: {'VÁLIDO' if info['valido'] else 'INCOMPLETO'}"
+              f" · perfil {info['perfil'] or '—'}")
+        print(f"  nota:  {info['nota'] or '—'}")
+        print(f"  hosts: {', '.join(info['hosts']) or '—'}")
+        print(f"  archivo: {info['path']}")
+        return 0
+
+    if args.ruta:
+        from .capacidades import seleccionar
+        try:
+            plan = seleccionar(args.ruta, contexto=args.ctx,
+                               workspace=args.workspace, perfil=args.perfil)
+        except ValueError as exc:
+            print(f"✗ {exc}")
+            return 1
+        if args.json:
+            print(json.dumps(plan, ensure_ascii=False, indent=2))
+            return 0
+        print(f"A²S — enrutador de capacidades para «{plan['objetivo']}»")
+        print(f"Intención detectada: {plan['intento']}")
+        print(f"Autorización: {'válida' if plan['autorizacion']['valida'] else 'NO hay alcance válido'} "
+              f"({plan['autorizacion']['path']})")
+        print()
+        for paso in plan["pasos"]:
+            print(f"  {paso['id']} · {paso['nombre']}")
+            print(f"      uso: {paso['uso_nombre']}")
+            print(f"      por qué: {paso['por_que']}")
+            print(f"      requiere: {_fmt_requiere(paso['requiere'])}")
+            print(f"      equivalente A²S: {', '.join(paso['mapa_a2s']) or '—'}")
+        if plan["bloqueados"]:
+            print("\nRetenidos por la puerta de ética:")
+            for b in plan["bloqueados"]:
+                print(f"  ✗ {b['id']} · {b['nombre']}: {b['motivo']}")
+        print(f"\nSugerencia defensiva: {plan['sugerencia_defensiva']}")
+        print(f"Resumen: {plan['resumen']}")
+        return 0
+
+    if args.mapa is not None:
+        from .capacidades import mapa_markdown
+        contenido = mapa_markdown(args.workspace)
+        if args.mapa == "-":
+            print(contenido)
+        else:
+            with open(args.mapa, "w", encoding="utf-8") as fh:
+                fh.write(contenido)
+            print(f"[A²S] mapa de capacidades escrito en {args.mapa}")
+        return 0
+
+    from .capacidades import core_ids, resumen
+    data = resumen(args.workspace)
+    if args.core or args.json:
+        if args.json:
+            print(json.dumps(data, ensure_ascii=False, indent=2))
+            return 0
+        print(f"Core ({len(core_ids())}):")
+        for ident in core_ids():
+            print(f"  - {ident}")
+        return 0
+    print(f"A²S — mapa de capacidades: {data['total']} recursos mapeados")
+    print(f"Puerta de ética: {data['con_puerta']} recursos con alcance escrito; "
+          f"{data['autonomas']} de uso autónomo")
+    ing = data['ingesta']
+    print(f"Ingesta: {ing.get('ok', 0)} ok · {ing.get('revisar', 0)} revisar · "
+          f"{ing.get('error', 0)} error · {ing.get('referencia', 0)} referencia\n")
+    for dom in data["dominios"]:
+        print(f"{dom['nombre']}: {dom['count']}")
+    for uso in data["usos"]:
+        print(f"  {uso['nombre']}: {uso['count']}")
+    print("\nCore:", ", ".join(core_ids()))
+    print("Usos: a2s capacidades ruta OBJETIVO · a2s capacidades ingesta "
+          "--calls 40 · a2s capacidades --mapa")
+    return 0
+
+
 def cmd_recursos(args: argparse.Namespace) -> int:
     """Catálogo curado de recursos del operador (referencia, sin ejecución)."""
     from .recursos import api_snapshot, validar
@@ -1391,6 +1638,93 @@ def main(argv: list[str] | None = None) -> int:
                        help="enlaces verificados en paralelo con --check "
                             "(0 = secuencial, reproducible; default 8)")
     p_rec.set_defaults(func=cmd_recursos)
+
+    p_sec = sub.add_parser(
+        "secops",
+        help="SecOps asistido: alcance criptográfico (scope.jwt) + ejecución "
+             "defensiva local (recon/scan/analizar; vocabulario cerrado)")
+    p_sec.add_argument("accion", choices=["scope-create", "scope-status", "ejecutar"])
+    p_sec.add_argument("objetivo", nargs="?", default="",
+                       help="objetivo a enrutar (solo ejecutar)")
+    p_sec.add_argument("--targets", default="",
+                       help="hosts/CIDR separados por coma (scope-create y "
+                            "targets de recon/scan en ejecutar)")
+    p_sec.add_argument("--acciones", default="recon,scan,analizar",
+                       help="acciones del scope (cerrado: recon|scan|analizar)")
+    p_sec.add_argument("--expires", default="",
+                       help="YYYY-MM-DDTHH:MM:SSZ (default +30 días)")
+    p_sec.add_argument("--firma", default="",
+                       help="identidad del firmante (obligatoria en scope-create)")
+    p_sec.add_argument("--modo", default="simulacion",
+                       choices=["simulacion", "asistido"],
+                       help="simulacion = plan sin red (default); asistido = "
+                            "ejecuta adaptadores defensivos con alcance")
+    p_sec.add_argument("--archivo", default="",
+                       help="archivo del workspace para analizar/trivy fs")
+    p_sec.add_argument("--templates", default="",
+                       help="plantillas extra para nuclei (opcional)")
+    p_sec.add_argument("--confirm", action="store_true",
+                       help="confirma los pasos de red (recon/scan)")
+    p_sec.add_argument("--workspace", default="workspace")
+    p_sec.add_argument("--json", action="store_true", help="salida JSON")
+    p_sec.set_defaults(func=cmd_secops)
+
+    p_pg = sub.add_parser(
+        "promptguard",
+        help="detección defensiva de inyección de prompts y jailbreaks "
+             "(marca señal; no genera vectores de evasión)")
+    p_pg.add_argument("accion", choices=["check"])
+    p_pg.add_argument("texto", nargs="?", default="",
+                       help="texto a inspeccionar (o usa --file)")
+    p_pg.add_argument("--file", dest="archivo", default="",
+                       help="ruta (relativa al workspace) del texto a revisar")
+    p_pg.add_argument("--ledger", action="store_true",
+                       help="registra el hallazgo en el ledger")
+    p_pg.add_argument("--workspace", default="workspace")
+    p_pg.add_argument("--json", action="store_true", help="salida JSON")
+    p_pg.set_defaults(func=cmd_promptguard)
+
+    p_cap = sub.add_parser(
+        "capacidades",
+        help="mapa fuente→capacidad→A²S y enrutador con puerta de autorización "
+             "(qué aporta cada recurso del catálogo y cuándo usarlo)")
+    p_cap.add_argument("--ruta", default="", metavar="OBJETIVO",
+                       help="enruta un objetivo a una cadena de recursos "
+                            "(ej. 'reconocimiento web', 'reversing binario')")
+    p_cap.add_argument("--ctx", default="",
+                       help="contexto adicional para el enrutador")
+    p_cap.add_argument("--ingesta", action="store_true",
+                       help="ingiere READMEs públicos a fichas de conocimiento "
+                            "(solo lectura; nunca clona ni ejecuta)")
+    p_cap.add_argument("--solo", default="",
+                       help="ids separadas por coma (con --ingesta)")
+    p_cap.add_argument("--calls", type=int, default=40,
+                       help="presupuesto de llamadas a la API de GitHub "
+                            "(con --ingesta, default 40)")
+    p_cap.add_argument("--refresh", action="store_true",
+                       help="re-hace la ingesta aunque esté completada")
+    p_cap.add_argument("--mapa", nargs="?", const="capacidades.md", default=None,
+                       metavar="RUTA",
+                       help="informe completo en Markdown (default: "
+                            "capacidades.md; '-' = stdout)")
+    p_cap.add_argument("--core", action="store_true",
+                       help="lista las 15 fuentes core")
+    p_cap.add_argument("--alcance", action="store_true",
+                       help="consulta el alcance académico registrado "
+                            "(con --perfil lo crea/actualiza)")
+    p_cap.add_argument("--perfil", default="",
+                       choices=["ctf", "lab", "propio", "universidad"],
+                       help="marco académico/ético al registrar el alcance "
+                            "o al enrutar (ctf | lab | propio | universidad)")
+    p_cap.add_argument("--nota", default="",
+                       help="caso concreto del alcance (clase, plataforma, "
+                            "infraestructura…); obligatoria al crear")
+    p_cap.add_argument("--hosts", action="append", default=None,
+                       help="hosts/redes cubiertos por el alcance "
+                            "(repetible; default 127.0.0.1,localhost)")
+    p_cap.add_argument("--workspace", default="workspace")
+    p_cap.add_argument("--json", action="store_true", help="salida JSON")
+    p_cap.set_defaults(func=cmd_capacidades)
 
     p_prev = sub.add_parser(
         "route-preview", help="explica qué proveedor elegiría SORL sin ejecutar una llamada")

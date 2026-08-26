@@ -3,6 +3,135 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.28.0] — 2026-08-26
+
+### Añadido (PromptGuard: auditoría defensiva de prompts)
+
+- **`a2s/promptguard.py`**: detección **defensiva** de inyección de prompts y
+  jailbreaks — categorías: suplantación de rol, anulación de instrucciones,
+  fuga de prompt, ofuscación y contenido fuera de política. Veredicto
+  (limpio / señal sutil / inyección posible / jailbreak probable) con score y
+  pistas. Stdlib puro, heurístico y honesto sobre falsos positivos/negativos.
+- **CLI**: `a2s promptguard check TEXTO | --file RUTA [--json] [--ledger]`;
+  `--ledger` registra `promptguard.hallazgo` en la cadena de custodia.
+- **`docs/PROMPTGUARD.md`**: qué detecta, qué NO es (no genera vectores de
+  evasión; no es un port de proyectos de jailbreak) y cómo integrarlo antes
+  de enviar texto a un LLM.
+- `tests/test_promptguard.py` (11 tests): limpio, ausencia de texto,
+  anulación/rol combinada, jailbreak clásico (DAN), fuga de prompt,
+  ofuscación aislada, salida sin recetas, ledger y CLI (JSON, archivo fuera
+  del workspace, con ledger).
+
+### Límite honesto
+
+- La detección es por marcadores: útil para auditoría y defensa; no es un
+  adversario de evaluación de robustez (generar variantes ofensivas queda
+  fuera de alcance y fuera de este repositorio).
+
+## [1.27.0] — 2026-08-26
+
+### Añadido (SecOps asistido: autorización técnica + ejecución defensiva real)
+
+- **`a2s/secops.py`**: alcance firmado HMAC-SHA256 (`workspace/.a2s/scope.jwt`
+  + `scope.key` de 32 bytes; payload base64url, firma comparada en tiempo
+  constante, caducidad y targets por host exacto / `*.dominio` / CIDR).
+  **Vocabulario cerrado** `recon | scan | analizar`: un token que pida
+  `exploit`/`post-exploit`/`dump`/`exfiltrate` se rechaza al crearlo.
+- **`a2s secops`** (CLI): `scope-create`, `scope-status`, `ejecutar OBJETIVO
+  --modo simulacion|asistido`. Simulación = plan completo sin red ni
+  procesos. Asistido = adaptadores defensivos **sobre alcance verificado**:
+  - `recon`: un GET benigno por objetivo (UA honesto, cabeceras, TLS);
+  - `scan`: escáneres locales instalados — `nuclei -jsonl` y `trivy
+    image|fs` — con parsers (`_parse_nuclei`, `_parse_trivy`) y plantillas
+    opcionales; `--confirm` obligatorio para pasos de red;
+  - `analizar`: archivos del workspace (magic, strings, EXIF, PDF,
+    SHA-256; `analyzeHeadless` de Ghidra si está instalado).
+- Metasploit/sqlmap/hashcat/payloads/GrayHat/Gmail-creator: aparecen en el
+  plan como pasos **«operador»** (el dueño los ejecuta en su entorno; A²S no
+  los automatiza) y nunca como acción del motor.
+- **Auditoría**: cada denegación (`secops.denegado`), ejecución
+  (`secops.ejecucion`) y error (`secops.error`) entra al ledger con hash
+  chain; resultados en `workspace/.a2s/secops/<run>/{resumen.json,
+  informe.md}`.
+- **Control Plane**: `GET /api/secops` (alcance + último run) y
+  `POST /api/secops/plan` (simulación únicamente; la UI no dispara red).
+- `docs/SECOPS.md` (casos de uso, límites y por qué el "seguro técnico" real
+  es que el motor no contiene munición) y `tests/test_secops.py` (13 tests:
+  firma/manipulación/caducidad/CIDR/acción fuera de lista, simulación sin
+  red, denegación auditada, recon real contra servidor local, análisis
+  local, CLI).
+
+### Límites honestos
+
+- El `scope.jwt` no protege contra el dueño del workspace (la clave vive
+  junto al token); la autoridad firmante para contratos reales debería ser
+  externa al agente. Aun con alcance válido no se ejecutan herramientas
+  ofensivas: el vocabulario y el código lo impiden (no es una política, es
+  ausencia de funcionalidad).
+- Los adaptadores `scan` requieren `nuclei`/`trivy` instalados; sin ellos
+  devuelven motivo claro. El reconocimiento es una instantánea (un GET).
+
+## [1.26.0] — 2026-08-26
+
+### Añadido (capa de capacidades del catálogo — 65/65 fuentes)
+
+- **`a2s/capacidades.py`**: cada entrada del catálogo se traduce a un
+  registro accionable — dominio funcional (cognitiva, ciber,
+  automatización, infraestructura, datos, utilidades), capacidad, uso
+  autónomo (`si`/`parcial`/`operador`/`no`), dependencias canónicas (CLI,
+  API key, hardware, alcance), equivalente interno de A²S, receta de uso,
+  nota ética, sinergias y marca core. Cobertura verificada por tests:
+  ninguna entrada sin capacidad, sin receta o sin nota ética.
+- **Catálogo completo**: se añaden las 2 URLs que faltaban del listado del
+  operador — `anthropic-courses` (espejo oficial de los cursos de
+  Anthropic) y `gmail-account-creator` (advertido: API oficial de Google
+  sobre la cuenta principal; no creación masiva) — y se localiza el repo
+  real de Worm-GPT. Recuento real de URLs únicas del operador: **65**.
+- **Enrutador de decisiones** (`a2s capacidades ruta OBJETIVO`):
+  intenciones → cadenas de sinergia (reconocimiento → web-check +
+  osint4all + nuclei; reversing → ghidra + imhex + x64dbg + cyberchef;
+  prompt → claude-courses + system-prompts-leaks + karpathy-skills +
+  agency-agents; orquestación → n8n + ruflo; secretos → vault + openssl;
+  VPN → algo + setup-ipsec + xray…), con búsqueda BM25 como fallback.
+- **Flujo académico / hacking ético de primera clase**: perfiles
+  `ctf`, `lab`, `propio` y `universidad` registrados con
+  `a2s capacidades --alcance --perfil ... --nota "..."` (archivo atómico,
+  fechado y auditable; plantilla en `examples/alcance.example.json`).
+  El enrutador acepta `--perfil` (o `?perfil=` en la API) pero **solo**
+  abre las rutas con `autorizacion_escrita` si el alcance ya está
+  registrado y cubre el caso (hosts, `*`, marca de laboratorio CTF/HTB/
+  THM/DVWA/propio, o perfil coincidente).
+- **Puerta de autorización**: las rutas con `autorizacion_escrita` se
+  mueven a `bloqueados` con motivo exacto (cómo registrarlo) salvo alcance
+  válido; las de zona gris (`no`) quedan como referencia y nunca se
+  automatizan; siempre se publica la alternativa defensiva. Ver
+  `docs/HACKING_ETICO.md`.
+- **Ingesta a memoria** (`a2s capacidades ingesta`): READMEs públicos →
+  fichas de conocimiento (`cap-<id>` en `.a2s/knowledge/`) con licencia,
+  stars, resumen extractivo y estado en
+  `.a2s/capacidades/ingesta.json`; solo lectura vía API de GitHub
+  (cuotas y `Retry-After` respetados) y `classify_forbidden` aplicado:
+  el contenido que casa con un patrón prohibido queda `revisar` — la ficha
+  se conserva (material público) pero **no se auto-aplica**. Reanudable
+  (`--solo`, `--calls`, `--refresh`). **Nunca clona ni ejecuta** código
+  estudiado.
+- **`a2s capacidades --mapa [RUTA]`**: informe completo Markdown (tabla
+  dominio×capacidad×uso, recetas por recurso, core).
+- **Control Plane**: `GET /api/capacidades` (resumen o ruta con
+  `?objetivo=`) y enrutador en la pestaña **Recursos** (barra de
+  capacidades + campo «Enrutar objetivo»).
+
+### Límites honestos
+
+- La ingesta cubre READMEs vía API pública; los 24 recursos web no GitHub
+  se registran como `referencia` (no hay README que ingerir).
+- Sin `GITHUB_TOKEN` el límite de lectura es ~2/min: la ingesta completa
+  es reanudable y se recomienda `--calls 40` + repeticiones o token del
+  operador.
+- El enrutador es determinista y auditable, no un LLM: cubre las
+  intenciones declaradas y el resto cae a BM25; los recursos `no` no son
+  automatizables por diseño.
+
 ## [1.25.0] — 2026-08-25
 
 ### Añadido (catálogo completo)

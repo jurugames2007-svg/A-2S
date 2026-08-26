@@ -337,6 +337,15 @@ a.recurso-name:hover { color: var(--cyan); }
 .recurso .tag.propio { color: #7fd4a0; border-color: #21533f; background: #0d211c; }
 .recurso .tag.ck.ok { color: #7fd4a0; border-color: #21533f; background: #0d211c; }
 .recurso .tag.ck.fail { color: #e08a8a; border-color: #5c2b35; background: #221117; }
+.capacidades-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #24404f; border-radius: 6px; background: #0a1621; }
+.capacidades-bar small { font-size: 10px; }
+.recursos-ruta-out { margin: 0 0 14px; padding: 12px 14px; border: 1px solid #1a3f4c; border-radius: 6px; background: #0b1420; font-size: 11px; }
+.recursos-ruta-out h4 { margin: 0 0 8px; color: var(--cyan); font: 700 10px/1.2 ui-monospace, monospace; letter-spacing: .05em; }
+.recursos-ruta-out .paso { margin: 6px 0; }
+.recursos-ruta-out .paso b { color: #d7e3ee; }
+.recursos-ruta-out .det { color: #788da0; font-size: 10px; }
+.recursos-ruta-out .retenido { color: var(--amber); }
+.recursos-ruta-out .sug { margin-top: 10px; color: #70a99a; }
 .recursos-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; padding: 12px; border: 1px solid #1a3f4c; border-radius: 6px; background: #0a1621; }
 .recursos-form input, .recursos-form select { flex: 1; min-width: 130px; width: auto; margin: 0; height: 32px; }
 .recurso p { margin: 5px 0 0; color: #788da0; font-size: 9px; line-height: 1.5; }

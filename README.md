@@ -119,6 +119,53 @@
 > detener, ver archivos). No hace falta saber programar ni escribir
 > `a2s pcb`. El chat y **Archivos** siguen al lado.
 
+> **v1.28 — PromptGuard (`a2s promptguard`):** detector **defensivo** de
+> inyección de prompts y jailbreaks (suplantación de rol, anulación de
+> instrucciones, fuga de prompt, ofuscación, contenido fuera de política) —
+> marca la señal, la clasifica (limpio/sutil/posible/probable) y la registra
+> en el ledger. Es el contraparte de las herramientas de jailbreak que A²S
+> **no** integra: no genera ni sugiere vectores de evasión; sirve para
+> auditar prompts recibidos y proteger tus propias apps. Ver
+> `docs/PROMPTGUARD.md`.
+
+> **v1.27 — SecOps asistido (`a2s secops`):** autorización **técnica** de
+> alcance — `workspace/.a2s/scope.jwt` firmado HMAC-SHA256 (targets por host/
+> `*.dominio`/CIDR, caducidad, firma en tiempo constante) con **vocabulario
+> cerrado** `recon | scan | analizar` (un token con `exploit`/`dump`/
+> `exfiltrate` se rechaza al crear) — y **ejecución real de lo defensivo**:
+> simulación sin red, reconocimiento HTTP/TLS de activos propios (un GET,
+> UA honesto), escáneres locales instalados (nuclei/trivy con parsers),
+> análisis estático local (magic/strings/EXIF/SHA-256, Ghidra headless si
+> está instalado), todo sobre alcance verificado con `--confirm` y auditado
+> en el ledger (denegaciones incluidas). Las herramientas ofensivas
+> (Metasploit, sqlmap, payloads) aparecen como pasos **«operador»** — el
+> dueño las ejecuta en su entorno; A²S no las automatiza. API: `GET
+> /api/secops` y `POST /api/secops/plan` (solo simulación). Ver
+> `docs/SECOPS.md`.
+
+> **v1.26 — Capacidades: de lista de enlaces a mapa accionable (65 fuentes, 0% omitida):**
+> nuevo módulo `a2s/capacidades.py` traduce **cada** recurso del catálogo a
+> qué capacidad aporta, con qué uso autónomo (sí / parcial / operador /
+> referencia), qué necesita (CLI, API key, hardware, alcance) y qué
+> equivalente interno de A²S lo cubre. Faltaban 2 URLs del listado del
+> operador: se añadió el espejo oficial `anthropics/courses` y
+> `gmail-account-creator` (categorizado «advertido»: solo la API oficial de
+> Google sobre la cuenta principal del operador) y se localizó el repo real
+> de Worm-GPT — el recuento de URLs únicas real del operador es **65**, no
+> 63. El enrutador (`a2s capacidades ruta OBJETIVO`) implementa el sistema
+> de decisión (reconocimiento → web-check/osint4all/nuclei, reversing →
+> ghidra/imhex/x64dbg/cyberchef, prompt → claude-courses/system-prompts,
+> …). **Flujo académico/hacking ético de primera clase**: perfiles
+> `ctf`/`lab`/`propio`/`universidad` registrados con
+> `a2s capacidades --alcance --perfil ... --nota "..."` (archivo auditable
+> en `workspace/.a2s/alcance.json`); sin archivo, las cadenas ofensivas se
+> retienen con su motivo y la alternativa defensiva — ver
+> `docs/HACKING_ETICO.md`. `a2s capacidades ingesta` convierte READMEs
+> públicos en fichas de conocimiento (solo lectura, cuotas respetadas,
+> nunca clona ni ejecuta); `a2s capacidades --mapa` genera el informe;
+> `GET /api/capacidades` y enrutador en la pestaña Recursos. Ver
+> `docs/CAPACIDADES.md`.
+
 > **v1.25 — Catálogo completo (6 repositorios añadidos):** se cerró el
 > listado del operador: ahora 63 entradas en 6 categorías. Faltaban
 > Karpathy Skills (Claude Code), Zero to Mastery ML, Agency Agents, Godmode,
@@ -681,6 +728,12 @@ a2s/
 ├── artifacts.py    listado y servicio de archivos/resultados (imágenes, PDF, audio, vídeo, texto)
 ├── ui/             GUI empaquetada (HTML/CSS/JS, sin CDN; layout chat + workspace)
 ├── ecosystem.py    radar creciente de proyectos con licencia OSS verificada
+├── capacidades.py  mapa fuente→capacidad→A²S + enrutador con puerta de
+│                   autorización e ingesta de READMEs a fichas (v1.26)
+├── secops.py       alcance criptográfico (scope.jwt, vocabulario cerrado)
+│                   + ejecución defensiva local (recon/scan/analizar) (v1.27)
+├── promptguard.py  detección defensiva de inyección de prompts/jailbreaks
+│                   (sin generación de vectores de evasión) (v1.28)
 └── directiva.py    mapa de reinterpretación operativa
 ```
 
