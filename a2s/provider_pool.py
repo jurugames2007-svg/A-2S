@@ -224,7 +224,7 @@ class Telemetry:
     sistema **aprende el rpm real** de cada endpoint (cuando un proveedor
     satura antes de lo declarado, el pool se auto-limita) más un micro-ajuste
     acotado de los pesos del scheduler. Es heurística acumulativa, no
-    reentrenamiento: documentado en LIMITACIONES.md §10.3.
+    reentrenamiento: documentado en el CHANGELOG (v1.4).
     """
 
     def __init__(self, directory: Optional[str] = None) -> None:
@@ -964,7 +964,7 @@ class ProviderPool(BaseProvider):
         "kind"?: str, "max_tokens"?: int}``. Las tareas se ejecutan por olas
         topológicas en paralelo; cada una usa el failover del pool. Si una
         tarea falla, sus dependientes se marcan ``skipped`` (honestidad ante
-        fallos, coherente con LIMITACIONES.md).
+        fallos, coherente con la política de cuota del framework).
         """
         order = _dag_waves(tasks)
         deps = {t["id"]: list(t.get("depends_on", [])) for t in tasks}

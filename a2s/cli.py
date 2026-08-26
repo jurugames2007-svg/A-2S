@@ -8,6 +8,7 @@ import os
 import sys
 import time
 import urllib.error
+from typing import Optional
 
 from . import __version__
 from ._platform import force_utf8
@@ -707,7 +708,7 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 def cmd_serve(args: argparse.Namespace) -> int:
     """Modo SERVICIO experimental: API REST con RBAC y aislamiento por usuario
-    (ver LIMITACIONES §15: sin TLS, reverse proxy obligatorio si se expone)."""
+    (sin TLS: reverse proxy obligatorio si se expone)."""
     from .serve import make_server
     srv, api = make_server(args.workspace, port=args.port,
                            host="0.0.0.0" if args.public else "127.0.0.1",
@@ -951,6 +952,187 @@ def cmd_pool_check(args: argparse.Namespace) -> int:
         pool.telemetry.save_snapshot()
 
 
+def _recursos_export(args: argparse.Namespace) -> Optional[int]:
+    """Exportaciones --html / --pdf / --md (None = seguir con el listado)."""
+    from .recursos import como_html, como_markdown
+    if args.html is not None:
+        os.makedirs(os.path.dirname(args.html) or ".", exist_ok=True)
+        with open(args.html, "w", encoding="utf-8") as fh:
+            fh.write(como_html(args.workspace))
+        print(f"[A²S] ✔ HTML exportado: {os.path.abspath(args.html)}")
+        return 0
+    if args.pdf is not None:
+        from .recursos import como_pdf
+        os.makedirs(os.path.dirname(args.pdf) or ".", exist_ok=True)
+        pages = como_pdf(args.pdf, workspace=args.workspace)
+        print(f"[A²S] ✔ PDF exportado: {os.path.abspath(args.pdf)} ({pages} pág.)")
+        return 0
+    if args.ppt is not None:
+        from .recursos import como_pptx
+        os.makedirs(os.path.dirname(args.ppt) or ".", exist_ok=True)
+        n_slides = como_pptx(args.ppt, workspace=args.workspace)
+        print(f"[A²S] ✔ PPT exportado: {os.path.abspath(args.ppt)} "
+              f"({n_slides} diapositivas)")
+        return 0
+    if args.md:
+        print(como_markdown(args.workspace))
+        return 0
+    return None
+
+
+def _recursos_estado(workspace: str) -> int:
+    """Muestra el último chequeo de enlaces persistido en el workspace."""
+    from .recursos import estado_check
+    check = estado_check(workspace)
+    if not check:
+        print(f"[A²S] (sin chequeo todavía en {workspace} — "
+              "ejecuta: a2s recursos --check)")
+        return 1
+    print(f"A²S — último chequeo de enlaces: {(check.get('at') or '')[:16]} · "
+          f"{check.get('ok')}/{check.get('total')} alcanzables · "
+          f"timeout {check.get('timeout')}s")
+    results = check.get("results") or {}
+    falls = [(rid, st) for rid, st in results.items()
+             if not st.get("ok") and st.get("estado") != "sin enlace"]
+    for rid, st in falls:
+        print(f"  ✗ {rid}  {st.get('estado')}  {st.get('ms')} ms")
+    if not falls:
+        print("  ✔ todos los enlaces con URL fueron alcanzables en ese momento")
+    return 0
+
+
+def _recursos_accion(args: argparse.Namespace) -> Optional[int]:
+    """Sub-acciones add / forget / extra (None = seguir con el listado)."""
+    from .recursos import extras, extra_add, extra_forget
+    accion = args.accion
+    if accion not in ("add", "forget", "extra"):
+        return None
+    ws = args.workspace
+    if accion == "extra":
+        rows = extras(ws)
+        if args.json:
+            print(json.dumps({"total": len(rows), "recursos": rows},
+                             ensure_ascii=False, indent=2))
+            return 0
+        if not rows:
+            print(f"[A²S] (sin recursos propios en {ws})")
+            return 0
+        for r in rows:
+            print(f"  {r['id']}  {r['nombre']}")
+            print(f"      {r['url'] or '(sin enlace)'}")
+        return 0
+    if accion == "forget":
+        if extra_forget(ws, args.nombre or ""):
+            print(f"[A²S] ✔ olvidado: {args.nombre}")
+            return 0
+        print("✗ no encontrado (solo se olvidan los propios del workspace)")
+        return 1
+    try:
+        entry = extra_add(ws, args.nombre or "", args.url or "",
+                          args.categoria or "ia", desc=args.desc or "",
+                          tags=[t for t in (args.tags or "").split(",")])
+    except ValueError as exc:
+        print(f"✗ {exc}")
+        return 1
+    print(f"[A²S] ✔ recurso añadido: {entry['id']} · {entry['nombre']}")
+    print(f"      {entry['url'] or '(sin enlace)'} · categoría {entry['cat']} "
+          f"· persistido en {ws}/.a2s/recursos.json")
+    return 0
+
+
+def _recursos_check(args: argparse.Namespace, data: dict) -> int:
+    """--check: disponibilidad HTTP (CI-friendly, persiste; en paralelo)."""
+    from .recursos import comprobar_enlaces, guardar_check
+    rows = [r for r in data["recursos"]
+            if not args.id or r["id"] in args.id]
+    results = comprobar_enlaces(rows, timeout=args.timeout,
+                                workers=args.workers)
+    con_url = [r for r in results if not r["sin_enlace"]]
+    ok = sum(1 for r in con_url if r["ok"])
+    modo = f"workers {args.workers}" if args.workers > 1 else "secuencial"
+    for r in results:
+        mark = "✔" if r["ok"] else ("·" if r["sin_enlace"] else "✗")
+        ms = f"{r['ms']} ms" if r["ms"] is not None else "-"
+        print(f"  {mark} {r['nombre'][:40]:<40} {r['estado']:<16} {ms}")
+    print(f"\n[A²S] {ok}/{len(con_url)} enlaces alcanzables "
+          f"(timeout {args.timeout}s, {modo}; "
+          f"{len(results) - len(con_url)} sin enlace)")
+    if args.id:
+        print("[A²S] (subconjunto con --id: estado NO persistido)")
+    else:
+        guardar_check(args.workspace, results, timeout=args.timeout)
+        print("[A²S] estado persistido — a2s recursos --estado para repasar")
+    return 0 if con_url and ok == len(con_url) else 1
+
+
+def _recursos_check_watch(args: argparse.Namespace, data: dict,
+                          max_cycles: Optional[int] = None) -> int:
+    """Guardián de chequeo periódico: el estado no caduca solo."""
+    import time
+    print(f"[A²S] 🛰 guardián de chequeo: ciclo cada {args.watch}s "
+          "(Ctrl+C para parar)")
+    ciclos = 0
+    while max_cycles is None or ciclos < max_cycles:
+        ciclos += 1
+        print(f"\n=== ciclo {ciclos} ===")
+        _recursos_check(args, data)
+        if max_cycles is None or ciclos < max_cycles:
+            time.sleep(args.watch)
+    return 0
+
+
+def cmd_recursos(args: argparse.Namespace) -> int:
+    """Catálogo curado de recursos del operador (referencia, sin ejecución)."""
+    from .recursos import api_snapshot, validar
+    for code in (_recursos_export(args), _recursos_accion(args)):
+        if code is not None:
+            return code
+    if args.estado:
+        return _recursos_estado(args.workspace)
+    if args.watch and not args.check:
+        print("✗ --watch requiere --check (el guardián solo chequea enlaces)")
+        return 1
+    problemas = validar(args.workspace)
+    if problemas:
+        print("✗ catálogo con problemas de integridad:")
+        for p in problemas:
+            print(f"  - {p}")
+        return 1
+    data = api_snapshot(consulta=args.buscar or "", cat=args.categoria or "",
+                        top=args.top, workspace=args.workspace)
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        return 0
+    if args.check:
+        if args.watch:
+            try:
+                _recursos_check_watch(args, data)
+                return 0
+            except KeyboardInterrupt:
+                print("\n[A²S] guardián de chequeo detenido por el operador")
+                return 0
+        return _recursos_check(args, data)
+    if data["consulta"]:
+        print(f"A²S — catálogo de recursos: {len(data['recursos'])} resultado(s) "
+              f"para «{data['consulta']}»")
+    else:
+        print(f"A²S — catálogo de recursos: {data['total']} entradas en "
+              f"{len(data['categorias'])} categorías")
+    print(f"filtro ético: {data['aviso']}\n")
+    for cat in data["categorias"]:
+        rows = [r for r in data["recursos"] if r["cat"] == cat["id"]]
+        if not rows:
+            continue
+        print(f"{cat['nombre']} ({len(rows)})")
+        for r in rows:
+            marca = "⚠" if "advertido" in r["tags"] else "·"
+            print(f"  {marca} {r['nombre']}")
+            print(f"      {r['url'] or '(sin enlace oficial)'}")
+            print(f"      {r['desc']}")
+        print()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="a2s",
@@ -1047,7 +1229,8 @@ def main(argv: list[str] | None = None) -> int:
     p_bus.add_argument("--workspace", default="workspace")
     p_bus.add_argument("--top", type=int, default=5)
     p_bus.add_argument("--origen", action="append", default=None,
-                       help="filtrar por origen (episodio|ficha|pool, repetible)")
+                       help="filtrar por origen (episodio|ficha|pool|recurso|"
+                            "investigacion, repetible)")
     p_bus.add_argument("--repos", action="store_true",
                        help="buscar también repositorios públicos por palabra clave")
     p_bus.set_defaults(func=cmd_search)
@@ -1155,6 +1338,59 @@ def main(argv: list[str] | None = None) -> int:
     p_pc.add_argument("--pool-config", default=None)
     p_pc.add_argument("--pool-strategy", default=None)
     p_pc.set_defaults(func=cmd_pool_check)
+
+    p_rec = sub.add_parser(
+        "recursos", help="catálogo curado de recursos del operador (referencia: "
+                         "uso autorizado, defensivo o académico)")
+    p_rec.add_argument("accion", nargs="?", default=None,
+                       choices=[None, "add", "forget", "extra"],
+                       help="add NOMBRE URL (recursos propios) | forget ID | "
+                            "extra (lista los propios) | vacío = catálogo")
+    p_rec.add_argument("nombre", nargs="?", default="",
+                       help="NOMBRE (en add) o ID (en forget)")
+    p_rec.add_argument("url", nargs="?", default="",
+                       help="URL en http(s) (solo add; opcional)")
+    p_rec.add_argument("--categoria", "--cat", dest="categoria", default="",
+                       help="categoría (add) o filtro (listado): ia, ciber, dev, "
+                            "directorios, utilidades, empleo — o texto del nombre")
+    p_rec.add_argument("--buscar", default="",
+                       help="búsqueda BM25 por nombre, descripción, etiquetas o URL")
+    p_rec.add_argument("--top", type=int, default=25,
+                       help="resultados máximos con --buscar (default 25)")
+    p_rec.add_argument("--desc", default="", help="nota descriptiva (solo add)")
+    p_rec.add_argument("--tags", default="",
+                       help="etiquetas separadas por coma (solo add)")
+    p_rec.add_argument("--workspace", default="workspace")
+    p_rec.add_argument("--json", action="store_true", help="salida JSON")
+    p_rec.add_argument("--md", action="store_true",
+                       help="exporta el catálogo completo en Markdown")
+    p_rec.add_argument("--html", nargs="?", const="recursos.html", default=None,
+                       metavar="RUTA",
+                       help="exporta un HTML autocontenido (default: recursos.html)")
+    p_rec.add_argument("--pdf", nargs="?", const="recursos.pdf", default=None,
+                       metavar="RUTA",
+                       help="exporta un PDF impreso (default: recursos.pdf)")
+    p_rec.add_argument("--ppt", nargs="?", const="recursos.pptx", default=None,
+                       metavar="RUTA",
+                       help="exporta una presentación del catálogo "
+                            "(default: recursos.pptx)")
+    p_rec.add_argument("--watch", nargs="?", const=3600, type=int, default=None,
+                       metavar="SEGUNDOS",
+                       help="con --check: guardián que re-chequea cada N "
+                            "segundos (default 3600) hasta Ctrl+C")
+    p_rec.add_argument("--estado", action="store_true",
+                       help="muestra el último chequeo de enlaces persistido")
+    p_rec.add_argument("--check", action="store_true",
+                       help="verifica la disponibilidad HTTP de los enlaces "
+                            "(los del filtro actual; --id acota)")
+    p_rec.add_argument("--id", action="append", default=None,
+                       help="solo estas ids (con --check; repetible)")
+    p_rec.add_argument("--timeout", type=float, default=8.0,
+                       help="segundos por enlace con --check (default 8)")
+    p_rec.add_argument("--workers", type=int, default=8,
+                       help="enlaces verificados en paralelo con --check "
+                            "(0 = secuencial, reproducible; default 8)")
+    p_rec.set_defaults(func=cmd_recursos)
 
     p_prev = sub.add_parser(
         "route-preview", help="explica qué proveedor elegiría SORL sin ejecutar una llamada")

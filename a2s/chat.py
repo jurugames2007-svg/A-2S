@@ -109,6 +109,9 @@ class HeuristicAssistant:
     THANKS = ("gracias", "thanks", "te agradezco", "perfecto", "genial", "ok")
     WELLBEING = ("cómo estás", "como estas", "cómo te encuentras",
                  "como te encuentras", "todo bien")
+    RESOURCE_WORDS = ("recurso", "recursos", "catálogo", "catalogo",
+                      "dónde aprend", "donde aprend", "curso de", "cursos de",
+                      "herramientas para", "dónde encuentro", "donde encuentro")
 
     def reply(self, messages: list[dict[str, str]]) -> str:
         text = (messages[-1]["content"] if messages else "").strip()
@@ -139,6 +142,8 @@ class HeuristicAssistant:
                     "cuento aquí. Puedes decir «para» para interrumpir.")
         if any(w in text for w in self.THANKS):
             return "A ti. ¿Sigo con otra cosa o detengo lo que está corriendo?"
+        if any(w in text for w in self.RESOURCE_WORDS):
+            return self._reply_recursos(text)
         if any(w in text for w in ("lanza", "ejecuta", "genera", "crea", "haz",
                                     "analiza", "produce", "construye", "escribe",
                                     "busca")):
@@ -150,6 +155,22 @@ class HeuristicAssistant:
                     "artefacto, dilo: lo creo y te aviso.")
         return ("Te he entendido. Puedes pedirme que investigue, cree, busque "
                 "o detenga; si una ruta falla, continúo con el núcleo local.")
+
+    def _reply_recursos(self, text: str) -> str:
+        """Responde con entradas del catálogo curado (a2s recursos)."""
+        from .recursos import buscar
+        rows = buscar(text, top=3)
+        if not rows:
+            return ("Lo busco en mi catálogo curado (57 entradas en 6 categorías: "
+                    "IA y cursos, ciberseguridad, desarrollo, directorios, "
+                    "utilidades, empleo). Pruébame con «ghidra», «vpn» o "
+                    "«pentest», o abre la pestaña Recursos del panel.")
+        lineas = ["En el catálogo:"]
+        for r in rows:
+            lineas.append(f"• {r['nombre']} — {r['url'] or 'sin enlace'}")
+        lineas.append("Completo en la pestaña Recursos. Filtro de ética: uso solo "
+                      "autorizado, defensivo o académico.")
+        return "\n".join(lineas)
 
 
 class ChatManager:

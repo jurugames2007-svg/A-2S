@@ -7,8 +7,8 @@
 * Un plugin puede llevar ``plugin.json`` con el sha256 del módulo: el loader
   lo verifica antes de importar (cadena de suministro local).
 
-Por qué NO hay registro remoto de plugins (decisión documentada en
-LIMITACIONES.md): descargar y ejecutar código de un URL en caliente equivale
+Por qué NO hay registro remoto de plugins (decisión documentada en el
+README): descargar y ejecutar código de un URL en caliente equivale
 a RCE con pasos extra; sin una autoridad de firma real, "verificar la firma"
 de un manifest remoto es teatro. Los plugins se distribuyen como código
 auditable junto al proyecto (o en directorios locales vía A2S_PLUGIN_DIRS).
