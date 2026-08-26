@@ -119,6 +119,21 @@
 > detener, ver archivos). No hace falta saber programar ni escribir
 > `a2s pcb`. El chat y **Archivos** siguen al lado.
 
+> **v1.27 — SecOps asistido (`a2s secops`):** autorización **técnica** de
+> alcance — `workspace/.a2s/scope.jwt` firmado HMAC-SHA256 (targets por host/
+> `*.dominio`/CIDR, caducidad, firma en tiempo constante) con **vocabulario
+> cerrado** `recon | scan | analizar` (un token con `exploit`/`dump`/
+> `exfiltrate` se rechaza al crear) — y **ejecución real de lo defensivo**:
+> simulación sin red, reconocimiento HTTP/TLS de activos propios (un GET,
+> UA honesto), escáneres locales instalados (nuclei/trivy con parsers),
+> análisis estático local (magic/strings/EXIF/SHA-256, Ghidra headless si
+> está instalado), todo sobre alcance verificado con `--confirm` y auditado
+> en el ledger (denegaciones incluidas). Las herramientas ofensivas
+> (Metasploit, sqlmap, payloads) aparecen como pasos **«operador»** — el
+> dueño las ejecuta en su entorno; A²S no las automatiza. API: `GET
+> /api/secops` y `POST /api/secops/plan` (solo simulación). Ver
+> `docs/SECOPS.md`.
+
 > **v1.26 — Capacidades: de lista de enlaces a mapa accionable (65 fuentes, 0% omitida):**
 > nuevo módulo `a2s/capacidades.py` traduce **cada** recurso del catálogo a
 > qué capacidad aporta, con qué uso autónomo (sí / parcial / operador /
@@ -706,6 +721,8 @@ a2s/
 ├── ecosystem.py    radar creciente de proyectos con licencia OSS verificada
 ├── capacidades.py  mapa fuente→capacidad→A²S + enrutador con puerta de
 │                   autorización e ingesta de READMEs a fichas (v1.26)
+├── secops.py       alcance criptográfico (scope.jwt, vocabulario cerrado)
+│                   + ejecución defensiva local (recon/scan/analizar) (v1.27)
 └── directiva.py    mapa de reinterpretación operativa
 ```
 

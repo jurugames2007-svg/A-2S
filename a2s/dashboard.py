@@ -560,6 +560,9 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
                 consulta=(query.get("q") or [""])[0][:200],
                 cat=(query.get("cat") or [""])[0][:40],
                 workspace=self.control_plane.workspace))
+        elif path == "/api/secops":
+            from .secops import resumen_secops
+            self._json(resumen_secops(self.control_plane.workspace))
         elif path == "/api/capacidades":
             from .capacidades import resumen, seleccionar
             objetivo = (query.get("objetivo") or [""])[0][:200]
@@ -721,6 +724,8 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             self._json(result, code)
         elif path == "/api/recursos":
             self._post_recursos(payload)
+        elif path == "/api/secops/plan":
+            self._post_secops_plan(payload)
         else:
             self._json({"error": "endpoint no encontrado"}, 404)
 
@@ -747,6 +752,20 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             self._json({"error": msg}, code)
         else:
             self._json({"status": msg}, 202)
+
+    def _post_secops_plan(self, payload: dict[str, Any]) -> None:
+        """Plan de simulación desde la UI (nunca ejecución asistida)."""
+        from .secops import ejecutar
+        objetivo = str(payload.get("objetivo") or "")[:200]
+        targets = [str(t)[:120] for t in (payload.get("targets") or [])
+                   if str(t).strip()]
+        archivo = str(payload.get("archivo") or "")[:200]
+        try:
+            self._json(ejecutar(objetivo, modo="simulacion",
+                                workspace=self.control_plane.workspace,
+                                targets=targets or None, archivo=archivo))
+        except ValueError as exc:
+            self._json({"error": str(exc)}, 400)
 
     def _post_recursos(self, payload: dict[str, Any]) -> None:
         from .recursos import extra_add

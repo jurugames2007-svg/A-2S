@@ -1086,6 +1086,82 @@ def _fmt_requiere(requiere: list[str]) -> str:
     return ", ".join(REQ_NOMBRE.get(r, r) for r in requiere) or "ninguna"
 
 
+def cmd_secops(args: argparse.Namespace) -> int:
+    """SecOps asistido: alcance criptográfico + ejecución defensiva local."""
+    from .secops import (crear_scope, estado_scope, ejecutar, resumen_secops)
+    if args.accion == "scope-create":
+        try:
+            data = crear_scope(
+                args.workspace,
+                targets=[t for t in (args.targets or "").split(",") if t.strip()],
+                acciones=[a for a in (args.acciones or "").split(",") if a.strip()],
+                expires=args.expires, firma=args.firma)
+        except ValueError as exc:
+            print(f"✗ {exc}")
+            return 1
+        if args.json:
+            print(json.dumps(data, ensure_ascii=False, indent=2))
+            return 0
+        print("[A²S] alcance firmado (HMAC-SHA256, vocabulario cerrado):")
+        print(f"  firmante: {data['signed_by']}")
+        print(f"  targets:  {', '.join(data['targets'])}")
+        print(f"  acciones: {', '.join(data['acciones'])}")
+        print(f"  expira:   {data['expires']}")
+        print(f"  archivo:  {args.workspace}/.a2s/scope.jwt")
+        return 0
+    if args.accion == "scope-status":
+        estado = estado_scope(args.workspace)
+        if args.json:
+            print(json.dumps(estado, ensure_ascii=False, indent=2))
+            return 0
+        if not estado["valido"]:
+            print(f"A²S — alcance: INVALIDO · {estado.get('motivo', '')}")
+            print("  crea uno con: a2s secops scope-create --targets ... "
+                  "--acciones recon,scan,analizar --firma \"...\"")
+            return 0
+        print(f"A²S — alcance: VÁLIDO · firmante {estado['signed_by']}")
+        print(f"  targets:  {', '.join(estado['targets'])}")
+        print(f"  acciones: {', '.join(estado['acciones'])}")
+        print(f"  expira:   {estado['expires']} · emitido {estado['iat']}")
+        return 0
+    try:
+        report = ejecutar(args.objetivo, modo=args.modo, workspace=args.workspace,
+                          targets=[t for t in (args.targets or "").split(",")
+                                   if t.strip()] or None,
+                          archivo=args.archivo, templates=args.templates,
+                          confirm=args.confirm)
+    except ValueError as exc:
+        print(f"✗ {exc}")
+        return 1
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0
+    print(f"A²S — SecOps · modo {report['modo']} · «{report['objetivo']}»")
+    print(f"  scope: {'VÁLIDO' if report['scope']['valido'] else 'sin alcance'}"
+          if report['modo'] == "asistido" else
+          "  scope: no necesario en simulación")
+    for paso in report["pasos"]:
+        marca = {"simulado": "·", "ok": "✔", "denegado": "✗", "omitido": "•",
+                 "sin_objetivo": "•", "error": "✗"}.get(paso["estado"], "?")
+        print(f"  {marca} {paso['nombre']} ({paso['tipo']})")
+        if paso.get("motivo"):
+            print(f"        → {paso['motivo']}")
+        if paso.get("reporte") and paso["estado"] == "ok":
+            r = paso["reporte"]
+            detalle = (f"HTTP {r.get('status')} · {r.get('ms')}ms"
+                       if "status" in r else
+                       f"{r.get('scanner')}: {r.get('total')} hallazgos"
+                       if "scanner" in r else
+                       f"sha256 {str(r.get('sha256', ''))[:16]}…")
+            print(f"        → {detalle}")
+    if report["modo"] == "asistido":
+        print(f"  run: {report.get('run_id', '')} · informe en "
+              f"{args.workspace}/.a2s/secops/")
+    else:
+        print(f"  nota: {report['nota']}")
+    return 0
+
+
 
 
 
@@ -1526,6 +1602,36 @@ def main(argv: list[str] | None = None) -> int:
                        help="enlaces verificados en paralelo con --check "
                             "(0 = secuencial, reproducible; default 8)")
     p_rec.set_defaults(func=cmd_recursos)
+
+    p_sec = sub.add_parser(
+        "secops",
+        help="SecOps asistido: alcance criptográfico (scope.jwt) + ejecución "
+             "defensiva local (recon/scan/analizar; vocabulario cerrado)")
+    p_sec.add_argument("accion", choices=["scope-create", "scope-status", "ejecutar"])
+    p_sec.add_argument("objetivo", nargs="?", default="",
+                       help="objetivo a enrutar (solo ejecutar)")
+    p_sec.add_argument("--targets", default="",
+                       help="hosts/CIDR separados por coma (scope-create y "
+                            "targets de recon/scan en ejecutar)")
+    p_sec.add_argument("--acciones", default="recon,scan,analizar",
+                       help="acciones del scope (cerrado: recon|scan|analizar)")
+    p_sec.add_argument("--expires", default="",
+                       help="YYYY-MM-DDTHH:MM:SSZ (default +30 días)")
+    p_sec.add_argument("--firma", default="",
+                       help="identidad del firmante (obligatoria en scope-create)")
+    p_sec.add_argument("--modo", default="simulacion",
+                       choices=["simulacion", "asistido"],
+                       help="simulacion = plan sin red (default); asistido = "
+                            "ejecuta adaptadores defensivos con alcance")
+    p_sec.add_argument("--archivo", default="",
+                       help="archivo del workspace para analizar/trivy fs")
+    p_sec.add_argument("--templates", default="",
+                       help="plantillas extra para nuclei (opcional)")
+    p_sec.add_argument("--confirm", action="store_true",
+                       help="confirma los pasos de red (recon/scan)")
+    p_sec.add_argument("--workspace", default="workspace")
+    p_sec.add_argument("--json", action="store_true", help="salida JSON")
+    p_sec.set_defaults(func=cmd_secops)
 
     p_cap = sub.add_parser(
         "capacidades",

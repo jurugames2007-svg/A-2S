@@ -3,6 +3,49 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.27.0] — 2026-08-26
+
+### Añadido (SecOps asistido: autorización técnica + ejecución defensiva real)
+
+- **`a2s/secops.py`**: alcance firmado HMAC-SHA256 (`workspace/.a2s/scope.jwt`
+  + `scope.key` de 32 bytes; payload base64url, firma comparada en tiempo
+  constante, caducidad y targets por host exacto / `*.dominio` / CIDR).
+  **Vocabulario cerrado** `recon | scan | analizar`: un token que pida
+  `exploit`/`post-exploit`/`dump`/`exfiltrate` se rechaza al crearlo.
+- **`a2s secops`** (CLI): `scope-create`, `scope-status`, `ejecutar OBJETIVO
+  --modo simulacion|asistido`. Simulación = plan completo sin red ni
+  procesos. Asistido = adaptadores defensivos **sobre alcance verificado**:
+  - `recon`: un GET benigno por objetivo (UA honesto, cabeceras, TLS);
+  - `scan`: escáneres locales instalados — `nuclei -jsonl` y `trivy
+    image|fs` — con parsers (`_parse_nuclei`, `_parse_trivy`) y plantillas
+    opcionales; `--confirm` obligatorio para pasos de red;
+  - `analizar`: archivos del workspace (magic, strings, EXIF, PDF,
+    SHA-256; `analyzeHeadless` de Ghidra si está instalado).
+- Metasploit/sqlmap/hashcat/payloads/GrayHat/Gmail-creator: aparecen en el
+  plan como pasos **«operador»** (el dueño los ejecuta en su entorno; A²S no
+  los automatiza) y nunca como acción del motor.
+- **Auditoría**: cada denegación (`secops.denegado`), ejecución
+  (`secops.ejecucion`) y error (`secops.error`) entra al ledger con hash
+  chain; resultados en `workspace/.a2s/secops/<run>/{resumen.json,
+  informe.md}`.
+- **Control Plane**: `GET /api/secops` (alcance + último run) y
+  `POST /api/secops/plan` (simulación únicamente; la UI no dispara red).
+- `docs/SECOPS.md` (casos de uso, límites y por qué el "seguro técnico" real
+  es que el motor no contiene munición) y `tests/test_secops.py` (13 tests:
+  firma/manipulación/caducidad/CIDR/acción fuera de lista, simulación sin
+  red, denegación auditada, recon real contra servidor local, análisis
+  local, CLI).
+
+### Límites honestos
+
+- El `scope.jwt` no protege contra el dueño del workspace (la clave vive
+  junto al token); la autoridad firmante para contratos reales debería ser
+  externa al agente. Aun con alcance válido no se ejecutan herramientas
+  ofensivas: el vocabulario y el código lo impiden (no es una política, es
+  ausencia de funcionalidad).
+- Los adaptadores `scan` requieren `nuclei`/`trivy` instalados; sin ellos
+  devuelven motivo claro. El reconocimiento es una instantánea (un GET).
+
 ## [1.26.0] — 2026-08-26
 
 ### Añadido (capa de capacidades del catálogo — 65/65 fuentes)
