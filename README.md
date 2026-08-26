@@ -119,6 +119,26 @@
 > detener, ver archivos). No hace falta saber programar ni escribir
 > `a2s pcb`. El chat y **Archivos** siguen al lado.
 
+> **v1.26 — Capacidades: de lista de enlaces a mapa accionable (65 fuentes, 0% omitida):**
+> nuevo módulo `a2s/capacidades.py` traduce **cada** recurso del catálogo a
+> qué capacidad aporta, con qué uso autónomo (sí / parcial / operador /
+> referencia), qué necesita (CLI, API key, hardware, alcance) y qué
+> equivalente interno de A²S lo cubre. Faltaban 2 URLs del listado del
+> operador: se añadió el espejo oficial `anthropics/courses` y
+> `gmail-account-creator` (categorizado «advertido»: solo la API oficial de
+> Google sobre la cuenta principal del operador) y se localizó el repo real
+> de Worm-GPT — el recuento de URLs únicas real del operador es **65**, no
+> 63. El enrutador (`a2s capacidades ruta OBJETIVO`) implementa el sistema
+> de decisión (reconocimiento → web-check/osint4all/nuclei, reversing →
+> ghidra/imhex/x64dbg/cyberchef, prompt → claude-courses/system-prompts,
+> …) con **puerta de autorización**: las cadenas ofensivas se retienen
+> salvo `workspace/.a2s/alcance.json` y siempre se ofrece la alternativa
+> defensiva. `a2s capacidades ingesta` convierte READMEs públicos en fichas
+> de conocimiento (solo lectura, cuotas respetadas, nunca clona ni
+> ejecuta); `a2s capacidades --mapa` genera el informe completo;
+> `GET /api/capacidades` y enrutador en la pestaña Recursos. Ver
+> `docs/CAPACIDADES.md`.
+
 > **v1.25 — Catálogo completo (6 repositorios añadidos):** se cerró el
 > listado del operador: ahora 63 entradas en 6 categorías. Faltaban
 > Karpathy Skills (Claude Code), Zero to Mastery ML, Agency Agents, Godmode,
@@ -681,6 +701,8 @@ a2s/
 ├── artifacts.py    listado y servicio de archivos/resultados (imágenes, PDF, audio, vídeo, texto)
 ├── ui/             GUI empaquetada (HTML/CSS/JS, sin CDN; layout chat + workspace)
 ├── ecosystem.py    radar creciente de proyectos con licencia OSS verificada
+├── capacidades.py  mapa fuente→capacidad→A²S + enrutador con puerta de
+│                   autorización e ingesta de READMEs a fichas (v1.26)
 └── directiva.py    mapa de reinterpretación operativa
 ```
 

@@ -7,6 +7,7 @@ from tests._winutil import temp_dir
 import threading
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from a2s.chat import HeuristicAssistant
@@ -159,6 +160,19 @@ class TestDashboardHTTP(unittest.TestCase):
                                 {"goal": "x"}, {"Origin": "https://evil.example"})
         self.assertEqual(code, 403)
         self.assertIn("origen", json.loads(body)["error"])
+
+    def test_capacidades_resumen_y_enrutador(self):
+        code, _, body = request(self.base + "/api/capacidades")
+        self.assertEqual(code, 200)
+        data = json.loads(body)
+        self.assertGreaterEqual(data["total"], 65)
+        self.assertEqual(len(data["core"]), 15)
+        objetivo = urllib.parse.quote("reconocimiento web")
+        code, _, body = request(self.base + f"/api/capacidades?objetivo={objetivo}")
+        self.assertEqual(code, 200)
+        plan = json.loads(body)
+        self.assertIn("web-check", {p["id"] for p in plan["pasos"]})
+        self.assertIn("nuclei", {b["id"] for b in plan["bloqueados"]})
 
     def test_knowledge_incluye_radar_oss(self):
         code, _, body = request(self.base + "/api/knowledge")

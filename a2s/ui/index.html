@@ -302,6 +302,16 @@
           </form>
           <div id="recursos-cats" class="recursos-cats" aria-label="Categorías del catálogo"></div>
           <div class="guardrail-strip"><span>✓ USO AUTORIZADO</span><span>✓ FIN ACADÉMICO / DEFENSIVO</span><span>✓ RESPETO A LA LEY LOCAL</span><span>✓ SIN EJECUCIÓN AUTOMÁTICA</span></div>
+          <div class="capacidades-bar">
+            <small id="recursos-cap" class="muted">Mapeando capacidades…</small>
+            <div class="inline-control">
+              <input id="recursos-ruta" type="search" maxlength="200"
+                     placeholder="Enrutar objetivo: recon web, prompt, vpn, reversing…"
+                     aria-label="Enrutar objetivo a una cadena de recursos">
+              <button id="recursos-ruta-btn" class="btn btn-secondary" type="button">Enrutar</button>
+            </div>
+          </div>
+          <div id="recursos-ruta-out" class="recursos-ruta-out" hidden></div>
           <article class="panel">
             <header class="panel-head"><div><p class="kicker">REFERENCIA</p><h2>Catálogo completo</h2></div>
               <small id="recursos-check-stamp" class="muted">—</small>

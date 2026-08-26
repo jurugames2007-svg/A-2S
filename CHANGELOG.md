@@ -3,6 +3,59 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.26.0] — 2026-08-26
+
+### Añadido (capa de capacidades del catálogo — 65/65 fuentes)
+
+- **`a2s/capacidades.py`**: cada entrada del catálogo se traduce a un
+  registro accionable — dominio funcional (cognitiva, ciber,
+  automatización, infraestructura, datos, utilidades), capacidad, uso
+  autónomo (`si`/`parcial`/`operador`/`no`), dependencias canónicas (CLI,
+  API key, hardware, alcance), equivalente interno de A²S, receta de uso,
+  nota ética, sinergias y marca core. Cobertura verificada por tests:
+  ninguna entrada sin capacidad, sin receta o sin nota ética.
+- **Catálogo completo**: se añaden las 2 URLs que faltaban del listado del
+  operador — `anthropic-courses` (espejo oficial de los cursos de
+  Anthropic) y `gmail-account-creator` (advertido: API oficial de Google
+  sobre la cuenta principal; no creación masiva) — y se localiza el repo
+  real de Worm-GPT. Recuento real de URLs únicas del operador: **65**.
+- **Enrutador de decisiones** (`a2s capacidades ruta OBJETIVO`):
+  intenciones → cadenas de sinergia (reconocimiento → web-check +
+  osint4all + nuclei; reversing → ghidra + imhex + x64dbg + cyberchef;
+  prompt → claude-courses + system-prompts-leaks + karpathy-skills +
+  agency-agents; orquestación → n8n + ruflo; secretos → vault + openssl;
+  VPN → algo + setup-ipsec + xray…), con búsqueda BM25 como fallback.
+- **Puerta de autorización**: las rutas con `autorizacion_escrita` se
+  mueven a `bloqueados` salvo que exista `workspace/.a2s/alcance.json`
+  (`{"autorizado": true, "hosts": [...]}`); las de zona gris (`no`) quedan
+  como referencia y nunca se automatizan; siempre se publica la alternativa
+  defensiva.
+- **Ingesta a memoria** (`a2s capacidades ingesta`): READMEs públicos →
+  fichas de conocimiento (`cap-<id>` en `.a2s/knowledge/`) con licencia,
+  stars, resumen extractivo y estado en
+  `.a2s/capacidades/ingesta.json`; solo lectura vía API de GitHub
+  (cuotas y `Retry-After` respetados) y `classify_forbidden` aplicado:
+  el contenido que casa con un patrón prohibido queda `revisar` — la ficha
+  se conserva (material público) pero **no se auto-aplica**. Reanudable
+  (`--solo`, `--calls`, `--refresh`). **Nunca clona ni ejecuta** código
+  estudiado.
+- **`a2s capacidades --mapa [RUTA]`**: informe completo Markdown (tabla
+  dominio×capacidad×uso, recetas por recurso, core).
+- **Control Plane**: `GET /api/capacidades` (resumen o ruta con
+  `?objetivo=`) y enrutador en la pestaña **Recursos** (barra de
+  capacidades + campo «Enrutar objetivo»).
+
+### Límites honestos
+
+- La ingesta cubre READMEs vía API pública; los 24 recursos web no GitHub
+  se registran como `referencia` (no hay README que ingerir).
+- Sin `GITHUB_TOKEN` el límite de lectura es ~2/min: la ingesta completa
+  es reanudable y se recomienda `--calls 40` + repeticiones o token del
+  operador.
+- El enrutador es determinista y auditable, no un LLM: cubre las
+  intenciones declaradas y el resto cae a BM25; los recursos `no` no son
+  automatizables por diseño.
+
 ## [1.25.0] — 2026-08-25
 
 ### Añadido (catálogo completo)

@@ -560,6 +560,16 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
                 consulta=(query.get("q") or [""])[0][:200],
                 cat=(query.get("cat") or [""])[0][:40],
                 workspace=self.control_plane.workspace))
+        elif path == "/api/capacidades":
+            from .capacidades import resumen, seleccionar
+            objetivo = (query.get("objetivo") or [""])[0][:200]
+            if objetivo:
+                self._json(seleccionar(
+                    objetivo,
+                    contexto=(query.get("ctx") or [""])[0][:300],
+                    workspace=self.control_plane.workspace))
+            else:
+                self._json(resumen(self.control_plane.workspace))
         elif path == "/api/audit":
             from .audit import run_audit
             self._json(run_audit())

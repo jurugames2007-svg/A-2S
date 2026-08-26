@@ -1081,6 +1081,102 @@ def _recursos_check_watch(args: argparse.Namespace, data: dict,
     return 0
 
 
+def _fmt_requiere(requiere: list[str]) -> str:
+    from .capacidades import REQ_NOMBRE
+    return ", ".join(REQ_NOMBRE.get(r, r) for r in requiere) or "ninguna"
+
+
+def cmd_capacidades(args: argparse.Namespace) -> int:
+    """Mapa fuente→capacidad→A²S y enrutador con puerta de autorización."""
+    if args.ingesta:
+        from .capacidades import ingesta
+        try:
+            report = ingesta(args.workspace, max_calls=args.calls,
+                             solo=args.solo, refresh=args.refresh)
+        except Exception as exc:  # noqa: BLE001 — presupuesto/cuota de GitHub
+            print(f"✗ ingesta detenida: {exc}")
+            return 1
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        print(f"[A²S] ingesta de capacidades: {report['total']} procesadas · "
+              f"{report['ok']} ok · {report['revisar']} para revisar · "
+              f"{report['error']} error · {report['referencia']} referencia")
+        print(f"      fichas en workspace/.a2s/knowledge/ y estados en "
+              f"workspace/.a2s/capacidades/ingesta.json (reanudable)")
+        for rid, st in report["estados"].items():
+            if st.get("estado") in ("revisar", "error"):
+                print(f"      {'!' if st.get('estado') == 'error' else '~'} "
+                      f"{rid}: {st.get('motivo', '')}")
+        return 0
+
+    if args.ruta:
+        from .capacidades import seleccionar
+        try:
+            plan = seleccionar(args.ruta, contexto=args.ctx,
+                               workspace=args.workspace)
+        except ValueError as exc:
+            print(f"✗ {exc}")
+            return 1
+        if args.json:
+            print(json.dumps(plan, ensure_ascii=False, indent=2))
+            return 0
+        print(f"A²S — enrutador de capacidades para «{plan['objetivo']}»")
+        print(f"Intención detectada: {plan['intento']}")
+        print(f"Autorización: {'válida' if plan['autorizacion']['valida'] else 'NO hay alcance válido'} "
+              f"({plan['autorizacion']['path']})")
+        print()
+        for paso in plan["pasos"]:
+            print(f"  {paso['id']} · {paso['nombre']}")
+            print(f"      uso: {paso['uso_nombre']}")
+            print(f"      por qué: {paso['por_que']}")
+            print(f"      requiere: {_fmt_requiere(paso['requiere'])}")
+            print(f"      equivalente A²S: {', '.join(paso['mapa_a2s']) or '—'}")
+        if plan["bloqueados"]:
+            print("\nRetenidos por la puerta de ética:")
+            for b in plan["bloqueados"]:
+                print(f"  ✗ {b['id']} · {b['nombre']}: {b['motivo']}")
+        print(f"\nSugerencia defensiva: {plan['sugerencia_defensiva']}")
+        print(f"Resumen: {plan['resumen']}")
+        return 0
+
+    if args.mapa is not None:
+        from .capacidades import mapa_markdown
+        contenido = mapa_markdown(args.workspace)
+        if args.mapa == "-":
+            print(contenido)
+        else:
+            with open(args.mapa, "w", encoding="utf-8") as fh:
+                fh.write(contenido)
+            print(f"[A²S] mapa de capacidades escrito en {args.mapa}")
+        return 0
+
+    from .capacidades import core_ids, resumen
+    data = resumen(args.workspace)
+    if args.core or args.json:
+        if args.json:
+            print(json.dumps(data, ensure_ascii=False, indent=2))
+            return 0
+        print(f"Core ({len(core_ids())}):")
+        for ident in core_ids():
+            print(f"  - {ident}")
+        return 0
+    print(f"A²S — mapa de capacidades: {data['total']} recursos mapeados")
+    print(f"Puerta de ética: {data['con_puerta']} recursos con alcance escrito; "
+          f"{data['autonomas']} de uso autónomo")
+    ing = data['ingesta']
+    print(f"Ingesta: {ing.get('ok', 0)} ok · {ing.get('revisar', 0)} revisar · "
+          f"{ing.get('error', 0)} error · {ing.get('referencia', 0)} referencia\n")
+    for dom in data["dominios"]:
+        print(f"{dom['nombre']}: {dom['count']}")
+    for uso in data["usos"]:
+        print(f"  {uso['nombre']}: {uso['count']}")
+    print("\nCore:", ", ".join(core_ids()))
+    print("Usos: a2s capacidades ruta OBJETIVO · a2s capacidades ingesta "
+          "--calls 40 · a2s capacidades --mapa")
+    return 0
+
+
 def cmd_recursos(args: argparse.Namespace) -> int:
     """Catálogo curado de recursos del operador (referencia, sin ejecución)."""
     from .recursos import api_snapshot, validar
@@ -1391,6 +1487,35 @@ def main(argv: list[str] | None = None) -> int:
                        help="enlaces verificados en paralelo con --check "
                             "(0 = secuencial, reproducible; default 8)")
     p_rec.set_defaults(func=cmd_recursos)
+
+    p_cap = sub.add_parser(
+        "capacidades",
+        help="mapa fuente→capacidad→A²S y enrutador con puerta de autorización "
+             "(qué aporta cada recurso del catálogo y cuándo usarlo)")
+    p_cap.add_argument("--ruta", default="", metavar="OBJETIVO",
+                       help="enruta un objetivo a una cadena de recursos "
+                            "(ej. 'reconocimiento web', 'reversing binario')")
+    p_cap.add_argument("--ctx", default="",
+                       help="contexto adicional para el enrutador")
+    p_cap.add_argument("--ingesta", action="store_true",
+                       help="ingiere READMEs públicos a fichas de conocimiento "
+                            "(solo lectura; nunca clona ni ejecuta)")
+    p_cap.add_argument("--solo", default="",
+                       help="ids separadas por coma (con --ingesta)")
+    p_cap.add_argument("--calls", type=int, default=40,
+                       help="presupuesto de llamadas a la API de GitHub "
+                            "(con --ingesta, default 40)")
+    p_cap.add_argument("--refresh", action="store_true",
+                       help="re-hace la ingesta aunque esté completada")
+    p_cap.add_argument("--mapa", nargs="?", const="capacidades.md", default=None,
+                       metavar="RUTA",
+                       help="informe completo en Markdown (default: "
+                            "capacidades.md; '-' = stdout)")
+    p_cap.add_argument("--core", action="store_true",
+                       help="lista las 15 fuentes core")
+    p_cap.add_argument("--workspace", default="workspace")
+    p_cap.add_argument("--json", action="store_true", help="salida JSON")
+    p_cap.set_defaults(func=cmd_capacidades)
 
     p_prev = sub.add_parser(
         "route-preview", help="explica qué proveedor elegiría SORL sin ejecutar una llamada")

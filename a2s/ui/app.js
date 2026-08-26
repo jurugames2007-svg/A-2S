@@ -637,6 +637,14 @@ async function loadRecursos() {
 function renderRecursos(data) {
   text($("#recursos-total"), data.total);
   text($("#recursos-count"), (data.recursos || []).length);
+  const cap = $("#recursos-cap");
+  if (cap && data.capacidades) {
+    const st = data.capacidades.ingesta || {};
+    cap.textContent = `${data.capacidades.total} fuentes mapeadas · ` +
+      `${data.capacidades.autonomas} uso autónomo · ` +
+      `${data.capacidades.con_puerta} con puerta de autorización · ` +
+      `ingesta ${st.ok || 0}/${st.total || data.capacidades.total}`;
+  }
   const stamp = $("#recursos-check-stamp");
   if (stamp) {
     const ck = data.check;
@@ -703,6 +711,30 @@ function renderRecursos(data) {
       url.textContent = r.url;
     }
   }
+}
+
+function renderRuta(plan, box) {
+  if (!box) return;
+  box.hidden = false;
+  box.replaceChildren();
+  const titulo = el("h4", "", box);
+  titulo.textContent = `Enrutador · «${plan.objetivo}» (${plan.intento})`;
+  for (const paso of plan.pasos || []) {
+    const row = el("div", "paso", box);
+    const b = el("b", "", row);
+    b.textContent = paso.nombre;
+    row.appendChild(document.createTextNode(` · ${paso.capacidad} — ${paso.uso_nombre}`));
+    const det = el("div", "det", row);
+    det.textContent = `${paso.por_que} · requiere: ${(paso.requiere || []).join(", ") || "nada"}`;
+  }
+  if ((plan.bloqueados || []).length) {
+    for (const b of plan.bloqueados) {
+      const row = el("div", "paso retenido", box);
+      row.textContent = `✗ ${b.nombre}: ${b.motivo}`;
+    }
+  }
+  const sug = el("p", "sug", box);
+  sug.textContent = plan.sugerencia_defensiva || "";
 }
 
 /* ------------------------------------------------------------------ */
@@ -1010,6 +1042,27 @@ function wireActions() {
         formRecursos.hidden = true;
         await loadRecursos();
       } catch (error) { toast(error.message, true); }
+    });
+  }
+
+  // Recursos: enrutador de objetivos (capa de capacidades)
+  const rutaInput = $("#recursos-ruta");
+  const rutaBtn = $("#recursos-ruta-btn");
+  const rutaOut = $("#recursos-ruta-out");
+  const enrutar = async () => {
+    const objetivo = (rutaInput.value || "").trim();
+    if (!objetivo) { toast("Escribe un objetivo (p. ej. «recon web», «prompt», «vpn»)", true); return; }
+    rutaBtn.disabled = true;
+    try {
+      const plan = await api(`/api/capacidades?objetivo=${encodeURIComponent(objetivo)}`);
+      renderRuta(plan, rutaOut);
+    } catch (error) { toast(error.message, true); }
+    finally { rutaBtn.disabled = false; }
+  };
+  if (rutaBtn && rutaInput) {
+    rutaBtn.addEventListener("click", () => enrutar().catch((e) => toast(e.message, true)));
+    rutaInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); enrutar().catch((er) => toast(er.message, true)); }
     });
   }
 

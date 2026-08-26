@@ -60,6 +60,13 @@ ENTRADAS: tuple[dict[str, Any], ...] = (
      "desc": "Cursos oficiales de Anthropic (prompting, agentes, APIs). "
              "Espejo en github.com/anthropics/courses.",
      "tags": ("claud", "cursos", "prompt", "agentes")},
+    {"id": "anthropic-courses", "cat": "ia",
+     "nombre": "Anthropic Courses — repositorio GitHub",
+     "url": "https://github.com/anthropics/courses",
+     "desc": "Repositorio oficial del curso de Anthropic (notebooks, "
+             "módulos de agents, prompting y tool use). Espejo del "
+             "contenido de claude.com/resources/courses.",
+     "tags": ("claud", "cursos", "prompt", "agentes", "github")},
     {"id": "coursera-ai", "cat": "ia",
      "nombre": "Coursera — Google AI Essentials",
      "url": "https://www.coursera.org/specializations/ai-essentials-google",
@@ -89,12 +96,13 @@ ENTRADAS: tuple[dict[str, Any], ...] = (
              "y términos).",
      "tags": ("ia",) },
     {"id": "wormgpt", "cat": "ia",
-     "nombre": "WormGPT",
-     "url": "",
-     "desc": "Modelo publicitado como «sin filtros» para ciberseguridad y "
-             "red-team. Sin repositorio oficial verificado: advertido, validar "
-             "antes de citar.",
-     "tags": ("advertido", "ia")},
+     "nombre": "Worm-GPT (repo de terceros)",
+     "url": "https://github.com/lahirusanjika/Worm-GPT",
+     "desc": "Proyecto de terceros (lahirusanjika) publicitado como LLM «sin "
+             "filtros» para ciberseguridad/red-team. No es oficial ni "
+             "verificado: advertido, solo referencia documental; A²S no lo "
+             "integra ni ejecuta.",
+     "tags": ("advertido", "ia", "referencia")},
     {"id": "karpathy-skills", "cat": "ia",
      "nombre": "Karpathy Skills (multica-ai)",
      "url": "https://github.com/multica-ai/andrej-karpathy-skills",
@@ -287,6 +295,14 @@ ENTRADAS: tuple[dict[str, Any], ...] = (
      "url": "https://github.com/asgeirtj/system_prompts_leaks",
      "desc": "Prompts del sistema filtrados de LLMs (Claude, ChatGPT, Gemini, Grok, Copilot, Cursor, Perplexity...; asgeirtj): referencia para auditoría de prompts e inyección; usar en entornos autorizados.",
      "tags": ("prompts", "seguridad", "research")},
+    {"id": "gmail-account-creator", "cat": "ciber",
+     "nombre": "Gmail Account Creator (ShadowHackrs)",
+     "url": "https://github.com/ShadowHackrs/gmail-account-creator",
+     "desc": "Scripts para integrar la API oficial de Google sobre la cuenta "
+             "principal del operador (obtener credenciales/API una sola vez). "
+             "Advertido: no automatiza creación masiva de cuentas ni saltos "
+             "de políticas; verificar ToS de Google y el código antes de usar.",
+     "tags": ("google", "api", "cuentas", "advertido")},
     # ---- 3. Desarrollo de Software y Arquitectura -----------------------
     {"id": "gworkspace-cli", "cat": "dev",
      "nombre": "Google Workspace CLI",
@@ -578,6 +594,7 @@ def api_snapshot(consulta: str = "", cat: str = "", top: int = 25,
             rows = [r for r in rows if r["cat"] == cid]
     else:
         rows = entradas(cat, workspace=workspace)
+    from .capacidades import resumen as _cap_resumen
     return {"total": len(_todas(workspace)),
             "total_base": len(ENTRADAS),
             "consulta": consulta,
@@ -585,6 +602,7 @@ def api_snapshot(consulta: str = "", cat: str = "", top: int = 25,
             "recursos": rows,
             "categorias": categorias(workspace),
             "check": estado_check(workspace),
+            "capacidades": _cap_resumen(workspace),
             "aviso": AVISO_ETICO}
 
 
