@@ -3,6 +3,31 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.28.0] — 2026-08-26
+
+### Añadido (PromptGuard: auditoría defensiva de prompts)
+
+- **`a2s/promptguard.py`**: detección **defensiva** de inyección de prompts y
+  jailbreaks — categorías: suplantación de rol, anulación de instrucciones,
+  fuga de prompt, ofuscación y contenido fuera de política. Veredicto
+  (limpio / señal sutil / inyección posible / jailbreak probable) con score y
+  pistas. Stdlib puro, heurístico y honesto sobre falsos positivos/negativos.
+- **CLI**: `a2s promptguard check TEXTO | --file RUTA [--json] [--ledger]`;
+  `--ledger` registra `promptguard.hallazgo` en la cadena de custodia.
+- **`docs/PROMPTGUARD.md`**: qué detecta, qué NO es (no genera vectores de
+  evasión; no es un port de proyectos de jailbreak) y cómo integrarlo antes
+  de enviar texto a un LLM.
+- `tests/test_promptguard.py` (11 tests): limpio, ausencia de texto,
+  anulación/rol combinada, jailbreak clásico (DAN), fuga de prompt,
+  ofuscación aislada, salida sin recetas, ledger y CLI (JSON, archivo fuera
+  del workspace, con ledger).
+
+### Límite honesto
+
+- La detección es por marcadores: útil para auditoría y defensa; no es un
+  adversario de evaluación de robustez (generar variantes ofensivas queda
+  fuera de alcance y fuera de este repositorio).
+
 ## [1.27.0] — 2026-08-26
 
 ### Añadido (SecOps asistido: autorización técnica + ejecución defensiva real)

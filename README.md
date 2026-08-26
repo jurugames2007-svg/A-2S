@@ -119,6 +119,15 @@
 > detener, ver archivos). No hace falta saber programar ni escribir
 > `a2s pcb`. El chat y **Archivos** siguen al lado.
 
+> **v1.28 — PromptGuard (`a2s promptguard`):** detector **defensivo** de
+> inyección de prompts y jailbreaks (suplantación de rol, anulación de
+> instrucciones, fuga de prompt, ofuscación, contenido fuera de política) —
+> marca la señal, la clasifica (limpio/sutil/posible/probable) y la registra
+> en el ledger. Es el contraparte de las herramientas de jailbreak que A²S
+> **no** integra: no genera ni sugiere vectores de evasión; sirve para
+> auditar prompts recibidos y proteger tus propias apps. Ver
+> `docs/PROMPTGUARD.md`.
+
 > **v1.27 — SecOps asistido (`a2s secops`):** autorización **técnica** de
 > alcance — `workspace/.a2s/scope.jwt` firmado HMAC-SHA256 (targets por host/
 > `*.dominio`/CIDR, caducidad, firma en tiempo constante) con **vocabulario
@@ -723,6 +732,8 @@ a2s/
 │                   autorización e ingesta de READMEs a fichas (v1.26)
 ├── secops.py       alcance criptográfico (scope.jwt, vocabulario cerrado)
 │                   + ejecución defensiva local (recon/scan/analizar) (v1.27)
+├── promptguard.py  detección defensiva de inyección de prompts/jailbreaks
+│                   (sin generación de vectores de evasión) (v1.28)
 └── directiva.py    mapa de reinterpretación operativa
 ```
 

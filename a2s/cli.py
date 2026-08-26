@@ -1086,6 +1086,42 @@ def _fmt_requiere(requiere: list[str]) -> str:
     return ", ".join(REQ_NOMBRE.get(r, r) for r in requiere) or "ninguna"
 
 
+def cmd_promptguard(args: argparse.Namespace) -> int:
+    """PromptGuard: detección defensiva de inyección de prompts/jailbreaks."""
+    from .promptguard import clasificar, documentar, formato_legible
+    texto = args.texto or ""
+    if args.archivo:
+        path = os.path.abspath(os.path.join(os.path.abspath(args.workspace),
+                                            args.archivo))
+        root = os.path.abspath(args.workspace or ".")
+        if not (path.startswith(root + os.sep) or path == root):
+            print("✗ archivo fuera del workspace")
+            return 1
+        if not os.path.isfile(path):
+            print(f"✗ archivo no encontrado: {args.archivo}")
+            return 1
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                texto = fh.read(50_000)
+        except OSError as exc:
+            print(f"✗ no se pudo leer: {exc}")
+            return 1
+    veredicto = clasificar(texto)
+    if args.ledger and veredicto.veredicto != "sin_texto":
+        registrado = documentar(args.workspace, veredicto)
+        if args.json:
+            print(json.dumps({**veredicto.to_dict(),
+                              "registrado": registrado["ledger"]["hash"][:16]},
+                             ensure_ascii=False, indent=2))
+            return 0
+        print("[A²S] hallazgo registrado en el ledger (cadena de custodia)")
+    elif args.json:
+        print(json.dumps(veredicto.to_dict(), ensure_ascii=False, indent=2))
+        return 0
+    print(formato_legible(veredicto))
+    return 0
+
+
 def cmd_secops(args: argparse.Namespace) -> int:
     """SecOps asistido: alcance criptográfico + ejecución defensiva local."""
     from .secops import (crear_scope, estado_scope, ejecutar, resumen_secops)
@@ -1632,6 +1668,21 @@ def main(argv: list[str] | None = None) -> int:
     p_sec.add_argument("--workspace", default="workspace")
     p_sec.add_argument("--json", action="store_true", help="salida JSON")
     p_sec.set_defaults(func=cmd_secops)
+
+    p_pg = sub.add_parser(
+        "promptguard",
+        help="detección defensiva de inyección de prompts y jailbreaks "
+             "(marca señal; no genera vectores de evasión)")
+    p_pg.add_argument("accion", choices=["check"])
+    p_pg.add_argument("texto", nargs="?", default="",
+                       help="texto a inspeccionar (o usa --file)")
+    p_pg.add_argument("--file", dest="archivo", default="",
+                       help="ruta (relativa al workspace) del texto a revisar")
+    p_pg.add_argument("--ledger", action="store_true",
+                       help="registra el hallazgo en el ledger")
+    p_pg.add_argument("--workspace", default="workspace")
+    p_pg.add_argument("--json", action="store_true", help="salida JSON")
+    p_pg.set_defaults(func=cmd_promptguard)
 
     p_cap = sub.add_parser(
         "capacidades",
