@@ -38,7 +38,7 @@ def tokeniza(text: str) -> list[str]:
 class Doc:
     doc_id: str
     texto: str
-    origen: str            # episodio | ficha | pool
+    origen: str            # episodio | ficha | pool | investigacion | recurso
     meta: str = ""         # línea descriptiva para mostrar
 
 
@@ -117,6 +117,12 @@ def _docs_fichas(workspace: str) -> list[Doc]:
     return out
 
 
+def _docs_recursos() -> list[Doc]:
+    """Catálogo curado de recursos del operador (``a2s recursos``)."""
+    from .recursos import docs_memoria
+    return docs_memoria()
+
+
 def _docs_pool(workspace: str) -> list[Doc]:
     st = os.path.join(os.path.abspath(workspace), ".a2s", "pool", "state.json")
     out = []
@@ -166,7 +172,8 @@ def workspace_search(workspace: str, consulta: str, top: int = 5,
                      origenes: Optional[set[str]] = None
                      ) -> list[tuple[Doc, float]]:
     docs = (_docs_episodios(workspace) + _docs_fichas(workspace) +
-            _docs_pool(workspace) + _docs_investigacion(workspace))
+            _docs_pool(workspace) + _docs_investigacion(workspace) +
+            _docs_recursos())
     if origenes:
         docs = [d for d in docs if d.origen in origenes]
     if not docs:

@@ -69,6 +69,7 @@
           <button class="pill" data-view="results">Archivos</button>
           <button class="pill" data-view="routing">Ruta</button>
           <button class="pill" data-view="ecosystem">Radar</button>
+          <button class="pill" data-view="recursos">Recursos</button>
           <button class="pill" data-view="assurance">Calidad</button>
         </nav>
         <div class="top-actions">
@@ -271,6 +272,42 @@
               <div id="card-list" class="card-list"><p class="empty-copy">Aún no hay fichas.</p></div>
             </article>
           </div>
+        </section>
+
+        <!-- ---------- Recursos ---------- -->
+        <section id="recursos" class="view-panel">
+          <header class="section-head">
+            <div><p class="eyebrow">CATÁLOGO CURADO</p><h2>Recursos del operador</h2>
+              <p class="section-copy">Lista consolidada de referencia en 6 categorías (IA y cursos, ciberseguridad y OSINT, desarrollo, directorios, utilidades y finanzas, empleo y estilo de vida). Es referencia y estudio: el uso debe ser autorizado, defensivo o académico.</p></div>
+            <div class="inline-control">
+              <button id="recursos-add" class="btn btn-secondary" type="button">＋ Añadir</button>
+              <input id="recursos-buscar" type="search" placeholder="Buscar: vpn, ghidra, pentest…" aria-label="Buscar en el catálogo">
+              <span id="recursos-count" class="tag">0</span>
+            </div>
+          </header>
+          <form id="recursos-form" class="recursos-form" hidden>
+            <input id="recursos-nombre" type="text" placeholder="Nombre" maxlength="120" required>
+            <input id="recursos-url" type="url" placeholder="URL (http/https, opcional)" maxlength="300">
+            <select id="recursos-cat" aria-label="Categoría">
+              <option value="ia">IA, Cursos y Automatización</option>
+              <option value="ciber">Ciberseguridad, Redes y OSINT</option>
+              <option value="dev">Desarrollo de Software y Arquitectura</option>
+              <option value="directorios">Directorios de Recursos, Streaming y Juegos</option>
+              <option value="utilidades">Herramientas Web, Utilidades y Finanzas</option>
+              <option value="empleo">Empleo, Estilo de Vida y Entretenimiento</option>
+            </select>
+            <input id="recursos-desc" type="text" placeholder="Nota (opcional)" maxlength="300">
+            <button class="btn btn-primary" type="submit">Guardar</button>
+            <button class="btn btn-secondary" type="button" id="recursos-cancel">Cancelar</button>
+          </form>
+          <div id="recursos-cats" class="recursos-cats" aria-label="Categorías del catálogo"></div>
+          <div class="guardrail-strip"><span>✓ USO AUTORIZADO</span><span>✓ FIN ACADÉMICO / DEFENSIVO</span><span>✓ RESPETO A LA LEY LOCAL</span><span>✓ SIN EJECUCIÓN AUTOMÁTICA</span></div>
+          <article class="panel">
+            <header class="panel-head"><div><p class="kicker">REFERENCIA</p><h2>Catálogo completo</h2></div>
+              <small id="recursos-check-stamp" class="muted">—</small>
+              <span id="recursos-total" class="tag">0</span></header>
+            <div id="recursos-list" class="recursos-list"><p class="loading">Cargando catálogo…</p></div>
+          </article>
         </section>
 
         <!-- ---------- Assurance ---------- -->

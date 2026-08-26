@@ -554,6 +554,12 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             self._json(self.control_plane._pool_snapshot(kind))
         elif path == "/api/knowledge":
             self._json(self.control_plane._knowledge_snapshot())
+        elif path == "/api/recursos":
+            from .recursos import api_snapshot
+            self._json(api_snapshot(
+                consulta=(query.get("q") or [""])[0][:200],
+                cat=(query.get("cat") or [""])[0][:40],
+                workspace=self.control_plane.workspace))
         elif path == "/api/audit":
             from .audit import run_audit
             self._json(run_audit())
@@ -669,25 +675,9 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             ok, message = self.control_plane.missions.stop()
             self._json({"status": message}, 202 if ok else 409)
         elif path == "/api/scout":
-            from .ecosystem import EcosystemRadar
-            query = str(payload.get("query", ""))[:160]
-            limit = MissionManager._bounded(payload.get("limit"), 6, 1, 12)
-            radar = EcosystemRadar(self.control_plane.workspace)
-            if query.strip():
-                report = radar.keyword_search(query, limit=limit)
-            else:
-                report = radar.scan(query=query, limit_per_query=limit)
-            self.control_plane.hub.publish({"event": "ecosystem_scan", "at": now_iso(),
-                               "added": len(report["added"]),
-                               "total": report["total"]})
-            self._json({"scan": report, **radar.snapshot()}, 200)
+            self._post_scout(payload)
         elif path == "/api/chat":
-            message = str(payload.get("message", "")).strip()
-            ok, msg = self.control_plane.chat.send(message)
-            if not ok:
-                self._json({"error": msg}, 409 if "curso" in msg or "respondiendo" in msg else 400)
-            else:
-                self._json({"status": msg}, 202)
+            self._post_chat(payload)
         elif path == "/api/chat/clear":
             self.control_plane.chat.clear()
             self._json({"status": "conversación reiniciada"})
@@ -717,8 +707,54 @@ class ControlPlaneHandler(BaseHTTPRequestHandler):
             if result.get("ok") and result.get("queued"):
                 code = 202
             self._json(result, code)
+        elif path == "/api/recursos":
+            self._post_recursos(payload)
         else:
             self._json({"error": "endpoint no encontrado"}, 404)
+
+    def _post_scout(self, payload: dict[str, Any]) -> None:
+        from .ecosystem import EcosystemRadar
+        query = str(payload.get("query", ""))[:160]
+        limit = MissionManager._bounded(payload.get("limit"), 6, 1, 12)
+        radar = EcosystemRadar(self.control_plane.workspace)
+        if query.strip():
+            report = radar.keyword_search(query, limit=limit)
+        else:
+            report = radar.scan(query=query, limit_per_query=limit)
+        self.control_plane.hub.publish({"event": "ecosystem_scan",
+                                        "at": now_iso(),
+                                        "added": len(report["added"]),
+                                        "total": report["total"]})
+        self._json({"scan": report, **radar.snapshot()}, 200)
+
+    def _post_chat(self, payload: dict[str, Any]) -> None:
+        message = str(payload.get("message", "")).strip()
+        ok, msg = self.control_plane.chat.send(message)
+        if not ok:
+            code = 409 if "curso" in msg or "respondiendo" in msg else 400
+            self._json({"error": msg}, code)
+        else:
+            self._json({"status": msg}, 202)
+
+    def _post_recursos(self, payload: dict[str, Any]) -> None:
+        from .recursos import extra_add
+        tags_raw = payload.get("tags")
+        tags = [str(t)[:32] for t in tags_raw][:8] \
+            if isinstance(tags_raw, list) else []
+        try:
+            entry = extra_add(
+                self.control_plane.workspace,
+                str(payload.get("nombre") or "")[:120],
+                str(payload.get("url") or "")[:300],
+                str(payload.get("cat") or "ia")[:40],
+                desc=str(payload.get("desc") or "")[:300], tags=tags)
+        except ValueError as exc:
+            self._json({"error": str(exc)}, 400)
+            return
+        self.control_plane.hub.publish(
+            {"event": "recursos_add", "at": now_iso(),
+             "id": entry["id"], "nombre": entry["nombre"]})
+        self._json({"status": "recurso añadido", "recurso": entry}, 201)
 
     def _login(self, payload: dict[str, Any]) -> None:
         if not self.control_plane.require_auth:

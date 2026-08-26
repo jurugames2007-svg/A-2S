@@ -17,7 +17,7 @@ Arquitectura de dos niveles para cubrir cada eslabón:
 
 Frontera de diseño: el watcher se identifica con un User-Agent honesto y no
 rota huellas "para simular entornos de usuario" — eso sería evasión de
-controles de terceros (línea de LIMITACIONES §1.1). El jitter aleta los
+controles de terceros (línea de permisos del framework). El jitter aleta los
 *nuestros* (rebaño/sincronización), no engaña a nadie.
 
 Especificación (ver ``examples/fsm.example.json``)::

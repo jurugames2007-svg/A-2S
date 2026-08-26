@@ -2,7 +2,7 @@
 
 Resolución del punto «RBAC/multiusuario» del ROADMAP_V2: lo que bloqueaba su
 adopción no era el código sino saltarse el producto — aquí está el producto,
-con su modelo de amenazas documentado (ver LIMITACIONES §15).
+con su modelo de amenazas documentado en el README (nota de la versión v1.8).
 
 **Modelo**:
 

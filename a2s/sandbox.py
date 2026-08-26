@@ -14,7 +14,7 @@ Niveles de aislamiento, detectados automáticamente en este orden:
   elusión deliberada vía ctypes/syscalls: es contención de recursos y
   prevención de accidentes, no una jaula.
 
-Honestidad técnica (documentada también en LIMITACIONES.md): solo el nivel 3
+Honestidad técnica (documentada también en el README): solo el nivel 3
 es aislamiento fuerte. El nivel 1 protege contra bucles de consumo de
 recursos, fork bombs y fugas accidentales de red, no contra código hostil
 deliberado. Para eso: ejecutar en VM/contenedor desechable.

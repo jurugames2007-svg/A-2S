@@ -1,6 +1,6 @@
 {
   "name": "a2s-agent-control-plane",
-  "version": "1.20.0",
+  "version": "1.25.0",
   "description": "A²S autonomous agent and industrial control plane — local-first, auditable, Python stdlib runtime launched through npm.",
   "license": "MIT",
   "type": "module",
@@ -20,7 +20,6 @@
     "docs/NPM_DISTRIBUTION.md",
     "README.md",
     "CHANGELOG.md",
-    "LIMITACIONES.md",
     "LICENSE",
     "pyproject.toml"
   ],

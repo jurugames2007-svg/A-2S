@@ -11,6 +11,7 @@ const state = {
   chatBusy: false,
   activeView: "overview",
   selectedArtifact: null,
+  recursos: { q: "", cat: "" },
 };
 
 /* ------------------------------------------------------------------ */
@@ -130,6 +131,7 @@ function switchView(name) {
   if (name === "results") loadArtifacts().catch((e) => toast(e.message, true));
   if (name === "routing") loadPool().catch((e) => toast(e.message, true));
   if (name === "ecosystem") loadKnowledge().catch((e) => toast(e.message, true));
+  if (name === "recursos") loadRecursos().catch((e) => toast(e.message, true));
 }
 
 /* ------------------------------------------------------------------ */
@@ -286,9 +288,9 @@ async function fireAction(id, topic) {
       body: JSON.stringify({ id, topic: chosen }),
     });
     toast(result.message || "Hecho");
-    if (result.view === "results") {
-      switchView("results");
-      loadArtifacts(true).catch(() => {});
+    if (result.view) {
+      switchView(result.view);
+      if (result.view === "results") loadArtifacts(true).catch(() => {});
     }
     if (result.pcb) {
       text($("#metric-pcb"), String((result.pcb.ready || 0) + (result.pcb.running || 0)));
@@ -622,6 +624,88 @@ function renderKnowledge(data) {
 async function loadKnowledge() { renderKnowledge(await api("/api/knowledge")); }
 
 /* ------------------------------------------------------------------ */
+/* Recursos (catálogo curado del operador)                             */
+/* ------------------------------------------------------------------ */
+
+async function loadRecursos() {
+  const params = new URLSearchParams();
+  if (state.recursos.q) params.set("q", state.recursos.q);
+  if (state.recursos.cat) params.set("cat", state.recursos.cat);
+  renderRecursos(await api(`/api/recursos?${params.toString()}`));
+}
+
+function renderRecursos(data) {
+  text($("#recursos-total"), data.total);
+  text($("#recursos-count"), (data.recursos || []).length);
+  const stamp = $("#recursos-check-stamp");
+  if (stamp) {
+    const ck = data.check;
+    stamp.textContent = ck
+      ? `último check ${String(ck.at || "").slice(5, 16)} · ${ck.ok}/${ck.total} ok`
+      : "sin chequeo todavía (a2s recursos --check)";
+  }
+  const cats = $("#recursos-cats");
+  cats.replaceChildren();
+  const chip = (label, value) => {
+    const node = el("button", "chip" + (state.recursos.cat === value ? " active" : ""), cats);
+    node.type = "button";
+    node.textContent = label;
+    node.addEventListener("click", () => {
+      state.recursos.cat = value;
+      loadRecursos().catch((e) => toast(e.message, true));
+    });
+  };
+  chip(`Todas (${data.total})`, "");
+  for (const c of data.categorias) chip(`${c.nombre} (${c.count})`, c.id);
+
+  const list = $("#recursos-list");
+  list.replaceChildren();
+  if (!data.recursos.length) {
+    const p = el("p", "empty-copy", list);
+    p.textContent = "Sin resultados: prueba «vpn», «ghidra», «pentest» o cambia de categoría.";
+    return;
+  }
+  for (const r of data.recursos) {
+    const item = el("article", "recurso", list);
+    const head = el("div", "recurso-head", item);
+    if (r.url) {
+      const a = document.createElement("a");
+      a.className = "recurso-name";
+      a.href = r.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = r.nombre;
+      head.appendChild(a);
+    } else {
+      const s = el("span", "recurso-name", head);
+      s.textContent = r.nombre;
+    }
+    if (r.tags && r.tags.includes("advertido")) {
+      const warn = el("span", "tag warn", head);
+      warn.textContent = "ADVERTIDO";
+    }
+    if (r.custom) {
+      const propio = el("span", "tag propio", head);
+      propio.textContent = "PROPIO";
+    }
+    const ck = data.check && data.check.results && data.check.results[r.id];
+    if (ck && ck.estado && ck.estado !== "sin enlace") {
+      const dot = el("span", "tag ck" + (ck.ok ? " ok" : " fail"), head);
+      dot.title = `${ck.estado} · ${String(data.check.at || "").slice(0, 16)}`;
+      dot.textContent = ck.ok ? "✔" : "✗";
+    }
+    const tag = el("span", "tag cat", head);
+    tag.textContent = (r.categoria || "").toUpperCase();
+    const desc = el("p", "", item);
+    desc.textContent = r.desc;
+    if (r.url) {
+      const url = el("small", "recurso-url", item);
+      url.textContent = r.url;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Assurance                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -890,6 +974,44 @@ function wireActions() {
 
   // Resultados
   $("#refresh-artifacts").addEventListener("click", () => loadArtifacts().catch((e) => toast(e.message, true)));
+
+  // Recursos (catálogo curado)
+  const buscarRecursos = $("#recursos-buscar");
+  if (buscarRecursos) {
+    buscarRecursos.addEventListener("input", () => {
+      state.recursos.q = buscarRecursos.value.trim();
+      clearTimeout(buscarRecursos._t);
+      buscarRecursos._t = setTimeout(() => loadRecursos().catch((e) => toast(e.message, true)), 250);
+    });
+  }
+  // Recursos: formulario de añadir (recursos propios del operador)
+  const addRecursos = $("#recursos-add");
+  const formRecursos = $("#recursos-form");
+  if (addRecursos && formRecursos) {
+    addRecursos.addEventListener("click", () => {
+      formRecursos.hidden = !formRecursos.hidden;
+      if (!formRecursos.hidden) $("#recursos-nombre").focus();
+    });
+    $("#recursos-cancel").addEventListener("click", () => { formRecursos.hidden = true; });
+    formRecursos.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try {
+        const result = await api("/api/recursos", {
+          method: "POST",
+          body: JSON.stringify({
+            nombre: $("#recursos-nombre").value.trim(),
+            url: $("#recursos-url").value.trim(),
+            cat: $("#recursos-cat").value,
+            desc: $("#recursos-desc").value.trim(),
+          }),
+        });
+        toast(`Recurso añadido: ${result.recurso.nombre}`);
+        formRecursos.reset();
+        formRecursos.hidden = true;
+        await loadRecursos();
+      } catch (error) { toast(error.message, true); }
+    });
+  }
 
   // Modal
   $("#media-close").addEventListener("click", closeMediaModal);

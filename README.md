@@ -17,8 +17,7 @@
 > **v1.3 — fusión DFIR defensiva:** puente a herramientas forenses externas
 > instaladas (Sleuth Kit, bulk_extractor, Volatility 3, Plaso) con lista blanca
 > estricta, y auditoría de repositorios/plugins (`repo_audit`, escáner de
-> patrones de riesgo inspirado en repo-forensics). Clasificación completa de
-> las herramientas externas en `LIMITACIONES.md` §9.
+> patrones de riesgo inspirado en repo-forensics).
 
 > **v1.4 — SORL (pool de recursos legítimos):** meta-proveedor `--provider pool`
 > que orquesta **los recursos a los que el operador tiene derecho de uso**
@@ -30,7 +29,6 @@
 > ejecuciones: rpm real aprendido + micro-ajuste de pesos + **aptitud medida
 > por tipo de tarea con puerta de incompetencia**) y ejecución distribuida
 > `fanout`/`execute_dag`. Comandos: `a2s pool-status`, `a2s pool-check`.
-> Ver `LIMITACIONES.md` §10.
 
 > **v1.5 — Ciclo de Enriquecimiento (`a2s learn`):** el agente detecta su
 > brecha de conocimiento ante un problema, **busca repos públicos en GitHub**
@@ -51,7 +49,7 @@
 > resuelve el nivel 0 sin gastar un solo token; lo imprevisto escala al
 > nivel 1** (el loop completo del agente) con la observación como objetivo
 > contextualizado. Sin rotación de huellas ni fingimientos: jitter para no
-> sincronizarnos, User-Agent honesto. Ver `LIMITACIONES.md` §13.
+> sincronizarnos, User-Agent honesto.
 
 > **v1.7 — Tranche 1 del ROADMAP_V2:** CI de GitHub Actions + guardianes
 > ejecutables (pureza stdlib `tools/check_purity.py`, puerta de complejidad
@@ -60,7 +58,7 @@
 > salientes (`--notify webhook:|file:|print:`); unlearning (poda de fichas
 > perdedoras + decaimiento por frescura + decay de estrategias); refactor
 > del hotspot `execute_dag` (CC 31→18); `--seed` global y rotación de
-> `telemetry.jsonl`. Ver `ROADMAP_V2.md` y `LIMITACIONES.md` §14.
+> `telemetry.jsonl`. Ver `ROADMAP_V2.md`.
 
 > **v1.8 — Los tres 'no' resueltos como ingeniería:** (1) **modo SERVICIO
 > experimental** `a2s serve` + `a2s users`: API REST con **RBAC real**
@@ -120,6 +118,60 @@
 > con botones grandes (ordenar, libro, PPT, buscar, seguir donde quedó,
 > detener, ver archivos). No hace falta saber programar ni escribir
 > `a2s pcb`. El chat y **Archivos** siguen al lado.
+
+> **v1.25 — Catálogo completo (6 repositorios añadidos):** se cerró el
+> listado del operador: ahora 63 entradas en 6 categorías. Faltaban
+> Karpathy Skills (Claude Code), Zero to Mastery ML, Agency Agents, Godmode,
+> Real-World LLM Apps y System Prompts Leaks (este último en ciberseguridad,
+> por su enfoque de auditoría de prompts). n8n-workflows ya estaba presente.
+> Listado completo: `a2s recursos --md` o la sección de versiones.
+
+> **v1.24 — Limitaciones quitadas como ingeniería (recursos):** (1) el
+> chequeo de enlaces ya no es secuencial: `--workers N` (default 8, `0` =
+> secuencial reproducible) lo corre en paralelo con orden preservado — 63
+> enlaces en ~20s en vez de minutos; (2) el estado no caduca solo:
+> `a2s recursos --check --watch [SEGUNDOS]` es un guardián (estilo
+> `a2s update --watch`) que re-chequea y re-persiste cada ciclo; (3) el
+> catálogo se presenta, no solo se lista: `a2s recursos --ppt [RUTA]`
+> genera la PPTX del evento (portada + una diapositiva por categoría/página +
+> estado de enlaces, OOXML stdlib, sin imágenes). Límites honestos: el chequeo
+> es una instantánea HTTP (un GET por URL, sin sondeo adicional), la PPTX usa
+> plantilla simple (texto, sin figuras) y el watch corre en primer plano
+> (Ctrl+C para parar).
+
+> **v1.23 — Preparación del evento, links incluidos:** `a2s recursos --check`
+> ahora **persiste el estado** del chequeo de enlaces en
+> `workspace/.a2s/recursos_check.json`; `a2s recursos --estado` lo repasa
+> (resumen + solo los caídos). El estado viaja a la pestaña **Recursos**
+> (sello ✔/✗ por entrada + marca de tiempo), a `--md` (nota por enlace) y al
+> `--html` (sellos + pie de página). Nuevo `a2s recursos --pdf [RUTA]`:
+> catálogo impreso (4+ páginas, MiniPDF stdlib) con sellos ADVERTIDO/propio y
+> estado HTTP por enlace. Check subconjunto (`--id`) no pisa el estado
+> completo.
+
+> **v1.22 — El catálogo crece con el operador:** `a2s recursos add NOMBRE URL`
+> (y `forget`/`extra`) persiste **recursos propios** en
+> `workspace/.a2s/recursos.json` — aparecen en CLI, pestaña **Recursos**
+> (con botón «＋ Añadir» y sello PROPIO), `a2s search` y exportaciones.
+> `a2s recursos --check` verifica la disponibilidad HTTP de los enlaces
+> (estado + latencia, para dejar el material del evento sin links muertos);
+> `--md` y `--html` exportan el catálogo (base + propios) en Markdown o en un
+> HTML autocontenido con buscador inline. Botón «Ver recursos» en Inicio y el
+> chat responde a preguntas de recursos con entradas del catálogo.
+> Cambios: `LIMITACIONES.md` retirado (la auditoría honesta vive ahora en
+> `a2s audit` + README + CHANGELOG).
+
+> **v1.21 — Catálogo de recursos curados (`a2s recursos`):** la lista
+> consolidada del operador pasa a formar parte del framework: **63 entradas en
+> 6 categorías** (IA/cursos/automatización, ciberseguridad/redes/OSINT,
+> desarrollo/arquitectura, directorios/streaming/juegos, herramientas/
+> finanzas, empleo/estilo de vida). Cada entrada tiene nombre, URL, nota y
+> etiquetas; las de zona gris llevan la marca `advertido`. Se consulta por
+> terminal (`--categoria`, `--buscar` BM25, `--json`, `--md` para exportar el
+> material del evento), por la pestaña **Recursos** del Control Plane (buscador
+> + chips de categoría + API `GET /api/recursos`) y por `a2s search` (origen
+> `recurso`). Siempre con filtro de ética visible: referencia y estudio, uso
+> solo autorizado/defensivo/académico, sin ejecución automática.
 
 > **v1.15 — Protocolo Adaptativo Aegis:** antes de responder o planificar,
 > clasifica la necesidad (informativa, creativa, analítica, práctica, emocional,
@@ -712,7 +764,11 @@ ledger.
 
 ## Auditoría honesta de límites
 
-Lee **[`LIMITACIONES.md`](LIMITACIONES.md)** antes de confiar en los resultados:
-lista todo lo que el sistema NO puede hacer, los errores conocidos (con
-severidad y estado), las capacidades a medias, la verdad sobre el modelo de
-seguridad (no es un sandbox) y un playbook para obtener beneficio real.
+La honestidad sobre lo que el sistema NO puede hacer se ejecuta, no se
+promete: `a2s audit` re-mide cada vez los criterios medibles (pureza stdlib,
+complejidad, pruebas, roadmap comprometido, documentación y consistencia de
+versión), el modelo de permisos rechaza y registra en el ledger las acciones
+fuera de alcance, y el CHANGELOG documenta versión a versión decisiones y
+límites. El sandbox es contención de recursos y prevención de accidentes, no
+una jaula: para código hostil deliberado, ejecutar en VM/contenedor
+desechable.

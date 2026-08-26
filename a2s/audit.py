@@ -1,7 +1,7 @@
 """Auditor ejecutable: la puntuación del proyecto como comando reproducible.
 
 Resolución del punto «6/5» del ROADMAP_V2: no existe el 6 en una escala 0-5
-(LIMITACIONES §14 es su guardián) — lo que SÍ se puede superar es el estándar
+(los guardianes de tools/ son su garantía) — lo que SÍ se puede superar es el estándar
 de MEDICIÓN: en vez de un informe estático, ``a2s audit`` re-mide cada vez
 los criterios objetivamente medibles y muestra el estado vivo del proyecto
 con la misma escala honesta de 0 a 5.
@@ -12,8 +12,8 @@ Mide (todo reproducible desde el repo, sin opiniones):
 * complejidad: CC media y máximo (check_cc)      → 5 si media<6 y máx<35
 * pruebas: nº de tests y suites                  → escala por tramos
 * guardianes/CI y roadmap comprometidos          → presencia de las piezas
-* documentación: secciones de LIMITACIONES,     → escala por tramos
-  ejemplos ejecutables, ROADMAP_V2
+* documentación: secciones de la doc del   → escala por tramos
+  proyecto (README/CHANGELOG/docs), ejemplos
 * consistencia de versión (__init__ vs pyproject)
 
 Lo NO medible desde aquí (cobertura real, WCAG, comparativas) sigue
@@ -124,13 +124,21 @@ def run_audit() -> dict:
                         5.0 * len(hay) / len(piezas), len(hay) == len(piezas)))
 
     # 5. documentación
-    with open(os.path.join(ROOT, "LIMITACIONES.md"), encoding="utf-8") as fh:
-        lim = fh.read()
-    secciones = len(re.findall(r"^## \d+", lim, re.M))
+    docs_rel = ["README.md", "CHANGELOG.md", "ROADMAP_V2.md"]
+    docs_dir = os.path.join(ROOT, "docs")
+    if os.path.isdir(docs_dir):
+        docs_rel += [f"docs/{name}" for name in sorted(os.listdir(docs_dir))
+                     if name.endswith(".md")]
+    secciones = 0
+    for rel in docs_rel:
+        path = os.path.join(ROOT, rel)
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as fh:
+                secciones += len(re.findall(r"^## ", fh.read(), re.M))
     ejemplos = len([f for f in os.listdir(os.path.join(ROOT, "examples"))
                     if not f.startswith("_")]) if os.path.isdir(os.path.join(ROOT, "examples")) else 0
-    nota_docs = _nota_por_tramos(secciones, [(12, 5.0), (8, 4.0), (4, 3.0), (0, 2.0)])
-    checks.append(Check("documentacion", f"LIMITACIONES: {secciones} secciones · "
+    nota_docs = _nota_por_tramos(secciones, [(20, 5.0), (10, 4.0), (4, 3.0), (0, 2.0)])
+    checks.append(Check("documentacion", f"documentación: {secciones} secciones · "
                         f"examples: {ejemplos}", nota_docs, secciones >= 10))
 
     # 6. consistencia de versión

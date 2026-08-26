@@ -3,6 +3,107 @@
 Todos los cambios relevantes de A²S se documentan aquí. El proyecto usa
 versionado semántico mientras la API pública permanece en evolución.
 
+## [1.25.0] — 2026-08-25
+
+### Añadido (catálogo completo)
+
+- Se completó el catálogo con los 6 repositorios que faltaban del operador
+  (Karpathy Skills, Zero to Mastery ML, Agency Agents, Godmode, Real-World
+  LLM Apps y System Prompts Leaks — este último en ciberseguridad por su
+  enfoque de auditoría de prompts). Ahora 63 entradas en 6 categorías;
+  n8n-workflows ya estaba presente.
+
+## [1.24.0] — 2026-08-25
+
+### Añadido (limitaciones del catálogo quitadas como ingeniería)
+
+- **Chequeo paralelo**: `a2s recursos --check --workers N` (default 8)
+  verifica los enlaces en paralelo (ThreadPool stdlib, orden de salida
+  preservado); `--workers 0` conserva el modo secuencial reproducible.
+  63 enlaces: de minutos a ~20s.
+- **Guardián de chequeo**: `a2s recursos --check --watch [SEGUNDOS]`
+  (default 3600) re-chequea y re-persiste el estado cada ciclo, estilo
+  `a2s update --watch`; el estado de los links ya no caduca solo.
+- **Export PPT**: `a2s recursos --ppt [RUTA]` — presentación del evento
+  (PPTX OOXML stdlib): portada con aviso ético, una diapositiva por
+  categoría (o página de 9 entradas), sellos ADVERTIDO/propio, estado HTTP
+  por enlace y diapositiva final con el resumen del último chequeo.
+
+### Límites honestos
+
+- El chequeo es una instantánea: un GET HTTP por URL, sin sondeo adicional.
+- La PPTX usa plantilla simple de texto (sin figuras); el watch corre en
+  primer plano (Ctrl+C para parar).
+
+## [1.23.0] — 2026-08-25
+
+### Añadido (preparación del evento con estado de enlaces)
+
+- **Chequeo persistido**: `a2s recursos --check` guarda el estado en
+  `workspace/.a2s/recursos_check.json` (solo chequeos completos; un
+  subconjunto `--id` no pisa el estado y lo avisa). `a2s recursos --estado`
+  lo repasa: resumen `ok/total`, fecha, timeout y lista de caídos.
+- **Dashboard**: la pestaña Recursos muestra sello ✔/✗ por entrada y la
+  marca de tiempo del último chequeo (`GET /api/recursos` incluye `check`).
+- **Exportaciones con estado**: `--md` añade la nota HTTP por enlace
+  (fecha incluida) y `--html` los sellos de chequeo + pie de página.
+- **Export PDF**: `a2s recursos --pdf [RUTA]` genera el catálogo impreso
+  (MiniPDF, stdlib, portada + 6 categorías + sellos ADVERTIDO/propio y
+  estado HTTP por enlace).
+
+## [1.22.0] — 2026-08-25
+
+### Añadido (el catálogo crece con el operador)
+
+- **Recursos propios**: `a2s recursos add NOMBRE URL --cat ciber --desc … --tags a,b`
+  persiste en `workspace/.a2s/recursos.json` (atómico, validado);
+  `a2s recursos extra [--json]` los lista y `a2s recursos forget ID` los
+  elimina (los del catálogo base no se eliminan). Se integran en CLI,
+  dashboard, BM25 y exportaciones.
+- **Dashboard**: formulario «＋ Añadir» en la pestaña Recursos (POST
+  `POST /api/recursos`, sello PROPIO en entradas propias) y `GET /api/recursos`
+  ahora mezcla catálogo base + propios del workspace.
+- **`a2s recursos --check`**: verificación HTTP de la disponibilidad de los
+  enlaces (estado + latencia por URL; `--id` acota, `--timeout` adjustable;
+  exit-code CI-friendly para el material del evento).
+- **Export HTML**: `a2s recursos --html [RUTA]` genera un único archivo
+  autocontenido (tema oscuro, buscador inline, sellos ADVERTIDO/PROPIO).
+- **Inicio**: botón «Ver recursos» (modo view) en el tablero de acciones.
+- **Chat**: el asistente responde a preguntas de recursos («¿dónde aprendo
+  reverse?») con las 3 mejores entradas del catálogo + pointer a la pestaña.
+
+### Cambiado
+
+- **`LIMITACIONES.md` retirado** a petición del operador: la auditoría
+  honesta de límites se apoya ahora en `a2s audit` (check «documentacion»
+  redefinido sobre README/CHANGELOG/docs), el README (sección «Auditoría
+  honesta de límites») y el CHANGELOG. Se limpiaron todas las referencias
+  (package.json, docstrings, ejemplos).
+- Corregido: la pestaña Recursos del dashboard no definía `loadRecursos`
+  en el JS (v1.21); restaurado con sus funciones de carga/render.
+
+## [1.21.0] — 2026-08-25
+
+### Añadido (catálogo de recursos curados)
+
+- **`a2s recursos`**: 63 entradas en 6 categorías (IA/cursos/automatización,
+  ciberseguridad/redes/OSINT, desarrollo/arquitectura, directorios/streaming/
+  juegos, herramientas/finanzas, empleo/estilo de vida/entretenimiento),
+  cada una con nombre, URL, nota y etiquetas; integridad validada
+  (`validar()`).
+- Filtros: `--categoria` (por id o nombre, con o sin acentos), `--buscar`
+  (BM25 sobre nombre, descripción, etiquetas, URL y categoría), `--json` y
+  `--md` (exportación Markdown para documentación o material del evento).
+- **Control Plane**: pestaña **Recursos** (buscador en vivo, chips de
+  categoría, enlace directo a cada destino, sello `ADVERTIDO` en zona gris)
+  y API `GET /api/recursos?q=…&cat=…`.
+- **`a2s search`**: el catálogo participa de la memoria BM25 con origen
+  `recurso` (filtrable con `--origen recurso`).
+- **Filtro de ética** visible en CLI, API y UI: los recursos son referencia y
+  estudio; el uso ofensivo solo en entornos autorizados (infraestructura
+  propia, CTF, red-team con alcance, fin académico); A²S no descarga, instala
+  ni ejecuta nada del catálogo.
+
 ## [1.20.0] — 2026-08-24
 
 ### Añadido (modo sencillo, sin terminal)
@@ -408,5 +509,5 @@ versionado semántico mientras la API pública permanece en evolución.
 
 - Modo servicio experimental con RBAC, fachada async y auditor ejecutable.
 
-Para el historial de decisiones previo, véanse `README.md`, `LIMITACIONES.md`
+Para el historial de decisiones previo, véanse `README.md`
 y `ROADMAP_V2.md`.
