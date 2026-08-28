@@ -1,0 +1,43 @@
+{
+  "name": "a2s-vscode",
+  "displayName": "A2S Project Client",
+  "description": "Run Aegis missions from VS Code.",
+  "version": "0.1.0",
+  "publisher": "a2s",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./dist/extension.js",
+  "activationEvents": ["onCommand:a2s.runMission", "onCommand:a2s.cancelMission", "onCommand:a2s.configureToken", "onCommand:a2s.showLearningReport"],
+  "contributes": {
+    "commands": [
+      { "command": "a2s.runMission", "title": "A2S: Run Mission" },
+      { "command": "a2s.cancelMission", "title": "A2S: Cancel Mission" },
+      { "command": "a2s.configureToken", "title": "A2S: Configure API Token" },
+      { "command": "a2s.showLearningReport", "title": "A2S: Show Learning Report" }
+    ],
+    "configuration": {
+      "title": "A2S",
+      "properties": {
+        "a2s.url": {
+          "type": "string",
+          "default": "http://127.0.0.1:8700",
+          "description": "Base URL of the A2S serve API."
+        },
+        "a2s.workspace": {
+          "type": "string",
+          "default": "",
+          "description": "Workspace path sent as client context; the server controls isolation."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.0.0"
+  }
+}

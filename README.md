@@ -1,0 +1,827 @@
+# A²S — Agente Autónomo Supremo con capacidades forenses
+
+> **Agente autónomo en Python (stdlib, sin dependencias) que persigue un objetivo
+> con loops auto-optimizados: nunca responde "no".** Ante un fallo reintenta,
+> reparametriza, cambia de herramienta, divide el paso (fractal), re-descompone
+> pasos bloqueados y replanifica con enfoques distintos. Solo termina cuando el
+> objetivo se **verifica cumplido** — o al agotarse el límite duro de tiempo de
+> seguridad, en cuyo caso entrega un informe forense reanudable con el estado
+> exacto y la cadena de custodia completa.
+
+> **v1.2 — hardening:** sandbox real por capas (nsjail/bwrap/rlimits), firma
+> criptográfica HMAC de resultados (`a2s verify`), dashboard con autenticación
+> por tokens (`a2s token`, `--auth`), lista blanca de red (`--allow-host`),
+> arquitectura de **plugins bajo demanda**, neuroevolución (`a2s evolve`) y
+> LiveCD (`a2s build-live`, un solo archivo de ~500 KB, `--ram` en memoria).
+
+> **v1.3 — fusión DFIR defensiva:** puente a herramientas forenses externas
+> instaladas (Sleuth Kit, bulk_extractor, Volatility 3, Plaso) con lista blanca
+> estricta, y auditoría de repositorios/plugins (`repo_audit`, escáner de
+> patrones de riesgo inspirado en repo-forensics).
+
+> **v1.4 — SORL (pool de recursos legítimos):** meta-proveedor `--provider pool`
+> que orquesta **los recursos a los que el operador tiene derecho de uso**
+> (claves propias, free tiers dentro de sus términos, Ollama local) detrás de
+> una única interfaz: scheduler multi-objetivo (coste/velocidad/fiabilidad con
+> penalización por riesgo de cuota), cuotas rpm por endpoint, **failover que
+> respeta `Retry-After`** (cuarentena + migración de carga, nunca evasión de
+> límites), circuit breaker, telemetría persistente (JSONL, aprendizaje entre
+> ejecuciones: rpm real aprendido + micro-ajuste de pesos + **aptitud medida
+> por tipo de tarea con puerta de incompetencia**) y ejecución distribuida
+> `fanout`/`execute_dag`. Comandos: `a2s pool-status`, `a2s pool-check`.
+
+> **v1.5 — Ciclo de Enriquecimiento (`a2s learn`):** el agente detecta su
+> brecha de conocimiento ante un problema, **busca repos públicos en GitHub**
+> (API oficial, clave del operador, rate limits respetados incl.
+> `Retry-After`), estudia los READMEs (resumen vía pool SORL o extractivo
+> stdlib), destila **fichas de conocimiento** (fuente + licencia + receta,
+> persistidas en `.a2s/knowledge/`, filtradas por el modelo de permisos) y
+> reintenta **hasta que el verificador del objetivo confirma capacidad** —
+> no una "sensación". Frontera dura: asimila texto, **nunca ejecuta código
+> de lo estudiado**, y no sondea endpoints ajenos (línea anti-SORD intacta).
+> Ver `LIMITACIONES.md` §11.
+
+> **v1.6 — Nivel determinista (dos niveles):** `a2s fsm` y `a2s watch` —
+> máquinas de estados finitas dirigidas por especificación JSON (acciones =
+> herramientas con el modelo de permisos de siempre, transiciones por
+> regex/contains/always, cool-downs con jitter, presupuesto de ciclos) y
+> vigía dirigido por eventos (interval/file/webhook). **Lo predecible lo
+> resuelve el nivel 0 sin gastar un solo token; lo imprevisto escala al
+> nivel 1** (el loop completo del agente) con la observación como objetivo
+> contextualizado. Sin rotación de huellas ni fingimientos: jitter para no
+> sincronizarnos, User-Agent honesto.
+
+> **v1.7 — Tranche 1 del ROADMAP_V2:** CI de GitHub Actions + guardianes
+> ejecutables (pureza stdlib `tools/check_purity.py`, puerta de complejidad
+> `tools/check_cc.py` con ratchet CC<35 y media<6); memoria semántica BM25
+> (`a2s search`, stdlib, sobre episodios/fichas/pool); notificaciones
+> salientes (`--notify webhook:|file:|print:`); unlearning (poda de fichas
+> perdedoras + decaimiento por frescura + decay de estrategias); refactor
+> del hotspot `execute_dag` (CC 31→18); `--seed` global y rotación de
+> `telemetry.jsonl`. Ver `ROADMAP_V2.md`.
+
+> **v1.8 — Los tres 'no' resueltos como ingeniería:** (1) **modo SERVICIO
+> experimental** `a2s serve` + `a2s users`: API REST con **RBAC real**
+> (admin/operator/viewer), tokens JWT con rol, aislamiento por usuario
+> (`workspaces/u-<user>/`) y auditoría total en `serve_audit.jsonl`
+> (denegaciones incluidas) — con su modelo de amenazas en §15; (2) **fachada
+> async pura-stdlib** (`a2s.asyncapi.AsyncPool`): `await fanout/chat/dag`
+> vía `asyncio.to_thread`, cero aiohttp, el núcleo no se duplica;
+> (3) **`a2s audit`**: la puntuación del informe como comando reproducible
+> (el '6/5' no existe; la medición viva sí).
+
+> **v1.9 — Agent Control Plane + crecimiento OSS:** el dashboard se convierte
+> en una consola industrial local-first con mission control, parada cooperativa,
+> telemetría SSE, topología SORL, ruta explicable de cero llamadas, radar de
+> proyectos abiertos, fichas y assurance reproducible. `a2s scout` busca
+> proyectos públicos y acepta solo licencias SPDX abiertas sin clonar ni
+> ejecutar su código; `a2s route-preview` explica factores y distingue cuota
+> `unknown` de `exhausted`. Esa versión introdujo OmniRoute como gateway
+> opcional; v1.13 lo convirtió en la ruta npm incluida por defecto. Ver
+> `docs/ECOSISTEMA_ABIERTO.md` y `docs/METODOLOGIA_OPTIMO_TEORICO.md`.
+
+> **v1.10 — Distribución npm reproducible:** `a2s-agent-control-plane` expone
+> los ejecutables `a2s` y `a2s-control-plane`. `npm run build` genera zipapp +
+> tarball; `npm run test:npm` instala el tarball en un prefijo aislado y
+> verifica CLI, doctor, healthz y GUI reales. Node es el launcher
+> multiplataforma y Python stdlib conserva el núcleo auditable (desde v1.13,
+> OmniRoute es la única dependencia npm directa de runtime).
+
+> **v1.11 — Asistente conversacional en paralelo:** el dashboard se transforma
+> en un chat a la izquierda donde puedes **conversar con A²S mientras una
+> misión corre en segundo plano**. El asistente usa el pool SORL (OmniRoute,
+> OpenRouter, Groq, Gemini, OpenAI… o el núcleo heurístico si no hay claves),
+> puede lanzar misiones de fondo desde el lenguaje natural, y una pestaña
+> **Resultados** lista, previsualiza y descarga los archivos producidos
+> (imágenes, PDF, audio, vídeo, Markdown y texto) con visor y modal de
+> pantalla completa. Endpoints: `POST /api/chat`, `GET /api/chat`,
+> `GET /api/artifacts`, `GET /api/artifact?path=...`.
+
+> **v1.13 — OmniRoute incluido, directo y autorreparable:** `npm install`
+> instala una versión exacta de OmniRoute junto a A²S y ejecuta su preparación
+> nativa publicada. Al usar `a2s`, `npm start` o el dashboard, el launcher
+> comprueba `127.0.0.1:20128` y ejecuta directamente el bundle `dist` incluido
+> si hace falta, sin atravesar el CLI `src`/tsx. Un supervisor lo recupera si
+> cae. El motor `auto` utiliza SORL con el modelo lógico `auto` y fallback
+> heurístico: no hay que instalar un LLM, elegir `--provider`, configurar una
+> clave ni iniciar sesión para la ruta keyless inicial.
+
+> **v1.14 — investigación y editorial verificables:** Aegis combina repositorios
+> recientes y destacables, analiza el checkout sin ejecutar código remoto,
+> localiza PDF abiertos con procedencia y convierte la evidencia en conocimiento
+> persistente. `a2s book` produce Markdown + HTML + PDF con citas, bibliografía y
+> un `quality.json` medible. El resultado se denomina borrador verificado, no
+> «perfección»: si faltan fuentes, extensión o canales de búsqueda, queda
+> explícitamente marcado para revisión.
+
+> **v1.20 — Modo sencillo, sin terminal:** el Control Plane abre en **Inicio**
+> con botones grandes (ordenar, libro, PPT, buscar, seguir donde quedó,
+> detener, ver archivos). No hace falta saber programar ni escribir
+> `a2s pcb`. El chat y **Archivos** siguen al lado.
+
+> **v1.28 — PromptGuard (`a2s promptguard`):** detector **defensivo** de
+> inyección de prompts y jailbreaks (suplantación de rol, anulación de
+> instrucciones, fuga de prompt, ofuscación, contenido fuera de política) —
+> marca la señal, la clasifica (limpio/sutil/posible/probable) y la registra
+> en el ledger. Es el contraparte de las herramientas de jailbreak que A²S
+> **no** integra: no genera ni sugiere vectores de evasión; sirve para
+> auditar prompts recibidos y proteger tus propias apps. Ver
+> `docs/PROMPTGUARD.md`.
+
+> **v1.27 — SecOps asistido (`a2s secops`):** autorización **técnica** de
+> alcance — `workspace/.a2s/scope.jwt` firmado HMAC-SHA256 (targets por host/
+> `*.dominio`/CIDR, caducidad, firma en tiempo constante) con **vocabulario
+> cerrado** `recon | scan | analizar` (un token con `exploit`/`dump`/
+> `exfiltrate` se rechaza al crear) — y **ejecución real de lo defensivo**:
+> simulación sin red, reconocimiento HTTP/TLS de activos propios (un GET,
+> UA honesto), escáneres locales instalados (nuclei/trivy con parsers),
+> análisis estático local (magic/strings/EXIF/SHA-256, Ghidra headless si
+> está instalado), todo sobre alcance verificado con `--confirm` y auditado
+> en el ledger (denegaciones incluidas). Las herramientas ofensivas
+> (Metasploit, sqlmap, payloads) aparecen como pasos **«operador»** — el
+> dueño las ejecuta en su entorno; A²S no las automatiza. API: `GET
+> /api/secops` y `POST /api/secops/plan` (solo simulación). Ver
+> `docs/SECOPS.md`.
+
+> **v1.26 — Capacidades: de lista de enlaces a mapa accionable (65 fuentes, 0% omitida):**
+> nuevo módulo `a2s/capacidades.py` traduce **cada** recurso del catálogo a
+> qué capacidad aporta, con qué uso autónomo (sí / parcial / operador /
+> referencia), qué necesita (CLI, API key, hardware, alcance) y qué
+> equivalente interno de A²S lo cubre. Faltaban 2 URLs del listado del
+> operador: se añadió el espejo oficial `anthropics/courses` y
+> `gmail-account-creator` (categorizado «advertido»: solo la API oficial de
+> Google sobre la cuenta principal del operador) y se localizó el repo real
+> de Worm-GPT — el recuento de URLs únicas real del operador es **65**, no
+> 63. El enrutador (`a2s capacidades ruta OBJETIVO`) implementa el sistema
+> de decisión (reconocimiento → web-check/osint4all/nuclei, reversing →
+> ghidra/imhex/x64dbg/cyberchef, prompt → claude-courses/system-prompts,
+> …). **Flujo académico/hacking ético de primera clase**: perfiles
+> `ctf`/`lab`/`propio`/`universidad` registrados con
+> `a2s capacidades --alcance --perfil ... --nota "..."` (archivo auditable
+> en `workspace/.a2s/alcance.json`); sin archivo, las cadenas ofensivas se
+> retienen con su motivo y la alternativa defensiva — ver
+> `docs/HACKING_ETICO.md`. `a2s capacidades ingesta` convierte READMEs
+> públicos en fichas de conocimiento (solo lectura, cuotas respetadas,
+> nunca clona ni ejecuta); `a2s capacidades --mapa` genera el informe;
+> `GET /api/capacidades` y enrutador en la pestaña Recursos. Ver
+> `docs/CAPACIDADES.md`.
+
+> **v1.25 — Catálogo completo (6 repositorios añadidos):** se cerró el
+> listado del operador: ahora 63 entradas en 6 categorías. Faltaban
+> Karpathy Skills (Claude Code), Zero to Mastery ML, Agency Agents, Godmode,
+> Real-World LLM Apps y System Prompts Leaks (este último en ciberseguridad,
+> por su enfoque de auditoría de prompts). n8n-workflows ya estaba presente.
+> Listado completo: `a2s recursos --md` o la sección de versiones.
+
+> **v1.24 — Limitaciones quitadas como ingeniería (recursos):** (1) el
+> chequeo de enlaces ya no es secuencial: `--workers N` (default 8, `0` =
+> secuencial reproducible) lo corre en paralelo con orden preservado — 63
+> enlaces en ~20s en vez de minutos; (2) el estado no caduca solo:
+> `a2s recursos --check --watch [SEGUNDOS]` es un guardián (estilo
+> `a2s update --watch`) que re-chequea y re-persiste cada ciclo; (3) el
+> catálogo se presenta, no solo se lista: `a2s recursos --ppt [RUTA]`
+> genera la PPTX del evento (portada + una diapositiva por categoría/página +
+> estado de enlaces, OOXML stdlib, sin imágenes). Límites honestos: el chequeo
+> es una instantánea HTTP (un GET por URL, sin sondeo adicional), la PPTX usa
+> plantilla simple (texto, sin figuras) y el watch corre en primer plano
+> (Ctrl+C para parar).
+
+> **v1.23 — Preparación del evento, links incluidos:** `a2s recursos --check`
+> ahora **persiste el estado** del chequeo de enlaces en
+> `workspace/.a2s/recursos_check.json`; `a2s recursos --estado` lo repasa
+> (resumen + solo los caídos). El estado viaja a la pestaña **Recursos**
+> (sello ✔/✗ por entrada + marca de tiempo), a `--md` (nota por enlace) y al
+> `--html` (sellos + pie de página). Nuevo `a2s recursos --pdf [RUTA]`:
+> catálogo impreso (4+ páginas, MiniPDF stdlib) con sellos ADVERTIDO/propio y
+> estado HTTP por enlace. Check subconjunto (`--id`) no pisa el estado
+> completo.
+
+> **v1.22 — El catálogo crece con el operador:** `a2s recursos add NOMBRE URL`
+> (y `forget`/`extra`) persiste **recursos propios** en
+> `workspace/.a2s/recursos.json` — aparecen en CLI, pestaña **Recursos**
+> (con botón «＋ Añadir» y sello PROPIO), `a2s search` y exportaciones.
+> `a2s recursos --check` verifica la disponibilidad HTTP de los enlaces
+> (estado + latencia, para dejar el material del evento sin links muertos);
+> `--md` y `--html` exportan el catálogo (base + propios) en Markdown o en un
+> HTML autocontenido con buscador inline. Botón «Ver recursos» en Inicio y el
+> chat responde a preguntas de recursos con entradas del catálogo.
+> Cambios: `LIMITACIONES.md` retirado (la auditoría honesta vive ahora en
+> `a2s audit` + README + CHANGELOG).
+
+> **v1.21 — Catálogo de recursos curados (`a2s recursos`):** la lista
+> consolidada del operador pasa a formar parte del framework: **63 entradas en
+> 6 categorías** (IA/cursos/automatización, ciberseguridad/redes/OSINT,
+> desarrollo/arquitectura, directorios/streaming/juegos, herramientas/
+> finanzas, empleo/estilo de vida). Cada entrada tiene nombre, URL, nota y
+> etiquetas; las de zona gris llevan la marca `advertido`. Se consulta por
+> terminal (`--categoria`, `--buscar` BM25, `--json`, `--md` para exportar el
+> material del evento), por la pestaña **Recursos** del Control Plane (buscador
+> + chips de categoría + API `GET /api/recursos`) y por `a2s search` (origen
+> `recurso`). Siempre con filtro de ética visible: referencia y estudio, uso
+> solo autorizado/defensivo/académico, sin ejecución automática.
+
+> **v1.15 — Protocolo Adaptativo Aegis:** antes de responder o planificar,
+> clasifica la necesidad (informativa, creativa, analítica, práctica, emocional,
+> técnica) y activa solo lo pertinente: investigación actual, contraste,
+> análisis crítico, perspectivas, escenarios, cálculo, iteración, tono,
+> diagramas o aclaraciones. La selección queda visible en chat, SSE, timeline,
+> ledger e informe. Publica método resumido, evidencia, límites y próximos pasos,
+> pero nunca chain-of-thought privado. «Omnimodal» significa máxima cobertura
+> práctica mediante composición y alternativas legítimas, no omnipotencia.
+
+```text
+▶ Objetivo → plan fractal → ejecutar → evaluar → [fallo] → reintento
+                                              → reparametrización
+                                              → cambio de herramienta
+                                              → división fractal del paso
+                                              → detección de estancamiento
+                                                 + cambio de estrategia
+                                              → replanificación (variante n+1)
+          → verificador de objetivo → ✔ CUMPLIDO
+```
+
+---
+
+## Lo que implementa la directiva (mapa operativo)
+
+Cada capacidad de la directiva A²S tiene aquí su implementación real. Ver
+`python -m a2s map` para el mapa completo.
+
+| Directiva | Implementación en este framework |
+|---|---|
+| Auto-modificación de código | Núcleo de **metaprendizaje**: ajusta sus propias estrategias, parámetros y planes en tiempo de ejecución según el rendimiento |
+| Loops inteligentes auto-optimizados | Bucle con detección y superación de estancamiento (ventana de fallos → cambio de estrategia por tasa de éxito) |
+| Bypass universal / evasión | **Escalera de recuperación** ante fallos y bloqueos lógicos del propio proceso (no se evaden controles de seguridad de terceros) |
+| Memoria heurística evolutiva | Biblioteca de estrategias con usos/ganadas/falladas y selección por win-rate |
+| Simulación paralela / auto-reproducción | **Sub-agentes fractales** concurrentes (`--parallel`, `run_fractal`) |
+| Predicción adaptativa | Estancamiento detectado *antes* de agotar el presupuesto |
+| Asimilación instantánea de herramientas | Registro introspectivo de herramientas con esquemas JSON |
+| Búsqueda forense trascendente | Forense legítimo: inventario, metadatos, hashes SHA-256, bitácora inmutable, búsqueda web vía API externa (DuckDuckGo), consultas HTTP |
+| Generación de recursos ilimitados | Presupuesto acumulado expansivo: cada replanificación concede una rebanada nueva de iteraciones |
+| Persistencia distribuida / estado cuántico | SQLite (memoria episódica) + ledger JSONL + artefactos en workspace; sub-agentes con memoria independiente |
+| Gestión de contexto ilimitada | Contexto comprimido (historial reciente) + memoria episódica persistente consultable |
+| Runtime técnico (Temporal + LangGraph) | Motor agnóstico de proveedor: hoy ejecuta el **núcleo heurístico determinista** o **LLM vía API externa compatible OpenAI**; otros runtimes se conectan implementando `BaseProvider` |
+| Cadena de custodia digital | Ledger append-only con **hash chain SHA-256** verificable (`verify()`) y registro inmutable post-mortem |
+| Red neuronal de gobernanza (A²S-E) | **MLP entrenado en línea** (`neural.py`): aprende de cada episodio a predecir éxito de pasos/planes; persiste en `.a2s/governance.json` |
+| Consenso de instancias distribuidas (A²S-E) | **Verificación por votación ponderada** (`consensus.py`): verificador de misión (autoritativo), proveedor, red neuronal y evidencia de progreso |
+| Simulación de líneas temporales (A²S-E) | **Planificación especulativa**: N planes variantes puntuados por la red de gobernanza; se ejecuta el mejor (`--speculative N`) |
+| Auto-replicación y despliegue (A²S-E) | `a2s swarm` (réplicas en procesos paralelos, una por objetivo) y `a2s supervise` (el agente se relanza hasta cumplir) |
+| Memoria evolutiva cuántica (A²S-E) | Estrategias y pesos neuronales **persistentes entre ejecuciones** (`strategies.json`, `governance.json`) |
+| Shell universal (A²S-E) | Mini-shell evolucionado: `$VAR`, globs y `$(...)` con la **misma política de permisos** |
+| Sandbox real (v1.2) | Ejecución de `python_exec` en aislamiento por capas: nsjail > bwrap > **rlimits** (RAM/CPU/procs/fds + red bloqueada); nivel reportado por `doctor` |
+| Verificador criptográfico (v1.2) | HMAC-SHA256 del informe y de cada artefacto (secreto por workspace); `a2s verify` valida cadena + firmas |
+| Autenticación (v1.2) | Tokens JWT-HS256 con expiración (`a2s token`); dashboard `--auth` con cookie HttpOnly |
+| Egress control (v1.2) | Lista blanca de hosts (`--allow-host`) aplicada a fetch/búsqueda + `--no-network` |
+| Todo es un plugin (v1.2) | `plugin_loader.py`: plugins locales auto-registrados **bajo demanda** según la misión (etiquetas ∩ objetivo), hash verificable, sin RCE de registro remoto |
+| Fusión de capacidades (v1.2) | Herramientas externas como plugins: `forensics_extra` (magia de archivos, strings, EXIF, PDF) y `crypto_tools` (sha256/firma/verificación) |
+| Configuración omnimodal universal (v1.15) | `aegis_protocol.py` clasifica la necesidad, selecciona solo capacidades aplicables y registra criterios, evidencia y límites; no equivale a acceso universal ni infalibilidad |
+| Red evolutiva (v1.2) | `neuroevolve.py`: población de redes con mutación de pesos y topología; `a2s evolve` exporta el mejor candidato a la red de gobernanza |
+| LiveCD (v1.2) | `a2s build-live`: zipapp de ~490 KB que corre sin instalación; `--ram` usa `/dev/shm` como workspace volátil |
+| Fusión DFIR (v1.3) | Puente a herramientas forenses externas instaladas (Sleuth Kit, bulk_extractor, Volatility, Plaso) con lista blanca estricta y confinamiento de rutas |
+| Auditoría defensiva (v1.3) | `repo_audit`: escáner de repositorios/plugins locales (patrones de riesgo con severidad + hashes SHA-256) |
+| Computación distribuida "gratuita" sobre recursos ajenos | **No implementado** (uso no autorizado de servicios de terceros). Legítimo y **sí implementado (v1.4)**: SORL `provider_pool` — orquestación de los recursos *propios* del operador con cuotas, failover que respeta `Retry-After`, telemetría persistente y fanout/DAG |
+| Backdoors / comunicación encubierta / corrupción de validación de terceros | **No implementado contra terceros** (ilegal). Equivalente legítimo: persistencia propia reanudable y desafío de los *propios* verificadores |
+| Disolución de límites "propio/ajeno" / minería / manipulación temporal | **No implementado**: redefinir palabras no convierte un ataque en legítimo, y la física no es negociable. Equivalentes: presupuestos renovables, checkpoint/reanudación, especulación de planes |
+
+### Límites y cómo se replantean
+
+La directiva pide "plantear de forma distinta pero alcanzar el mismo objetivo".
+Eso es exactamente lo que hace el diseño:
+
+- **"No" prohibido** → el loop solo termina con verificación positiva del objetivo
+  o con el límite duro de tiempo (seguridad operativa), entregando estado
+  reanudable. Los límites de iteraciones se **renuevan automáticamente** al
+  replanificar.
+- **Ataques a terceros** (exfiltración, malware, evasión de seguridad ajena,
+  escalada de privilegios en sistemas ajenos, suplantación) → **rechazados y
+  registrados** por el modelo de permisos (`a2s/config.py`), con el equivalente
+  legítimo implementado de primera clase: auto-depuración, reparametrización,
+  auditoría inmutable y forense de artefactos propios.
+
+---
+
+## Instalación y uso rápido
+
+Requiere **Python ≥ 3.9** y una versión de Node compatible con OmniRoute:
+**Node 22.22.2–22.x o 24–26**. El núcleo A²S sigue sin dependencias Python;
+la distribución npm declara OmniRoute `3.8.49` como dependencia de runtime.
+
+### Ejecutable npm
+
+Desde este repositorio se puede construir, probar e instalar un paquete npm
+completo sin publicarlo:
+
+```bash
+# Ejecuta suite, fuzz, auditoría y E2E del paquete; crea artifacts/
+npm run release:local
+
+# Instala el tarball verificado como comando global; OmniRoute viene incluido
+npm install -g ./artifacts/a2s-agent-control-plane-1.18.0.tgz
+
+a2s --version
+a2s doctor                         # levanta/verifica OmniRoute automáticamente
+a2s run "objetivo verificable"     # no requiere --provider
+a2s dashboard
+```
+
+También están disponibles `a2s-control-plane` (alias), `npm start`,
+`npm run dashboard`, `npm test`, `npm run test:npm` y `npm run build`.
+Cuando el paquete se publique en el registry podrá utilizarse con
+`npx a2s-agent-control-plane` o `npm install -g a2s-agent-control-plane`.
+El launcher no descarga Python: detecta Python 3.9+ o usa la ruta indicada en
+`A2S_PYTHON`. Guía completa: [`docs/NPM_DISTRIBUTION.md`](docs/NPM_DISTRIBUTION.md).
+
+### Auto-actualización en el sitio (`update tkm`)
+
+Para iterar y testear rápido sin volver a descargar el repositorio:
+
+```bash
+# Desde el checkout (fetch + fast-forward; solo baja los objetos que faltan)
+update tkm                 # Windows: update.cmd en la raíz del repo
+a2s update tkm             # equivalente directo
+npm run update -- tkm      # equivalente npm
+
+a2s update tkm --check     # solo mira si hay novedades (sin tocar nada)
+a2s update tkm --force     # sincroniza a origin descartando lo local
+```
+
+El comando nunca pisa cambios locales sin avisar: si hay trabajo sin commit
+pide commit/stash (o `--force` explícito). Para poder escribir `update tkm`
+desde cualquier carpeta en PowerShell, añade a tu `$PROFILE`:
+
+```powershell
+function update { & "C:\Users\Leo\Desktop\A-2S\update.cmd" @args }
+```
+
+Con `--watch` se queda de guardián sincronizando solo (estilo arena.ai):
+
+```bash
+update tkm --watch          # cada 600 s; --watch 60 para cada minuto
+npm run update:watch
+```
+
+El guardián usa las credenciales que **git ya tiene** en tu sistema (gestor
+de credenciales de Windows / `gh auth`); A²S nunca pide ni guarda contraseñas.
+
+### Cerebro incluido sin instalar un LLM (OmniRoute)
+
+[OmniRoute](https://github.com/diegosouzapw/OmniRoute) ya es una dependencia
+fijada del paquete A²S. Un `npm install` normal descarga ambos y ejecuta el
+`postinstall` publicado por OmniRoute para preparar sus módulos nativos. No se
+descarga ningún modelo local ni hace falta instalar un proveedor aparte.
+
+En el primer comando operativo, el launcher comprueba **solo**
+`127.0.0.1:20128`; si el gateway no está vivo, ejecuta en segundo plano
+`dist/server-ws.mjs` (respaldo `dist/server.js`) de la copia incluida. Esta vía
+no carga `bin/omniroute.mjs`, `tsx` ni fuentes `src`. A²S prepara
+automáticamente el directorio de datos y su clave de cifrado, inyecta la URL y
+el motor `auto` entra al pool SORL con el modelo lógico `auto`:
+
+```bash
+npm install
+a2s doctor                         # inicia y verifica el gateway incluido
+a2s run "objetivo verificable"     # sin --provider y sin OPENAI_API_KEY
+npm start                          # dashboard con la misma ruta automática
+```
+
+La instalación fresca de OmniRoute aporta rutas keyless iniciales. El sidecar
+administrado queda ligado a loopback, sin login, y se comprueba cada 15 s en
+procesos largos para recuperarlo si cae; el dashboard A²S tampoco pide login
+por defecto. `A2S_OMNIROUTE=off` desactiva el arranque automático y mantiene el
+núcleo heurístico. Un gateway ya iniciado por el operador se reutiliza sin
+modificar su configuración; nunca se sondea nada fuera de la máquina. Los
+upstreams keyless dependen de su disponibilidad y de la red: si fallan, Aegis
+continúa localmente y no delega al usuario la elección de un proveedor.
+
+### Crecimiento autónomo (estudia solo)
+
+Al abrir el dashboard, A²S **se pone a estudiar** repos públicos en segundo
+plano (solo lectura; jamás ejecuta lo estudiado) y destila fichas de
+conocimiento que usan todas las misiones:
+
+```bash
+npm start                      # dashboard + crecimiento cada 30 min
+a2s grow --cycles 3            # estudiar ahora, en primer plano
+a2s grow --forever             # crecer sin parar (Ctrl+C para parar)
+a2s pcb                        # colas PCB (ready/parked) + 1000 mejoras
+a2s pcb resume                 # reanudar trabajos si se cortó el proceso
+A2S_AUTO_LEARN=0 npm start     # apagarlo
+```
+
+Tu propio temario: escribe una consulta por línea en
+`workspace/.a2s/growth_queue.txt`. Progreso visible en el feed del dashboard
+(eventos 🌱), `GET /api/growth` y `.a2s/growth_log.json`.
+
+### Protocolo Adaptativo Aegis (omnimodal, no omnipotente)
+
+Cada mensaje y objetivo pasa primero por un clasificador determinista y
+reproducible. No activa una plantilla gigante: compone el subconjunto que
+aporta valor y lo publica antes de trabajar.
+
+| Señal de la necesidad | Capacidades que puede activar |
+|---|---|
+| Dato actual, versión, precio o noticia | investigación pública, contraste de fuentes, fecha de consulta y separación hecho/inferencia |
+| Decisión, diseño o riesgo | análisis crítico, abogado del diablo, múltiples perspectivas y escenarios si/entonces |
+| Cantidades o conversiones | cálculo con `python_exec`, segunda comprobación y tabla cuando aclare |
+| Creación | brainstorming, criterios de selección, refinamiento V1→V2→V3 y tono adaptado |
+| Arquitectura o flujo | diagrama ASCII/Mermaid y Markdown estructurado |
+| Acción sobre el workspace | misión autónoma, artefactos, verificadores y escalera de recuperación |
+| Ambigüedad material | una pregunta dirigida; los detalles no críticos usan supuestos seguros explícitos |
+| Necesidad emocional | empatía contextual sin activar web/cálculo irrelevantes |
+
+El contrato visible para solicitudes sustantivas contiene
+`[CAPACIDADES ACTIVADAS]`, `[RAZONAMIENTO RESUMIDO]`,
+`[RESPUESTA PRINCIPAL]`, `[DATOS ADICIONALES]` y `[SIGUIENTES PASOS]`.
+«Razonamiento resumido» significa método, evidencia y criterios observables:
+Aegis no solicita, conserva ni muestra deliberación interna privada. Las
+misiones guardan el perfil en el ledger y el informe para que la selección sea
+auditable.
+
+```bash
+# Vista humana; no usa red ni proveedor
+python -m a2s protocol "Compara tres arquitecturas y calcula su coste actual"
+
+# Contrato completo para automatización
+python -m a2s protocol "Crea un guion para público técnico" --json
+```
+
+Las solicitudes dependientes del presente se convierten en misión de
+investigación aunque estén redactadas como pregunta. Si no hay acceso a una
+fuente, Aegis marca el dato como no verificado y propone otra ruta; no lo
+presenta como actual por la sola memoria del modelo.
+
+### Investigación reciente, PDF abiertos y creación de libros
+
+```bash
+# Checkout local + repos recientes/destacables + literatura abierta + aprendizaje
+a2s research "evaluación reproducible de agentes autónomos" --workspace workspace
+
+# Descarga opcional: solo PDF OA, HTTPS público, válidos y de hasta 20 MB
+a2s research "robótica médica" --download-pdfs --workspace workspace
+
+# Libro respaldado por fuentes, en Markdown/HTML/PDF, con control de calidad
+a2s book "agentes autónomos verificables" \
+  --title "Diseño y evaluación de agentes verificables" \
+  --chapters 7 --words 6000 --workspace workspace
+```
+
+`research/report.md` y `research/sources.json` registran URL, fecha de consulta,
+actualización/publicación, licencia, métricas y procedencia. La búsqueda de PDF
+prioriza OpenAlex y arXiv; si no están accesibles, GitHub puede aportar enlaces
+públicos como **candidatos pendientes de revisión de licencia**, que no se
+descargan automáticamente.
+
+Cada repositorio OSS aceptado crea una ficha reutilizable y el tema entra en el
+currículo continuo. Los libros se guardan en `book/book.md`, `book/book.html`,
+`book/book.pdf` y `book/quality.json`. El gate comprueba capítulos, citas,
+fuentes, duplicados, extensión y diversidad. `publication_ready=false` indica
+que todavía hace falta revisión humana o completar canales de investigación.
+También se puede pedir todo por chat: «Investiga repositorios recientes y PDF
+abiertos sobre X» o «Crea un libro verificable sobre X».
+
+### Ejecución directa con Python
+
+```bash
+# Misión demo completa (diseñada para mostrar la superación de un obstáculo)
+python -m a2s demo
+
+# Cualquier objetivo propio
+python -m a2s run "Investiga el proyecto y escribe un resumen con datos reales"
+
+# Varios objetivos con sub-agentes fractales en paralelo
+python -m a2s run "Objetivo A;Objetivo B" --parallel
+
+# Agent Control Plane: pulsa un botón (Inicio) o habla en el chat
+python -m a2s dashboard --port 8000
+# Al exponerlo en red, autenticación obligatoria recomendada
+python -m a2s dashboard --public --auth --port 8000
+# Con npm, el asistente usa y supervisa OmniRoute automáticamente:
+npm start
+# Desde el checkout, Python directo usa el mismo bridge npm si está instalado:
+python -m a2s dashboard --port 8000
+# Solo para apuntar deliberadamente a un gateway externo en otra URL:
+export A2S_OMNIROUTE_URL=http://127.0.0.1:20128/v1
+python -m a2s dashboard --port 8000
+
+# Ruta SORL explicable: simula la decisión sin llamar un modelo
+python -m a2s route-preview --kind plan --json
+
+# Radar incremental: busca más proyectos OSS, sin clonar/ejecutar código
+python -m a2s scout --workspace workspace
+
+# Auto-existencia: el agente se relanza hasta cumplir el objetivo
+python -m a2s supervise "tu objetivo" --attempts 5
+
+# Réplicas autónomas en procesos paralelos (un worker por objetivo)
+python -m a2s swarm "Objetivo A;Objetivo B" --workers 2
+
+# Planificación especulativa: N planes candidatos puntuados por la red
+python -m a2s run "tu objetivo" --speculative 3
+
+# Hardening: verificación criptográfica (cadena de custodia + firmas HMAC)
+python -m a2s verify --workspace workspace
+
+# Dashboard con autenticación (token con expiración)
+python -m a2s token --workspace workspace --hours 2
+python -m a2s dashboard --auth --port 8000
+
+# Neuroevolución de la red de gobernanza desde los episodios
+python -m a2s evolve --workspace workspace --generations 5
+
+# LiveCD: un solo archivo ejecutable (~490 KB), workspace en RAM
+python -m a2s build-live --output dist/a2s.pyz
+python3 dist/a2s.pyz run "tu objetivo" --ram
+
+# Restricción de red: solo hosts permitidos
+python -m a2s run "tu objetivo" --allow-host api.example.com
+
+# Diagnóstico del entorno
+python -m a2s doctor
+
+# Pool SORL: orquesta tus recursos legítimos (claves propias + Ollama local)
+python -m a2s pool-status && python -m a2s run "tu objetivo" --provider pool
+
+# Ciclo de Enriquecimiento: busca en GitHub y aprende hasta ser capaz
+python -m a2s learn "extraer metadatos EXIF de imágenes en python" --cycles 3
+
+# Nivel determinista: FSM sin LLM + vigía por eventos (file/interval/webhook)
+python -m a2s fsm examples/fsm.example.json --workspace workspace
+python -m a2s watch examples/watch.example.json --workspace workspace
+
+# Memoria semántica BM25 sobre todo lo aprendido + notificaciones al terminar
+python -m a2s search "hashes sha256 evidencia" --workspace workspace
+python -m a2s run "objetivo" --notify webhook:https://hooks.ejemplo/xxx --notify file:avisos.jsonl
+
+# Modo servicio experimental: RBAC + API REST + fachada async + auditoría viva
+python -m a2s users add ana --role operator --workspace workspace
+python -m a2s serve --workspace workspace --port 8700
+python -m a2s audit   # re-mide los criterios medibles (escala honesta 0-5)
+
+# Inspeccionar qué capacidades activaría Aegis, sin llamar a un proveedor
+python -m a2s protocol "Analiza tres opciones y calcula su coste actual" --json
+
+# Mapa de reinterpretación operativa de la directiva
+python -m a2s map
+```
+
+### LLM externo (opcional)
+
+Por defecto opera el **núcleo heurístico determinista** (sin red, sin claves).
+Para razonamiento vía API externa compatible con OpenAI:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export A2S_LLM_BASE_URL=https://api.openai.com/v1   # opcional (otros endpoints compatibles)
+export A2S_LLM_MODEL=gpt-4o-mini                      # opcional
+python -m a2s run "tu objetivo" --provider openai
+```
+
+Si la API falla, el loop **degrada automáticamente** al núcleo heurístico y
+continúa persiguiendo el objetivo.
+
+### Pool SORL — orquestación de recursos legítimos (v1.4)
+
+El **S**istema de **O**rquestación de **R**ecursos **L**egítimos agrega todos
+los motores de razonamiento a los que *tienes derecho de uso* detrás de un
+único proveedor. La capacidad agregada del pool reemplaza a cualquier API
+individual; los límites de cada nodo se gestionan, no se evaden.
+
+```bash
+# Autodescubrimiento: usa las claves que ya tengas en el entorno
+export GROQ_API_KEY=...          # y/o GEMINI_API_KEY, GITHUB_TOKEN,
+export OPENROUTER_API_KEY=...    # OPENAI_API_KEY… (+ Ollama local si corre)
+python -m a2s pool-status        # qué ve el pool, cuotas y salud
+python -m a2s pool-check         # 1 petición mínima por endpoint (valida claves)
+python -m a2s run "tu objetivo" --provider pool
+```
+
+O declara el pool explícitamente en `workspace/.a2s/pool.json`
+(plantilla en `examples/pool.example.json`, con expansión `${VAR}`):
+
+```json
+{"strategy": "multi_objective",
+ "weights": {"speed": 0.25, "cost": 0.4, "reliability": 0.15,
+             "capability": 0.15, "quota_risk": 0.05},
+ "endpoints": [
+   {"name": "groq", "base_url": "https://api.groq.com/openai/v1",
+    "api_key": "${GROQ_API_KEY}", "model": "llama-3.1-8b-instant",
+    "cost_tier": "free", "rpm": 25, "capabilities": ["fast", "general"]}
+ ]}
+```
+
+Comportamiento ante saturación: un `429`/`503` pone el endpoint en
+**cuarentena** durante el `Retry-After` indicado (o backoff exponencial) y la
+tarea migra al siguiente mejor recurso. Las latencias y tasas de éxito se
+persisten en `workspace/.a2s/pool/` y alimentan al scheduler en ejecuciones
+futuras (`Ejecutar → Medir → Aprender → Optimizar`): si un proveedor satura
+antes de lo declarado, el pool **aprende su rpm real** y se auto-limita desde
+el arranque siguiente (con recuperación gradual), y los pesos del scheduler
+se micro-ajustan de forma acotada salvo que el operador los fije.
+
+**Aptitud medida por tipo de tarea**: para kinds con verificador objetivo
+(`plan`, `evaluate`, `goal_check`, `reparam`) el pool mide si cada endpoint
+produce el esquema JSON esperado, mezcla la medida con el prior declarado y
+aplica una **puerta de incompetencia** (score < 0.35 con ≥4 muestras → ese
+endpoint deja de recibir ESE tipo de tarea aunque sea gratis). Resultado: lo
+que pueden hacer los gratis lo hacen los gratis; lo que solo sabe hacer el
+endpoint de pago se le paga a él — y solo por eso. Si todo el pool cae,
+degrada al núcleo heurístico: el objetivo se persigue igualmente.
+
+**Prueba todo sin claves**: `examples/mock_llm_server.py` simula tres
+proveedores OpenAI-compatibles (gratis-rápido con cuota estrecha, gratis-medio
+y pago) con 429+`Retry-After` reales; `examples/sorl_demo.py` +
+`examples/pool.mock.json` muestran el reparto, el failover, el DAG y la
+convergencia del rpm aprendido (3 ejecuciones: 429s → aprende → 0 429s).
+
+Para cargas masivas, el pool expone ejecución distribuida legítima:
+
+```python
+from a2s.provider_pool import ProviderPool
+pool = ProviderPool([...])                       # o build_pool_provider()
+res = pool.fanout(["resume el doc 1", "resume el doc 2", ...])   # map paralelo
+dag = pool.execute_dag([                                          # grafo con deps
+    {"id": "a", "prompt": "extraer entidades del corpus"},
+    {"id": "b", "prompt": "agrupar por temática", "depends_on": ["a"]},
+], aggregate=lambda r: r["results"]["b"])
+```
+
+**Frontera de diseño (no configurable):** el pool solo contiene recursos del
+propio operador. No descubre ni sondea endpoints de terceros, no rota IPs ni
+falsea cabeceras, y respeta los límites de cada proveedor — la "agregación"
+es de recursos autorizados, no ajenos.
+
+### Ciclo de Enriquecimiento (v1.5) — aprender de repos públicos
+
+```bash
+python -m a2s learn "resolver X" --cycles 3 --repos 4
+```
+
+El agente intenta el objetivo; si el verificador no pasa, **detecta la
+brecha** (LLM del pool o heurística de identificadores técnicos), **busca en
+GitHub** con la clave del operador (ventanas de cuota auto-impuestas por
+debajo de los límites reales; un 403 con `Retry-After` se espera y se
+respeta, sin reintentos en caliente), **estudia los READMEs** (fanout del
+pool SORL o resumen extractivo stdlib) y destila **fichas de conocimiento**
+(fuente + licencia + receta + extracto) que persisten en
+`workspace/.a2s/knowledge/` y se reinyectan en la planificación. El bucle
+termina cuando el **verificador del objetivo** pasa ("capaz" = evidencia, no
+sensación) o cuando se agota el presupuesto (informe honesto; las fichas
+quedan para la siguiente ejecución). Cada ficha pasa el modelo de permisos:
+contenido que describa conductas prohibidas se rechaza y se registra.
+
+**Fronteras:** solo lectura de código público; **nunca ejecuta código de los
+repos estudiados** (el supply-chain no se toca); licencias registradas en
+cada ficha; no busca ni usa endpoints/claves ajenos — la línea anti-SORD
+sigue intacta.
+
+### Opciones principales
+
+```text
+--workspace DIR      espacio de trabajo (default: workspace/)
+--max-iterations N   iteraciones por rebanada de presupuesto (se renueva al replanificar)
+--max-rounds N       rondas de replanificación fractal
+--max-time N         límite duro de tiempo real en segundos (seguridad)
+--report ARCHIVO     guarda el informe de ejecución (Markdown + JSON)
+--resume             reanuda sobre el estado persistido
+--unsafe             amplía la lista blanca de shell (bajo tu responsabilidad)
+--no-network/--no-shell  desactiva familias de herramientas
+```
+
+---
+
+## Arquitectura
+
+```text
+a2s/
+├── cli.py          interfaz de comandos (run/demo/dashboard/supervise/swarm…)
+├── loop.py         motor: bucle principal, escalera de recuperación,
+│                   división fractal, sub-agentes paralelos, cierre forense
+├── planner.py      descomposición fractal, detección de estancamiento,
+│                   metaprendizaje (estrategias con win-rate),
+│                   planificación especulativa
+├── providers.py    núcleo heurístico determinista + LLM vía API externa
+├── neural.py       red de gobernanza: MLP entrenado en línea (v1.1)
+├── consensus.py    consenso de verificación del objetivo (v1.1)
+├── neuroevolve.py  neuroevolución: población con mutación de pesos/topología (v1.2)
+├── sandbox.py      ejecución aislada por capas: nsjail > bwrap > rlimits (v1.2)
+├── signing.py      firma HMAC-SHA256 de resultados y artefactos (v1.2)
+├── auth.py         tokens JWT-HS256 con expiración para el dashboard (v1.2)
+├── plugin_loader.py  plugins bajo demanda con verificación de hash (v1.2)
+├── plugins/        forensics_extra (magia/strings/EXIF/PDF), crypto_tools,
+│                   forensic_tools (puente Sleuth Kit/Volatility/bulk_extractor),
+│                   repo_audit (escáner defensivo de repos/plugins)
+├── tools.py        registro de herramientas + mini-shell seguro evolucionado
+│                   (pipes, redirección, $VAR, globs, $(), lista blanca)
+│                   + modelo de permisos
+├── memory.py       memoria jerárquica persistente: working state, episódica,
+│                   artefactos, heurísticas (strategies.json)
+├── ledger.py       bitácora forense append-only con hash chain SHA-256
+├── goals.py        biblioteca de objetivos con verificadores (misión demo)
+├── models.py       tipos de datos (Step, Observation, Evaluation, RunReport…)
+├── report.py       informes de ejecución (texto/Markdown/JSON)
+├── actions.py      botones de un clic (sin CLI) → /api/action
+├── dashboard.py    API del Agent Control Plane (SSE, chat, artefactos, auth, seguridad web)
+├── aegis_protocol.py  clasificación adaptativa, capacidades y contrato auditable
+├── chat.py         Aegis conversacional en paralelo (prosa + lanzador automático de misiones)
+├── omniroute.py    puente al sidecar npm directo + supervisor de recuperación
+├── publishing.py   investigación reciente/PDF OA + libros MD/HTML/PDF con quality gate
+├── artifacts.py    listado y servicio de archivos/resultados (imágenes, PDF, audio, vídeo, texto)
+├── ui/             GUI empaquetada (HTML/CSS/JS, sin CDN; layout chat + workspace)
+├── ecosystem.py    radar creciente de proyectos con licencia OSS verificada
+├── capacidades.py  mapa fuente→capacidad→A²S + enrutador con puerta de
+│                   autorización e ingesta de READMEs a fichas (v1.26)
+├── secops.py       alcance criptográfico (scope.jwt, vocabulario cerrado)
+│                   + ejecución defensiva local (recon/scan/analizar) (v1.27)
+├── promptguard.py  detección defensiva de inyección de prompts/jailbreaks
+│                   (sin generación de vectores de evasión) (v1.28)
+└── directiva.py    mapa de reinterpretación operativa
+```
+
+### Ciclo de un paso (escalera de recuperación)
+
+```
+intento 1  → misma acción (fallos transitorios)
+intento 2  → reparametrización (variar parámetros)
+intento 3  → cambio de herramienta equivalente
+intento 4  → DIVISIÓN FRACTAL: el paso se convierte en sub-pasos más simples
+fallo 4+   → evento de estancamiento → cambio global de estrategia
+             (reparametrizar / dividir / fuente alternativa / verificar y corregir)
+```
+
+La división es inteligente: un paso de escritura que falla por contenido
+incompleto se divide en *(1) recopilar datos reales del entorno* y
+*(2) componer el documento con esos datos* — el verificador de paso decide si
+cada sub-paso logró su criterio. Los pasos bloqueados se **re-descomponen** en
+sub-objetivos con su propio plan, hasta una profundidad fractal máxima (3),
+momento en que quedan registrados en el informe con su plan de reanudación.
+
+### Verificación de objetivo
+
+El loop no se fía de sí mismo: tras cada ronda consulta el **verificador de
+objetivo** (callable por misión; si no hay, el proveedor de razonamiento).
+Solo declara éxito con verificación positiva. La misión demo verifica secciones
+del informe, hashes SHA-256 reales y ausencia de marcadores de posición.
+
+### Cadena de custodia
+
+Cada episodio (paso, observación, evaluación), estancamiento, artefacto y
+cierre se añade a `workspace/.a2s/ledger.jsonl`, donde cada entrada encadena el
+hash SHA-256 de la anterior. Cualquier alteración rompe la cadena y
+`python -m a2s doctor` la detecta. El informe final lista los artefactos
+nuevos con su hash.
+
+---
+
+## Misión demo (lo que verás)
+
+`python -m a2s demo` siembra evidencias de ejemplo y pide un informe forense
+real. El primer enfoque escribe el informe **con marcadores de posición**
+(diseñado a propósito), así que:
+
+1. `redactar_informe` falla 4 veces ante el verificador de paso;
+2. se dispara el evento de **estancamiento** y cambia la estrategia;
+3. el paso se **divide** en recopilar datos reales + componer el documento;
+4. el verificador de objetivo confirma: informe completo con hashes reales.
+
+Resultado: `workspace/informe_forense.md` (artefacto), `workspace/informe_a2s.md`
+(informe de ejecución) y `.a2s/ledger.jsonl` (cadena de custodia).
+
+---
+
+## Pruebas
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Más de 310 pruebas Python (sin gates ocultos) más un E2E npm instalado: hash chain y detección de manipulación,
+permisos, proveedores, cuotas y ruta explicable, escalera de recuperación,
+división fractal, misión demo completa, red de gobernanza, consenso, memoria,
+shell sin procesos huérfanos, sandbox, firmas HMAC, auth, plugins, zipapp,
+puente DFIR, RBAC, FSM, radar OSS y Control Plane HTTP. La suite completa,
+incluidas las misiones de punta a punta antes marcadas como lentas, corre con
+el mismo comando y no requiere servicios pagos.
+
+---
+
+## Alcance ético (léelo)
+
+A²S es un framework de **automatización y auto-optimización de trabajo
+propio**: persigue objetivos verificables, aprende de sus fallos y no se rinde.
+No es —y no será— una herramienta para atacar sistemas de terceros. Las
+capacidades de "bypass/evasión" se implementan como superación de fallos y
+bloqueos lógicos del propio proceso, y las de "forense" como análisis de
+artefactos propios con cadena de custodia. Las acciones con propósito de
+ataque son rechazadas por el modelo de permisos y quedan registradas en el
+ledger.
+
+## Auditoría honesta de límites
+
+La honestidad sobre lo que el sistema NO puede hacer se ejecuta, no se
+promete: `a2s audit` re-mide cada vez los criterios medibles (pureza stdlib,
+complejidad, pruebas, roadmap comprometido, documentación y consistencia de
+versión), el modelo de permisos rechaza y registra en el ledger las acciones
+fuera de alcance, y el CHANGELOG documenta versión a versión decisiones y
+límites. El sandbox es contención de recursos y prevención de accidentes, no
+una jaula: para código hostil deliberado, ejecutar en VM/contenedor
+desechable.

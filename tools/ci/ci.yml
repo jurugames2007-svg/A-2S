@@ -1,0 +1,62 @@
+name: A2S quality gates
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a2s-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Compile Python and browser code
+        run: |
+          python -m compileall -q a2s tests tools
+          node --check a2s/ui/app.js
+          node --check electron/main.js
+          node --check electron/gateway.js
+      - name: Runtime purity and complexity gates
+        run: |
+          python tools/check_purity.py
+          python tools/check_cc.py 35
+      - name: Complete test suite
+        env:
+          PYTHONWARNINGS: default
+        run: python -m unittest discover -s tests -v
+      - name: Build installable wheel with Control Plane assets
+        run: |
+          python -m pip wheel . --no-deps --no-build-isolation -w /tmp/a2s-wheel
+          python -c "import zipfile, glob; z=zipfile.ZipFile(glob.glob('/tmp/a2s-wheel/*.whl')[0]); assert 'a2s/ui/app.js' in z.namelist()"
+
+  npm-package-e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - name: Verify npm launcher and installed package
+        run: npm run test:npm

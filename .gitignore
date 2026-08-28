@@ -1,0 +1,18 @@
+# Dependencias y artefactos generados
+node_modules/
+workspace/
+artifacts/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Entornos virtuales
+.venv/
+venv/
+
+# Estado local y secretos
+.a2s/vault/

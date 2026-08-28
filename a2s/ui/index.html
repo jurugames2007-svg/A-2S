@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#07111d">
+  <title>A²S Control Plane — Tu asistente autónomo</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell assistant-shell">
+    <!-- ===== Columna izquierda: chat con el asistente ===== -->
+    <aside class="chat-dock" aria-label="Asistente A²S">
+      <div class="chat-head">
+        <a class="brand brand-compact" href="#overview" aria-label="A²S inicio">
+          <span class="brand-mark">A²</span>
+          <span><b>A²S</b><small>ASISTENTE</small></span>
+        </a>
+        <div class="chat-status">
+          <i id="chat-dot" class=""></i>
+          <span id="chat-state">Listo</span>
+        </div>
+      </div>
+
+      <div class="protocol-strip" aria-live="polite">
+        <div><b>PROTOCOLO ADAPTATIVO</b><small id="protocol-types">clasifica cada necesidad</small></div>
+        <div id="protocol-chips" class="protocol-chips"><span>selección mínima pertinente</span></div>
+      </div>
+
+      <div id="chat-thread" class="chat-thread" aria-live="polite">
+        <div class="chat-msg assistant">
+          <div class="bubble">
+            <p><b>Hola.</b> Soy Aegis, tu asistente autónomo A²S.</p>
+            <p>No hace falta saber programar. Pulsa un botón a la derecha
+            o escríbeme aquí en lenguaje normal: «ordena mis archivos»,
+            «hazme un libro», «sigue donde quedamos».</p>
+            <div class="quick-row">
+              <button class="quick" data-action="organize">Ordenar archivos</button>
+              <button class="quick" data-action="book">Escribir un libro</button>
+              <button class="quick" data-action="slides">Hacer PPT</button>
+              <button class="quick" data-action="resume">Seguir donde quedó</button>
+              <button class="quick" data-action="results">Ver lo creado</button>
+              <button class="quick" data-action="stop">Detener</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form id="chat-form" class="chat-composer">
+        <button type="button" id="chat-clear" class="icon-btn icon-btn-sm" title="Reiniciar conversación" aria-label="Reiniciar conversación">⟲</button>
+        <textarea id="chat-input" rows="1" maxlength="8000"
+          placeholder="Escríbelo como se lo dirías a una persona…"></textarea>
+        <button type="button" id="chat-stop" class="icon-btn icon-btn-sm" title="Detener misión y trabajos" aria-label="Detener">■</button>
+        <button type="submit" id="chat-send" class="btn btn-primary" title="Enviar">➤</button>
+      </form>
+      <div class="chat-foot">
+        <small>Pulsa un botón o habla. El agente elige la ruta.</small>
+      </div>
+    </aside>
+
+    <!-- ===== Columna derecha: workspace operativo ===== -->
+    <div class="workspace workspace--assistant">
+      <header class="topbar">
+        <nav class="pills" aria-label="Vistas">
+          <button class="pill active" data-view="overview">Inicio</button>
+          <button class="pill" data-view="results">Archivos</button>
+          <button class="pill" data-view="routing">Ruta</button>
+          <button class="pill" data-view="ecosystem">Radar</button>
+          <button class="pill" data-view="recursos">Recursos</button>
+          <button class="pill" data-view="assurance">Calidad</button>
+        </nav>
+        <div class="top-actions">
+          <time id="clock">--:--:-- UTC</time>
+          <button class="icon-btn" id="refresh-all" title="Actualizar datos" aria-label="Actualizar datos">↻</button>
+          <span class="system-pill" id="system-pill"><i></i><span>CONNECTING</span></span>
+        </div>
+      </header>
+
+      <main class="view-main">
+        <!-- ---------- Operaciones ---------- -->
+        <section id="overview" class="view-panel active">
+          <article class="coach" id="coach">
+            <div>
+              <p class="kicker">MODO SENCILLO</p>
+              <h2>Pulsa un botón. El agente hace el resto.</h2>
+              <p>No uses la terminal. Elige qué quieres y Aegis lo ejecuta,
+              te muestra el avance y deja el resultado en <b>Archivos</b>.</p>
+            </div>
+            <button type="button" class="text-btn" id="coach-hide">Entendido</button>
+          </article>
+
+          <div id="action-board" class="action-board" aria-label="Acciones de un clic"></div>
+
+          <div class="metric-grid" aria-label="Indicadores operativos">
+            <article class="metric primary">
+              <div class="metric-head"><span>ESTADO DE MISIÓN</span><i class="pulse"></i></div>
+              <strong id="metric-state">IDLE</strong>
+              <small id="metric-state-note">Listo para recibir objetivo</small>
+            </article>
+            <article class="metric">
+              <div class="metric-head"><span>ITERACIONES</span><em>LIVE</em></div>
+              <strong id="metric-iterations">0</strong>
+              <small>acciones evaluadas</small>
+            </article>
+            <article class="metric">
+              <div class="metric-head"><span>POOL ACTIVO</span><em>SORL</em></div>
+              <strong id="metric-endpoints">0</strong>
+              <small id="metric-pool-note">recursos legítimos</small>
+            </article>
+            <article class="metric">
+              <div class="metric-head"><span>RESULTADOS</span><em>FILES</em></div>
+              <strong id="metric-artifacts">0</strong>
+              <small id="metric-artifacts-note">archivos en el workspace</small>
+            </article>
+            <article class="metric">
+              <div class="metric-head"><span>COLAS PCB</span><em>LIVE</em></div>
+              <strong id="metric-pcb">0</strong>
+              <small id="metric-pcb-note">ready / parked</small>
+            </article>
+          </div>
+
+          <article class="panel process-panel" aria-live="polite">
+            <header class="panel-head">
+              <div><p class="kicker">STUDIO LIVE</p><h2>Proceso de creación</h2></div>
+              <span id="studio-percent" class="tag">0%</span>
+            </header>
+            <div class="process-body">
+              <div class="process-bar" aria-hidden="true"><i id="studio-bar" class="w-0"></i></div>
+              <p id="studio-note" class="process-note">Idle. Cuando pidas un libro o un PPT, el avance aparece aquí.</p>
+              <ol id="studio-log" class="process-log"></ol>
+            </div>
+          </article>
+
+          <div class="ops-grid">
+            <article class="panel mission-panel">
+              <header class="panel-head">
+                <div><p class="kicker">SI PREFIERES ESCRIBIR</p><h2>Dilo con tus palabras</h2></div>
+                <span class="tag safe">SIN TERMINAL</span>
+              </header>
+              <form id="mission-form">
+                <label for="goal">¿Qué quieres que haga?</label>
+                <textarea id="goal" maxlength="8000" required placeholder="Ejemplos: ordena mis archivos · escribe un libro sobre el mar · sigue donde quedamos">Analiza el workspace y produce un informe verificable de mejoras, riesgos y próximos pasos.</textarea>
+                <details class="advanced">
+                  <summary>Opciones avanzadas (opcional)</summary>
+                <div class="form-row">
+                  <label>Motor (opcional)
+                    <select id="provider">
+                      <option value="auto">Automático · OmniRoute incluido</option>
+                      <option value="pool">Pool SORL</option>
+                      <option value="heuristic">Solo heurístico local</option>
+                      <option value="openai">Solo OpenAI compatible</option>
+                    </select>
+                  </label>
+                  <label>Estrategia pool
+                    <select id="pool-strategy">
+                      <option value="multi_objective">Multiobjetivo</option>
+                      <option value="cost_first">Coste primero</option>
+                      <option value="speed_first">Velocidad primero</option>
+                      <option value="round_robin">Round robin</option>
+                    </select>
+                  </label>
+                </div>
+                  <div class="form-row triple">
+                    <label>Tiempo máx. (s)<input id="max-time" type="number" min="10" max="3600" value="600"></label>
+                    <label>Rondas<input id="max-rounds" type="number" min="1" max="20" value="6"></label>
+                    <label>Planes candidatos<input id="speculative" type="number" min="0" max="8" value="0"></label>
+                  </div>
+                  <div class="toggle-row">
+                    <label><input id="allow-network" type="checkbox" checked><span>Red permitida</span></label>
+                    <label><input id="allow-shell" type="checkbox" checked><span>Shell permitida</span></label>
+                  </div>
+                </details>
+                <div class="button-row">
+                  <button class="btn btn-primary" id="start" type="submit">Hacerlo ahora</button>
+                  <button class="btn btn-secondary" id="demo" type="button">Probar con un ejemplo</button>
+                  <button class="btn btn-danger" id="stop" type="button" disabled>Detener</button>
+                </div>
+                <p class="form-status" id="form-status" role="status"></p>
+              </form>
+            </article>
+
+            <article class="panel stream-panel">
+              <header class="panel-head">
+                <div><p class="kicker">LIVE TELEMETRY</p><h2>Flujo de ejecución</h2></div>
+                <div class="stream-tools"><button id="clear-events" class="text-btn">Limpiar</button><span class="live"><i></i> SSE</span></div>
+              </header>
+              <ol id="event-feed" class="event-feed" aria-live="polite">
+                <li class="event empty"><span class="event-icon">·</span><div><b>Esperando telemetría</b><small>Los eventos del agente aparecerán aquí.</small></div></li>
+              </ol>
+            </article>
+          </div>
+        </section>
+
+        <!-- ---------- Resultados / artefactos ---------- -->
+        <section id="results" class="view-panel">
+          <header class="section-head">
+            <div><p class="eyebrow">ARCHIVOS</p><h2>Lo que el agente ya hizo</h2>
+              <p class="section-copy">Toca un archivo para verlo. Los PDF, fotos y presentaciones se abren aquí. No hace falta descargar nada para revisar.</p></div>
+            <div class="inline-control">
+              <button id="refresh-artifacts" class="btn btn-secondary">↻ Actualizar</button>
+            </div>
+          </header>
+          <div class="results-grid">
+            <article class="panel artifact-list-panel">
+              <header class="panel-head"><div><p class="kicker">WORKSPACE</p><h2>Archivos</h2></div>
+                <span id="artifact-count" class="tag">0</span></header>
+              <div id="artifact-list" class="artifact-list"><p class="loading">Buscando resultados…</p></div>
+            </article>
+            <article class="panel artifact-viewer-panel">
+              <header class="panel-head"><div><p class="kicker">VISOR</p><h2 id="viewer-title">Sin selección</h2></div>
+                <a id="viewer-download" class="btn btn-secondary" download hidden>Descargar</a></header>
+              <div id="artifact-viewer" class="artifact-viewer">
+                <p class="empty-copy">Selecciona un archivo de la izquierda para previsualizarlo. Las imágenes, PDFs, audio y vídeo se muestran aquí; los archivos de texto se renderizan con resaltado básico.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <!-- ---------- Routing ---------- -->
+        <section id="routing" class="view-panel">
+          <header class="section-head">
+            <div><p class="eyebrow">SORL / ROUTING INTELLIGENCE</p><h2>Topología y decisión explicable</h2></div>
+            <div class="inline-control">
+              <label for="route-kind">Tipo de tarea
+                <select id="route-kind">
+                  <option value="general">General</option><option value="plan">Planificación</option>
+                  <option value="code">Código</option><option value="evaluate">Evaluación</option>
+                  <option value="goal_check">Verificación</option><option value="summarize">Resumen</option>
+                </select>
+              </label>
+              <button class="btn btn-secondary" id="preview-route">Simular ruta</button>
+            </div>
+          </header>
+          <div class="routing-grid">
+            <article class="panel topology-panel">
+              <header class="panel-head"><div><p class="kicker">PROVIDER FABRIC</p><h2>Recursos autorizados</h2></div><span id="routing-strategy" class="tag">—</span></header>
+              <div id="provider-list" class="provider-list"><p class="loading">Cargando topología…</p></div>
+            </article>
+            <article class="panel decision-panel">
+              <header class="panel-head"><div><p class="kicker">ZERO-CALL PREVIEW</p><h2>Factores de selección</h2></div><span class="tag safe">NO UPSTREAM</span></header>
+              <div class="selected-route">
+                <small>RUTA PROPUESTA</small><strong id="selected-provider">—</strong>
+                <p id="selected-model">Sin simulación</p>
+              </div>
+              <div id="factor-bars" class="factor-bars"></div>
+              <div class="truth-note"><b>Estados veraces.</b> “Unknown” significa que no existe una fuente de cuota conocida; nunca se traduce a “agotado”.</div>
+            </article>
+          </div>
+          <article class="panel route-table-panel">
+            <header class="panel-head"><div><p class="kicker">CANDIDATE MATRIX</p><h2>Ranking completo</h2></div><span id="preview-stamp" class="muted">—</span></header>
+            <div class="table-wrap"><table><thead><tr><th>Endpoint</th><th>Modelo</th><th>Elegibilidad</th><th>Cuota</th><th>Score</th><th>Motivo</th></tr></thead><tbody id="route-table"></tbody></table></div>
+          </article>
+        </section>
+
+        <!-- ---------- Ecosistema ---------- -->
+        <section id="ecosystem" class="view-panel">
+          <header class="section-head">
+            <div><p class="eyebrow">CONTINUOUS ENRICHMENT</p><h2>Radar de ecosistema abierto</h2><p class="section-copy">A²S estudia señales de diseño de proyectos públicos; no clona, instala ni ejecuta su código.</p></div>
+            <div class="scout-box"><input id="scout-query" aria-label="Consulta de radar" placeholder="Consulta opcional: agent gateway eval…"><button id="run-scout" class="btn btn-primary">Explorar GitHub</button></div>
+          </header>
+          <div class="guardrail-strip"><span>✓ SOLO SPDX ABIERTA</span><span>✓ METADATOS PÚBLICOS</span><span>✓ CÓDIGO NO EJECUTADO</span><span>✓ FUENTE PERSISTIDA</span></div>
+          <div class="ecosystem-grid">
+            <article class="panel catalog-panel">
+              <header class="panel-head"><div><p class="kicker">OPEN SOURCE SIGNALS</p><h2>Proyectos observados</h2></div><span id="project-count" class="tag">0</span></header>
+              <div id="project-list" class="project-list"><p class="loading">Cargando radar…</p></div>
+            </article>
+            <article class="panel knowledge-panel">
+              <header class="panel-head"><div><p class="kicker">KNOWLEDGE BASE</p><h2>Fichas destiladas</h2></div><span id="card-count" class="tag">0</span></header>
+              <div id="card-list" class="card-list"><p class="empty-copy">Aún no hay fichas.</p></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- ---------- Recursos ---------- -->
+        <section id="recursos" class="view-panel">
+          <header class="section-head">
+            <div><p class="eyebrow">CATÁLOGO CURADO</p><h2>Recursos del operador</h2>
+              <p class="section-copy">Lista consolidada de referencia en 6 categorías (IA y cursos, ciberseguridad y OSINT, desarrollo, directorios, utilidades y finanzas, empleo y estilo de vida). Es referencia y estudio: el uso debe ser autorizado, defensivo o académico.</p></div>
+            <div class="inline-control">
+              <button id="recursos-add" class="btn btn-secondary" type="button">＋ Añadir</button>
+              <input id="recursos-buscar" type="search" placeholder="Buscar: vpn, ghidra, pentest…" aria-label="Buscar en el catálogo">
+              <span id="recursos-count" class="tag">0</span>
+            </div>
+          </header>
+          <form id="recursos-form" class="recursos-form" hidden>
+            <input id="recursos-nombre" type="text" placeholder="Nombre" maxlength="120" required>
+            <input id="recursos-url" type="url" placeholder="URL (http/https, opcional)" maxlength="300">
+            <select id="recursos-cat" aria-label="Categoría">
+              <option value="ia">IA, Cursos y Automatización</option>
+              <option value="ciber">Ciberseguridad, Redes y OSINT</option>
+              <option value="dev">Desarrollo de Software y Arquitectura</option>
+              <option value="directorios">Directorios de Recursos, Streaming y Juegos</option>
+              <option value="utilidades">Herramientas Web, Utilidades y Finanzas</option>
+              <option value="empleo">Empleo, Estilo de Vida y Entretenimiento</option>
+            </select>
+            <input id="recursos-desc" type="text" placeholder="Nota (opcional)" maxlength="300">
+            <button class="btn btn-primary" type="submit">Guardar</button>
+            <button class="btn btn-secondary" type="button" id="recursos-cancel">Cancelar</button>
+          </form>
+          <div id="recursos-cats" class="recursos-cats" aria-label="Categorías del catálogo"></div>
+          <div class="guardrail-strip"><span>✓ USO AUTORIZADO</span><span>✓ FIN ACADÉMICO / DEFENSIVO</span><span>✓ RESPETO A LA LEY LOCAL</span><span>✓ SIN EJECUCIÓN AUTOMÁTICA</span></div>
+          <div class="capacidades-bar">
+            <small id="recursos-cap" class="muted">Mapeando capacidades…</small>
+            <div class="inline-control">
+              <input id="recursos-ruta" type="search" maxlength="200"
+                     placeholder="Enrutar objetivo: recon web, prompt, vpn, reversing…"
+                     aria-label="Enrutar objetivo a una cadena de recursos">
+              <select id="recursos-perfil" aria-label="Perfil académico/ético del alcance">
+                <option value="">sin perfil</option>
+                <option value="ctf">ctf</option>
+                <option value="lab">lab</option>
+                <option value="propio">propio</option>
+                <option value="universidad">universidad</option>
+              </select>
+              <button id="recursos-ruta-btn" class="btn btn-secondary" type="button">Enrutar</button>
+            </div>
+          </div>
+          <div id="recursos-ruta-out" class="recursos-ruta-out" hidden></div>
+          <article class="panel">
+            <header class="panel-head"><div><p class="kicker">REFERENCIA</p><h2>Catálogo completo</h2></div>
+              <small id="recursos-check-stamp" class="muted">—</small>
+              <span id="recursos-total" class="tag">0</span></header>
+            <div id="recursos-list" class="recursos-list"><p class="loading">Cargando catálogo…</p></div>
+          </article>
+        </section>
+
+        <!-- ---------- Assurance ---------- -->
+        <section id="assurance" class="view-panel">
+          <header class="section-head">
+            <div><p class="eyebrow">QUALITY / GOVERNANCE</p><h2>Assurance verificable</h2><p class="section-copy">La calidad no es una promesa: cada criterio muestra su medición reproducible.</p></div>
+            <button id="run-audit" class="btn btn-primary">Ejecutar auditoría</button>
+          </header>
+          <div class="assurance-grid">
+            <article class="panel score-panel">
+              <div class="score-ring" id="score-ring"><span><strong id="audit-score">—</strong><small>/ 5</small></span></div>
+              <div><p class="kicker">LIVE QUALITY SCORE</p><h2 id="audit-title">Auditoría pendiente</h2><p id="audit-note" class="muted">Ejecuta los guardianes para obtener una medición actual.</p></div>
+            </article>
+            <article class="panel checks-panel">
+              <header class="panel-head"><div><p class="kicker">QUALITY GATES</p><h2>Controles</h2></div></header>
+              <div id="audit-checks" class="check-list"><p class="empty-copy">Sin resultados todavía.</p></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Visor modal de medios a pantalla completa -->
+  <div id="media-modal" class="media-modal" hidden>
+    <button id="media-close" class="media-close" aria-label="Cerrar">✕</button>
+    <div id="media-stage" class="media-stage"></div>
+  </div>
+
+  <div id="toast-region" class="toast-region" aria-live="assertive"></div>
+</body>
+</html>

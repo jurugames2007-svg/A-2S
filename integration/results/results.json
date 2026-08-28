@@ -1,0 +1,782 @@
+[
+  {
+    "url": "https://github.com/anthropics/courses",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/Zie619/n8n-workflows",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/ruvnet/ruflo",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/trimstray/the-book-of-secret-knowledge",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/Hack-with-Github/Awesome-Hacking",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/swisskyrepo/PayloadsAllTheThings",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/NationalSecurityAgency/ghidra",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/Z4nzu/hackingtool",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/WerWolv/ImHex",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/2dust/v2rayNG",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/x64dbg/x64dbg",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/mitmproxy/mitmproxy",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/rapid7/metasploit-framework",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/sqlmapproject/sqlmap",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/XTLS/Xray-core",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/hashicorp/vault",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/gchq/CyberChef",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/v2fly/v2ray-core",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/AdguardTeam/AdGuardHome",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/aquasecurity/trivy",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/Lissy93/web-check",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/trailofbits/algo",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/StevenBlack/hosts",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/openssl/openssl",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/hwdsl2/setup-ipsec-vpn",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/projectdiscovery/nuclei",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/hashcat/hashcat",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/enaqx/awesome-pentest",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/The-Art-of-Hacking/h4cker",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/googleworkspace/cli",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/ByteByteGoHq/system-design-101",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/octocademy/utils-library",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/bobeff/open-source-games",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/multica-ai/andrej-karpathy-skills",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/mrdbourke/zero-to-mastery-ml",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/msitarzewski/agency-agents",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/smol-ai/godmode",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/manthanguptaa/real-world-llm-apps",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/asgeirtj/system_prompts_leaks",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://claude.com/resources/courses",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://www.coursera.org/specializations/ai-essentials-google",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://aifreeforever.com/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://tranchi.ai/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://cybermap.kaspersky.com/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://grayhatwarfare.com/",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://start.me/p/L1rEYQ/osint4all",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://study-notes.org/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://blog.bytebytego.com/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://fmhy.net/posts/search",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://yarrlist.net/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://deepwebnest.com/",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://flixer.su/",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://ankergames.net/games-list",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://www.imagetotext.info/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://veepn.com/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://delphi.tools/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://sideshift.app/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://invoapp.com/join/tradewzay",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://4dayweek.io/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://instahyre.com/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://darebee.com/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://neal.fun/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://www.reddit.com/r/FashionReps/",
+    "dangerous": false,
+    "cloned": false,
+    "analysis": null,
+    "error": "dry-run",
+    "metadata": {
+      "source": "external",
+      "fetched": false,
+      "reason": "not-github"
+    }
+  },
+  {
+    "url": "https://github.com/ShadowHackrs/gmail-account-creator",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/lahirusanjika/Worm-GPT",
+    "dangerous": true,
+    "cloned": false,
+    "analysis": null,
+    "error": "skipped: dangerous repo requires --allow-dangerous",
+    "metadata": {
+      "source": "github",
+      "fetched": false,
+      "reason": "HTTP Error 403: rate limit exceeded"
+    }
+  }
+]

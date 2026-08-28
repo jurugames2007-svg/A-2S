@@ -1,0 +1,71 @@
+{
+  "name": "a2s-agent-control-plane",
+  "version": "1.28.0",
+  "description": "A²S autonomous agent and industrial control plane — local-first, auditable, Python stdlib runtime launched through npm.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "a2s": "npm/bin/a2s.mjs",
+    "a2s-control-plane": "npm/bin/a2s.mjs",
+    "a2s-agent-control-plane": "npm/bin/a2s.mjs"
+  },
+  "files": [
+    "a2s/**/*.py",
+    "a2s/ui/index.html",
+    "a2s/ui/app.css",
+    "a2s/ui/app.js",
+    "a2s/ui/favicon.svg",
+    "npm/**/*.mjs",
+    "examples/*.json",
+    "docs/NPM_DISTRIBUTION.md",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "pyproject.toml"
+  ],
+  "scripts": {
+    "a2s": "node npm/bin/a2s.mjs",
+    "start": "node npm/bin/a2s.mjs dashboard",
+    "dashboard": "node npm/bin/a2s.mjs dashboard",
+    "doctor": "node npm/bin/a2s.mjs doctor",
+    "update": "node npm/bin/a2s.mjs update",
+    "update:watch": "node npm/bin/a2s.mjs update tkm --watch",
+    "grow": "node npm/bin/a2s.mjs grow",
+    "test": "node npm/scripts/run-python.mjs -m unittest discover -s tests -v",
+    "test:fuzz": "node npm/scripts/run-python.mjs -m unittest -v tests.test_fuzz",
+    "test:npm": "node npm/scripts/test-package.mjs",
+    "check": "node npm/scripts/check.mjs",
+    "build": "node npm/scripts/build.mjs",
+    "release:local": "node npm/scripts/release-local.mjs",
+    "prepublishOnly": "npm run check && npm run test:npm",
+    "gateway": "node npm/scripts/gateway.mjs start",
+    "gateway:stop": "node npm/scripts/gateway.mjs stop",
+    "gateway:status": "node npm/scripts/gateway.mjs status"
+  },
+  "engines": {
+    "node": ">=22.22.2 <23 || >=24.0.0 <27"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jurugames2007-svg/A-2S.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jurugames2007-svg/A-2S/issues"
+  },
+  "homepage": "https://github.com/jurugames2007-svg/A-2S#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "autonomous-agent",
+    "ai-agent",
+    "control-plane",
+    "llm-router",
+    "omniroute",
+    "forensics",
+    "local-first"
+  ],
+  "dependencies": {
+    "omniroute": "3.8.49"
+  }
+}
